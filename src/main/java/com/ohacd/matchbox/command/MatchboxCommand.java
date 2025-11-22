@@ -54,10 +54,35 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 return handleSetSpawn(sender, args);
             case "list":
                 return handleList(sender);
+            case "remove":
+                return handleRemove(sender, args);
             default:
                 sendHelp(sender);
                 return true;
         }
+    }
+
+    private boolean handleRemove(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cThis command can only be used by players.");
+            return true;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage("§cUsage: /matchbox remove <name>");
+            return true;
+        }
+
+        String sessionName = args[1];
+
+        // If session doesn't exist
+        if (!sessionManager.sessionExists(sessionName)) {
+            sender.sendMessage("§cSession Doesn't exist.");
+            return true;
+        }
+        // Remove session
+        sessionManager.removeSession(sessionName);
+        return true;
     }
 
     private boolean handleStart(CommandSender sender, String[] args) {

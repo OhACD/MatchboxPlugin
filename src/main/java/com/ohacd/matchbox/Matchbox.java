@@ -4,6 +4,7 @@ import com.ohacd.matchbox.command.MatchboxCommand;
 import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.chat.ChatListener;
 import com.ohacd.matchbox.game.hologram.HologramManager;
+import com.ohacd.matchbox.game.phase.PhaseManager;
 import com.ohacd.matchbox.game.session.SessionManager;
 import com.ohacd.matchbox.game.utils.HitRevealListener;
 import com.ohacd.matchbox.game.utils.VoteItemListener;
@@ -14,6 +15,7 @@ public final class Matchbox extends JavaPlugin {
     private HologramManager hologramManager;
     private GameManager gameManager;
     private SessionManager sessionManager;
+    private PhaseManager phaseManager;
 
     @Override
     public void onEnable() {
@@ -24,7 +26,7 @@ public final class Matchbox extends JavaPlugin {
         this.sessionManager = new SessionManager();
 
         // Register events
-        getServer().getPluginManager().registerEvents(new ChatListener(hologramManager), this);
+        getServer().getPluginManager().registerEvents(new ChatListener(hologramManager, phaseManager), this);
         getServer().getPluginManager().registerEvents(new HitRevealListener(gameManager, hologramManager), this);
         getServer().getPluginManager().registerEvents(new VoteItemListener(), this);
 

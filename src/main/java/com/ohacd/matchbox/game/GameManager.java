@@ -7,9 +7,11 @@ import com.ohacd.matchbox.game.role.RoleAssigner;
 import com.ohacd.matchbox.game.state.GameState;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.MessageUtils;
+import com.ohacd.matchbox.game.utils.NameTagManager;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.win.WinConditionChecker;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -60,7 +62,7 @@ public class GameManager {
      * Starts a new round with the given players and spawn locations.
      * Players will be teleported to random spawn locations.
      */
-    public void startRound(Collection<Player> players, List<org.bukkit.Location> spawnLocations) {
+    public void startRound(Collection<Player> players, List<Location> spawnLocations) {
         startRound(players, spawnLocations, null);
     }
 
@@ -68,7 +70,7 @@ public class GameManager {
      * Starts a new round with the given players, spawn locations, and discussion location.
      * Players will be teleported to random spawn locations.
      */
-    public void startRound(Collection<Player> players, List<org.bukkit.Location> spawnLocations, org.bukkit.Location discussionLocation) {
+    public void startRound(Collection<Player> players, List<Location> spawnLocations, Location discussionLocation) {
         this.currentDiscussionLocation = discussionLocation;
         // Clear previous round state
         gameState.clearRoundState();
@@ -107,6 +109,11 @@ public class GameManager {
      * Starts the swipe phase.
      */
     public void startSwipePhase() {
+        // Hide the name tag for all participating players on phase start
+        for (Player player : swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds())) {
+            NameTagManager.hideNameTag(player);
+        }
+
         phaseManager.setPhase(GamePhase.SWIPE);
         swipePhaseHandler.startSwipePhase(
             gameState.getAlivePlayerIds(),
@@ -167,6 +174,8 @@ public class GameManager {
      */
     public void eliminatePlayer(Player player) {
         gameState.removeAlivePlayer(player.getUniqueId());
+        // when a player gets eliminated they show their name tag
+        NameTagManager.showNameTag(player);
         player.sendMessage("You have been eliminated!");
 
         // Set spectator mode

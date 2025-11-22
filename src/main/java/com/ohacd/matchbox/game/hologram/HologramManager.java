@@ -1,5 +1,6 @@
 package com.ohacd.matchbox.game.hologram;
 
+import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
@@ -27,7 +28,7 @@ public class HologramManager {
             stand.setMarker(true);
             stand.setGravity(false);
             stand.setInvisible(true);
-            stand.setCustomName(text);
+            stand.customName(Component.text(text));
             stand.setCustomNameVisible(true);
 
             // tracking logic

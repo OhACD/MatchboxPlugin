@@ -77,7 +77,7 @@ public class SwipePhaseHandler {
         }
     }
 
-    private Collection<Player> getAlivePlayerObjects(Collection<UUID> playerIds) {
+    public Collection<Player> getAlivePlayerObjects(Collection<UUID> playerIds) {
         return playerIds.stream()
                 .map(Bukkit::getPlayer)
                 .filter(Objects::nonNull)
