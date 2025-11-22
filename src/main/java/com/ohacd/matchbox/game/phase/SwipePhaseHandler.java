@@ -19,7 +19,7 @@ public class SwipePhaseHandler {
     private final Plugin plugin;
     private final MessageUtils messageUtils;
     private BukkitRunnable swipeTask = null;
-    private final int DEFAULT_SWIPE_SECONDS = 30;
+    private final int DEFAULT_SWIPE_SECONDS = 60 * 2;
 
     public SwipePhaseHandler(Plugin plugin, MessageUtils messageUtils) {
         this.plugin = plugin;

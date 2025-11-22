@@ -15,7 +15,6 @@ public final class Matchbox extends JavaPlugin {
     private HologramManager hologramManager;
     private GameManager gameManager;
     private SessionManager sessionManager;
-    private PhaseManager phaseManager;
 
     @Override
     public void onEnable() {
@@ -26,7 +25,7 @@ public final class Matchbox extends JavaPlugin {
         this.sessionManager = new SessionManager();
 
         // Register events
-        getServer().getPluginManager().registerEvents(new ChatListener(hologramManager, phaseManager), this);
+        getServer().getPluginManager().registerEvents(new ChatListener(hologramManager, gameManager), this);
         getServer().getPluginManager().registerEvents(new HitRevealListener(gameManager, hologramManager), this);
         getServer().getPluginManager().registerEvents(new VoteItemListener(), this);
 

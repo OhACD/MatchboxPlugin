@@ -77,11 +77,12 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
 
         // If session doesn't exist
         if (!sessionManager.sessionExists(sessionName)) {
-            sender.sendMessage("§cSession Doesn't exist.");
+            sender.sendMessage("§cSession doesn't exist.");
             return true;
         }
         // Remove session
         sessionManager.removeSession(sessionName);
+        sender.sendMessage("§cSession removed.");
         return true;
     }
 
@@ -309,6 +310,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/matchbox start <name> §7- Create a new game session");
         sender.sendMessage("§e/matchbox begin <name> §7- Begin the game for a session");
         sender.sendMessage("§e/matchbox join <name> §7- Join a game session");
+        sender.sendMessage("§e/matchbox remove §7- Remove a game session");
         sender.sendMessage("§e/matchbox leave <name> §7- Leave a game session");
         sender.sendMessage("§e/matchbox setdiscussion <name> §7- Set discussion location");
         sender.sendMessage("§e/matchbox setspawn <name> §7- Add a spawn location");

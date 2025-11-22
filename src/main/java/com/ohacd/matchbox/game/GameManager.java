@@ -29,14 +29,14 @@ public class GameManager {
 
     // Core systems
     private final GameState gameState;
-    private final PhaseManager phaseManager;
+    public final PhaseManager phaseManager;
     private final MessageUtils messageUtils;
     private final RoleAssigner roleAssigner;
     private final WinConditionChecker winConditionChecker;
     private final SwipePhaseHandler swipePhaseHandler;
 
     // Current round data
-    private org.bukkit.Location currentDiscussionLocation;
+    private Location currentDiscussionLocation;
 
     public GameManager(Plugin plugin, HologramManager hologramManager) {
         this.plugin = plugin;
@@ -74,6 +74,8 @@ public class GameManager {
         this.currentDiscussionLocation = discussionLocation;
         // Clear previous round state
         gameState.clearRoundState();
+        // Resets the phase to waiting phase
+        phaseManager.reset();
 
         // Add players to alive set
         gameState.addAlivePlayers(players);
@@ -109,12 +111,12 @@ public class GameManager {
      * Starts the swipe phase.
      */
     public void startSwipePhase() {
+        phaseManager.setPhase(GamePhase.SWIPE);
         // Hide the name tag for all participating players on phase start
         for (Player player : swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds())) {
             NameTagManager.hideNameTag(player);
         }
 
-        phaseManager.setPhase(GamePhase.SWIPE);
         swipePhaseHandler.startSwipePhase(
             gameState.getAlivePlayerIds(),
             this::endSwipePhase
