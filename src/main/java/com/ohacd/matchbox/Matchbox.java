@@ -1,8 +1,10 @@
 package com.ohacd.matchbox;
 
+import com.ohacd.matchbox.command.MatchboxCommand;
 import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.chat.ChatListener;
 import com.ohacd.matchbox.game.hologram.HologramManager;
+import com.ohacd.matchbox.game.session.SessionManager;
 import com.ohacd.matchbox.game.utils.HitRevealListener;
 import com.ohacd.matchbox.game.utils.VoteItemListener;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -11,28 +13,50 @@ public final class Matchbox extends JavaPlugin {
     private static Matchbox instance;
     private HologramManager hologramManager;
     private GameManager gameManager;
+    private SessionManager sessionManager;
 
     @Override
     public void onEnable() {
         // Plugin startup logic
         instance = this;
+        this.hologramManager = new HologramManager(this);
         this.gameManager = new GameManager(this, hologramManager);
+        this.sessionManager = new SessionManager();
 
-        getServer().getPluginManager().registerEvent(new ChatListener(hologramManager), this);
-        getServer().getPluginManager().registerEvent(new HitRevealListener(gameManager), this);
-        getServer().getPluginManager().registerEvent(new VoteItemListener(gameManager), this);
+        // Register events
+        getServer().getPluginManager().registerEvents(new ChatListener(hologramManager), this);
+        getServer().getPluginManager().registerEvents(new HitRevealListener(gameManager, hologramManager), this);
+        getServer().getPluginManager().registerEvents(new VoteItemListener(), this);
+
+        // Register command
+        MatchboxCommand commandHandler = new MatchboxCommand(this, sessionManager, gameManager);
+        getCommand("matchbox").setExecutor(commandHandler);
+        getCommand("matchbox").setTabCompleter(commandHandler);
 
         getLogger().info("Matchbox enabled");
-
     }
 
     @Override
     public void onDisable() {
         // Plugin shutdown logic
-        hologramManager.clearAll();
+        if (hologramManager != null) {
+            hologramManager.clearAll();
+        }
     }
 
-    public static Matchbox getInstance() {return instance; }
-    public HologramManager getHologramManager() {return hologramManager; }
-    public GameManager getGameManager() {return gameManager; }
+    public static Matchbox getInstance() {
+        return instance;
+    }
+
+    public HologramManager getHologramManager() {
+        return hologramManager;
+    }
+
+    public GameManager getGameManager() {
+        return gameManager;
+    }
+
+    public SessionManager getSessionManager() {
+        return sessionManager;
+    }
 }

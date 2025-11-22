@@ -1,5 +1,6 @@
 package com.ohacd.matchbox.game.utils;
 
+import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.hologram.HologramManager;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
