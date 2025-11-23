@@ -20,24 +20,54 @@ public class GameState {
     // Track which session is currently active
     private String activeSessionName = null;
 
+    // Track current round number
+    private int currentRound = 0;
+
     /**
-     * Clears all state for a new round.
+     * Clears all state for a new game (not just round).
+     * This should only be called when starting a brand new game or ending a game.
      */
-    public void clearRoundState() {
+    public void clearGameState() {
         roles.clear();
         alivePlayers.clear();
         swipedThisRound.clear();
         curedThisRound.clear();
         allParticipatingPlayers.clear();
         activeSessionName = null;
+        currentRound = 0;
+    }
+
+    /**
+     * Clears only per-round state (swipes, cures).
+     * Keeps player list, roles, and session intact.
+     * This should be called at the start of each new round.
+     */
+    public void clearRoundState() {
+        swipedThisRound.clear();
+        curedThisRound.clear();
+    }
+
+    /**
+     * Increments the round counter.
+     */
+    public void incrementRound() {
+        currentRound++;
+    }
+
+    /**
+     * Gets the current round number.
+     */
+    public int getCurrentRound() {
+        return currentRound;
     }
 
     /**
      * Adds a player to the alive players set.
      */
     public void addAlivePlayer(Player player) {
-        alivePlayers.add(player.getUniqueId());
-        allParticipatingPlayers.add(player.getUniqueId());
+        UUID uuid = player.getUniqueId();
+        alivePlayers.add(uuid);
+        allParticipatingPlayers.add(uuid);
     }
 
     /**
@@ -51,6 +81,7 @@ public class GameState {
 
     /**
      * Removes a player from the alive players set.
+     * Note: This does NOT remove them from allParticipatingPlayers.
      */
     public void removeAlivePlayer(UUID playerId) {
         alivePlayers.remove(playerId);
@@ -165,5 +196,48 @@ public class GameState {
      */
     public boolean isGameActive() {
         return !allParticipatingPlayers.isEmpty();
+    }
+
+    /**
+     * Validates that the game state is consistent.
+     * Returns true if state is valid, false otherwise.
+     */
+    public boolean validateState() {
+        // All alive players must be in participating players
+        for (UUID alivePlayer : alivePlayers) {
+            if (!allParticipatingPlayers.contains(alivePlayer)) {
+                return false;
+            }
+        }
+
+        // All players with roles must be in participating players
+        for (UUID playerWithRole : roles.keySet()) {
+            if (!allParticipatingPlayers.contains(playerWithRole)) {
+                return false;
+            }
+        }
+
+        // If there are participating players, there must be at least one role assigned
+        if (!allParticipatingPlayers.isEmpty() && roles.isEmpty()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Gets a debug string representation of the current state.
+     */
+    public String getDebugInfo() {
+        return String.format(
+                "GameState[Round=%d, Session=%s, Participating=%d, Alive=%d, Roles=%d, Swiped=%d, Cured=%d]",
+                currentRound,
+                activeSessionName != null ? activeSessionName : "none",
+                allParticipatingPlayers.size(),
+                alivePlayers.size(),
+                roles.size(),
+                swipedThisRound.size(),
+                curedThisRound.size()
+        );
     }
 }
