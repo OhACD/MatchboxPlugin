@@ -14,6 +14,12 @@ public class GameState {
     private final Set<UUID> swipedThisRound = new HashSet<>();
     private final Set<UUID> curedThisRound = new HashSet<>();
 
+    // NEW: track infected (swiped successfully) this round (before pending death application)
+    private final Set<UUID> infectedThisRound = new HashSet<>();
+
+    // NEW: pending death times (epoch millis when the pending elimination should be applied)
+    private final Map<UUID, Long> pendingDeathTime = new HashMap<>();
+
     // Track ALL players who started the round (for nametag restoration)
     private final Set<UUID> allParticipatingPlayers = new HashSet<>();
 
@@ -32,19 +38,23 @@ public class GameState {
         alivePlayers.clear();
         swipedThisRound.clear();
         curedThisRound.clear();
+        infectedThisRound.clear();
+        pendingDeathTime.clear();
         allParticipatingPlayers.clear();
         activeSessionName = null;
         currentRound = 0;
     }
 
     /**
-     * Clears only per-round state (swipes, cures).
+     * Clears only per-round state (swipes, cures, infections).
      * Keeps player list, roles, and session intact.
      * This should be called at the start of each new round.
      */
     public void clearRoundState() {
         swipedThisRound.clear();
         curedThisRound.clear();
+        infectedThisRound.clear();
+        // Note: do NOT clear pendingDeathTime here — pending deaths may span rounds.
     }
 
     /**
@@ -85,6 +95,11 @@ public class GameState {
      */
     public void removeAlivePlayer(UUID playerId) {
         alivePlayers.remove(playerId);
+        // If they had pending death or infected flags, keep pending handling separate.
+        infectedThisRound.remove(playerId);
+        pendingDeathTime.remove(playerId);
+        swipedThisRound.remove(playerId);
+        curedThisRound.remove(playerId);
     }
 
     /**
@@ -148,6 +163,70 @@ public class GameState {
      */
     public boolean hasCuredThisRound(UUID playerId) {
         return curedThisRound.contains(playerId);
+    }
+
+    /**
+     * Marks that a player was infected (swiped successfully) this round.
+     */
+    public void markInfected(UUID playerId) {
+        infectedThisRound.add(playerId);
+    }
+
+    /**
+     * Checks if a player was infected this round.
+     */
+    public boolean wasInfectedThisRound(UUID playerId) {
+        return infectedThisRound.contains(playerId);
+    }
+
+    /**
+     * Clears infected flags for the round.
+     */
+    public void clearInfectedThisRound() {
+        infectedThisRound.clear();
+    }
+
+    /**
+     * Schedules a pending death for a player at the given epoch millis.
+     * Use removePendingDeath to cancel (e.g. cured).
+     */
+    public void setPendingDeath(UUID playerId, long epochMillis) {
+        pendingDeathTime.put(playerId, epochMillis);
+    }
+
+    /**
+     * Removes pending death for a player (e.g. cured).
+     */
+    public void removePendingDeath(UUID playerId) {
+        pendingDeathTime.remove(playerId);
+    }
+
+    /**
+     * Checks if a player currently has a pending death scheduled.
+     */
+    public boolean hasPendingDeath(UUID playerId) {
+        return pendingDeathTime.containsKey(playerId);
+    }
+
+    /**
+     * Gets the scheduled pending death time for a player (epoch millis), or null if none.
+     */
+    public Long getPendingDeathTime(UUID playerId) {
+        return pendingDeathTime.get(playerId);
+    }
+
+    /**
+     * Returns a snapshot of player UUIDs whose pending death time is <= provided epoch millis.
+     * Useful for processing due pending deaths.
+     */
+    public Set<UUID> getPendingDeathsDueAt(long epochMillis) {
+        Set<UUID> due = new HashSet<>();
+        for (Map.Entry<UUID, Long> e : pendingDeathTime.entrySet()) {
+            if (e.getValue() <= epochMillis) {
+                due.add(e.getKey());
+            }
+        }
+        return due;
     }
 
     /**
@@ -230,14 +309,16 @@ public class GameState {
      */
     public String getDebugInfo() {
         return String.format(
-                "GameState[Round=%d, Session=%s, Participating=%d, Alive=%d, Roles=%d, Swiped=%d, Cured=%d]",
+                "GameState[Round=%d, Session=%s, Participating=%d, Alive=%d, Roles=%d, Swiped=%d, Cured=%d, Infected=%d, Pending=%d]",
                 currentRound,
                 activeSessionName != null ? activeSessionName : "none",
                 allParticipatingPlayers.size(),
                 alivePlayers.size(),
                 roles.size(),
                 swipedThisRound.size(),
-                curedThisRound.size()
+                curedThisRound.size(),
+                infectedThisRound.size(),
+                pendingDeathTime.size()
         );
     }
 }

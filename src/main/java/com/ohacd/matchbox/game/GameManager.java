@@ -15,11 +15,10 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.bukkit.Bukkit.getPlayer;
 
@@ -38,6 +37,8 @@ public class GameManager {
     private final WinConditionChecker winConditionChecker;
     private final SwipePhaseHandler swipePhaseHandler;
     private final DiscussionPhaseHandler discussionPhaseHandler;
+    private final Map<UUID, Long> activeSwipeWindow = new ConcurrentHashMap<>();
+
 
     // Current round data
     private Location currentDiscussionLocation;
@@ -242,22 +243,97 @@ public class GameManager {
     }
 
     /**
-     * Ends the swipe phase and transitions to discussion.
+     * Start a swipe window for the player (silent). Duration in seconds.
+     */
+    public void startSwipeWindow(Player spark, int seconds) {
+        if (spark == null) return;
+        UUID id = spark.getUniqueId();
+
+        // Only in SWIPE phase and only if spark role
+        if (!phaseManager.isPhase(GamePhase.SWIPE)) return;
+        if (gameState.getRole(id) != Role.SPARK) return;
+        if (gameState.hasSwipedThisRound(id)) return; // already used this round
+
+        long expire = System.currentTimeMillis() + (seconds * 1000L);
+        activeSwipeWindow.put(id, expire);
+
+        // ensure cleanup after expiry
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                activeSwipeWindow.remove(id);
+            }
+        }.runTaskLater(plugin, seconds * 20L);
+    }
+
+    /**
+     * Ends swipe window immediately (manual cleanup).
+     */
+    public void endSwipeWindow(UUID playerId) {
+        activeSwipeWindow.remove(playerId);
+    }
+
+    /**
+     * Returns whether the given player has an active swipe window.
+     */
+    public boolean isSwipeWindowActive(UUID playerId) {
+        Long expiry = activeSwipeWindow.get(playerId);
+        if (expiry == null) return false;
+        if (expiry <= System.currentTimeMillis()) {
+            activeSwipeWindow.remove(playerId);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Called to end the swipe phase. Does NOT apply pending deaths here.
+     * Discussion phase start will apply pending deaths so infected players are removed
+     * before discussion begins.
      */
     public void endSwipePhase() {
         plugin.getLogger().info("Ending swipe phase - Round " + gameState.getCurrentRound());
 
+        // Transition to discussion but do not apply pending deaths here.
         phaseManager.setPhase(GamePhase.DISCUSSION);
         messageUtils.broadcast("§e§l>> SWIPE PHASE ENDED <<");
 
-        // TODO: Death happens here (infected players die)
+        // Clear actionbars, stop timers, etc. (assume swipePhaseHandler cleared by caller)
+        // Start the discussion phase which will apply pending deaths at its start
+        startDiscussionPhase();
+    }
 
-        // Check for win condition before discussion starts
-        if (checkForWin()) {
-            return; // Game ended, don't start discussion
+
+    /**
+     * Starts the discussion phase and applies pending deaths immediately before players join discussion.
+     */
+    private void startDiscussionPhase() {
+        // Apply pending deaths now so infected players do not participate in discussion
+        long now = System.currentTimeMillis();
+        Set<UUID> due = gameState.getPendingDeathsDueAt(now);
+        if (!due.isEmpty()) {
+            plugin.getLogger().info("Applying pending deaths for " + due.size() + " players at discussion start.");
+        }
+        for (UUID victimId : due) {
+            if (!gameState.isAlive(victimId)) {
+                gameState.removePendingDeath(victimId);
+                continue;
+            }
+            Player victim = getPlayer(victimId);
+            if (victim != null && victim.isOnline()) {
+                eliminatePlayer(victim); // ensure this removes them from alive and cleans state
+            } else {
+                // server-side cleanup if offline
+                gameState.removeAlivePlayer(victimId);
+                gameState.removePendingDeath(victimId);
+            }
+            gameState.removePendingDeath(victimId);
         }
 
-        // Teleport players to discussion location if set
+        // Clear infected flags for the round
+        gameState.clearInfectedThisRound();
+
+        // Teleport alive players to discussion location
         if (currentDiscussionLocation != null) {
             for (UUID playerId : gameState.getAlivePlayerIds()) {
                 Player player = org.bukkit.Bukkit.getPlayer(playerId);
@@ -267,21 +343,8 @@ public class GameManager {
             }
         }
 
-        startDiscussionPhase();
-    }
-
-
-    /**
-     * Starts the discussion phase.
-     */
-    private void startDiscussionPhase() {
-        plugin.getLogger().info("Starting discussion phase - Round " + gameState.getCurrentRound());
-        messageUtils.broadcast("§a§l>> DISCUSSION PHASE STARTED <<");
-
-        discussionPhaseHandler.startDiscussionPhase(
-                gameState.getAlivePlayerIds(),
-                this::endDiscussionPhase
-        );
+        // Start the discussion timer and supply callback to endDiscussionPhase
+        discussionPhaseHandler.startDiscussionPhase(gameState.getAlivePlayerIds(), this::endDiscussionPhase);
     }
 
     /**
@@ -304,22 +367,52 @@ public class GameManager {
 
     /**
      * Handles a swipe action from a player.
+     * Silent: no messages/holograms to shooter/target.
+     * Infection recorded and pending death scheduled to be applied at discussion start.
      */
     public void handleSwipe(Player shooter, Player target) {
-        // Verify phase
-        if (!phaseManager.isPhase(GamePhase.SWIPE)) {
-            shooter.sendMessage("You cannot swipe right now");
+        if (shooter == null || target == null) return;
+
+        // Phase and permission checks
+        if (!phaseManager.isPhase(GamePhase.SWIPE)) return;
+
+        UUID shooterId = shooter.getUniqueId();
+        UUID targetId = target.getUniqueId();
+
+        // Only a Spark can swipe
+        if (gameState.getRole(shooterId) != Role.SPARK) {
             return;
         }
 
-        UUID shooterId = shooter.getUniqueId();
-        if (gameState.getRole(shooterId) == Role.SPARK) {
-            // Spark can only swipe once per round
-            if (gameState.hasSwipedThisRound(shooterId)) {
-                return;
-            }
-            gameState.markSwiped(shooterId);
+        // Spark can only swipe once per round
+        if (gameState.hasSwipedThisRound(shooterId)) {
+            // silent: do not notify
+            return;
         }
+
+        // Must have an active swipe window
+        if (!isSwipeWindowActive(shooterId)) {
+            return;
+        }
+
+        // If target already has pending death, ignore duplicate (silent)
+        if (gameState.hasPendingDeath(targetId)) {
+            // consume the swipe window but remain silent
+            activeSwipeWindow.remove(shooterId);
+            gameState.markSwiped(shooterId);
+            return;
+        }
+
+        // Mark as swiped this round & infected
+        gameState.markSwiped(shooterId);
+        gameState.markInfected(targetId);
+
+        // Schedule pending death to be applied at discussion start.
+        // Use current time; we will APPLY pending deaths only when discussion begins.
+        gameState.setPendingDeath(targetId, System.currentTimeMillis());
+
+        // close the swipe window
+        activeSwipeWindow.remove(shooterId);
     }
 
     /**
