@@ -559,35 +559,29 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
     private boolean handleList(CommandSender sender) {
         Set<String> sessionNames = sessionManager.getAllSessionNames();
         
-        // Filter out empty sessions and inactive sessions, clean them up
-        List<String> activeSessions = new ArrayList<>();
+        // Filter out only empty sessions (sessions with 0 players)
+        // Do NOT remove inactive sessions - they are valid waiting sessions
+        List<String> validSessions = new ArrayList<>();
         for (String name : sessionNames) {
             GameSession session = sessionManager.getSession(name);
             if (session != null) {
-                // Remove empty sessions
+                // Only remove truly empty sessions (no players)
                 if (session.getPlayerCount() == 0) {
                     sessionManager.removeSession(name);
                     continue;
                 }
-                // Only show non-empty, non-inactive sessions (sessions should be removed when game ends)
-                // But if somehow an inactive session exists, filter it out
-                if (!session.isActive() && gameManager.getContext(name) == null) {
-                    // Session is inactive and has no active game context - remove it
-                    sessionManager.removeSession(name);
-                    continue;
-                }
-                // Only show sessions that are either active or have players waiting
-                activeSessions.add(name);
+                // All sessions with players are valid (whether active or waiting)
+                validSessions.add(name);
             }
         }
         
-        if (activeSessions.isEmpty()) {
+        if (validSessions.isEmpty()) {
             sender.sendMessage("§eNo active sessions.");
             return true;
         }
 
         sender.sendMessage("§aActive sessions:");
-        for (String name : activeSessions) {
+        for (String name : validSessions) {
             GameSession session = sessionManager.getSession(name);
             if (session != null) {
                 String status = session.isActive() ? "§c[ACTIVE]" : "§7[Waiting]";

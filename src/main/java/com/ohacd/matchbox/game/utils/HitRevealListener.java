@@ -32,8 +32,19 @@ public class HitRevealListener implements Listener {
         
         Player target = (Player) event.getEntity();
         
+        // Get session context for this player
+        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(shooter.getUniqueId());
+        if (context == null) {
+            return; // Player not in any active game
+        }
+        
+        // Game must be active
+        if (!context.getGameState().isGameActive()) {
+            return;
+        }
+        
         // Only work during swipe phase
-        if (!gameManager.getPhaseManager().isPhase(GamePhase.SWIPE)) {
+        if (!context.getPhaseManager().isPhase(GamePhase.SWIPE)) {
             return;
         }
         
@@ -43,12 +54,12 @@ public class HitRevealListener implements Listener {
         }
         
         // Check if shooter is alive and in the game
-        if (!gameManager.getGameState().isAlive(shooter.getUniqueId())) {
+        if (!context.getGameState().isAlive(shooter.getUniqueId())) {
             return;
         }
         
         // Check if target is alive and in the game
-        if (!gameManager.getGameState().isAlive(target.getUniqueId())) {
+        if (!context.getGameState().isAlive(target.getUniqueId())) {
             return;
         }
         

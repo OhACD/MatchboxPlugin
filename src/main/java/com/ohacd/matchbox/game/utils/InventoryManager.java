@@ -641,5 +641,42 @@ public class InventoryManager {
     public static int getArrowHotbarSlot() {
         return ARROW_HOTBAR_SLOT;
     }
+    
+    /**
+     * Creates a gray dye item with the same metadata as the given paper item.
+     * Used to indicate that an ability/vote has been used.
+     */
+    public static ItemStack createUsedIndicator(ItemStack paper) {
+        if (paper == null) {
+            return null;
+        }
+        
+        ItemStack grayDye = new ItemStack(Material.GRAY_DYE);
+        ItemMeta dyeMeta = grayDye.getItemMeta();
+        ItemMeta paperMeta = paper.getItemMeta();
+        
+        if (dyeMeta == null || paperMeta == null) {
+            return grayDye;
+        }
+        
+        // Copy display name and lore from paper
+        dyeMeta.setDisplayName(paperMeta.getDisplayName());
+        if (paperMeta.getLore() != null) {
+            List<String> lore = new ArrayList<>(paperMeta.getLore());
+            // Add "Used" indicator at the end
+            lore.add("§8§l[USED]");
+            dyeMeta.setLore(lore);
+        } else {
+            List<String> lore = new ArrayList<>();
+            lore.add("§8§l[USED]");
+            dyeMeta.setLore(lore);
+        }
+        
+        dyeMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        dyeMeta.setUnbreakable(true);
+        grayDye.setItemMeta(dyeMeta);
+        
+        return grayDye;
+    }
 }
 

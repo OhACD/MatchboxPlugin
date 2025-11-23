@@ -1,5 +1,7 @@
 package com.ohacd.matchbox.game.utils;
 
+import com.ohacd.matchbox.Matchbox;
+import com.ohacd.matchbox.game.GameManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -14,12 +16,39 @@ import org.bukkit.inventory.ItemStack;
 /**
  * Prevents players from moving or dropping game items.
  * Game items are completely locked in place - no moving, dropping, hotkeying, or shift-clicking.
+ * Only active when the player is in an active game session.
  */
 public class GameItemProtectionListener implements Listener {
+    private final GameManager gameManager;
+    
+    public GameItemProtectionListener(GameManager gameManager) {
+        this.gameManager = gameManager;
+    }
+    
+    /**
+     * Checks if a player is in an active game session.
+     */
+    private boolean isPlayerInActiveGame(Player player) {
+        if (player == null || !player.isOnline()) {
+            return false;
+        }
+        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        if (context == null) {
+            return false;
+        }
+        return context.getGameState().isGameActive();
+    }
     
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) {
+            return;
+        }
+        
+        Player player = (Player) event.getWhoClicked();
+        
+        // Only protect items if player is in an active game
+        if (!isPlayerInActiveGame(player)) {
             return;
         }
         
@@ -136,6 +165,13 @@ public class GameItemProtectionListener implements Listener {
             return;
         }
         
+        Player player = (Player) event.getWhoClicked();
+        
+        // Only protect items if player is in an active game
+        if (!isPlayerInActiveGame(player)) {
+            return;
+        }
+        
         // Prevent dragging game items
         ItemStack dragged = event.getOldCursor();
         if (dragged != null && InventoryManager.isGameItem(dragged)) {
@@ -159,15 +195,29 @@ public class GameItemProtectionListener implements Listener {
     
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerDropItem(PlayerDropItemEvent event) {
+        Player player = event.getPlayer();
+        
+        // Only protect items if player is in an active game
+        if (!isPlayerInActiveGame(player)) {
+            return;
+        }
+        
         ItemStack item = event.getItemDrop().getItemStack();
         if (InventoryManager.isGameItem(item)) {
             event.setCancelled(true);
-            event.getPlayer().updateInventory();
+            player.updateInventory();
         }
     }
     
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerSwapHandItems(PlayerSwapHandItemsEvent event) {
+        Player player = event.getPlayer();
+        
+        // Only protect items if player is in an active game
+        if (!isPlayerInActiveGame(player)) {
+            return;
+        }
+        
         // Prevent swapping if either hand has a game item
         ItemStack mainHand = event.getMainHandItem();
         ItemStack offHand = event.getOffHandItem();
@@ -175,7 +225,7 @@ public class GameItemProtectionListener implements Listener {
         if ((mainHand != null && InventoryManager.isGameItem(mainHand)) ||
             (offHand != null && InventoryManager.isGameItem(offHand))) {
             event.setCancelled(true);
-            event.getPlayer().updateInventory();
+            player.updateInventory();
         }
     }
 }

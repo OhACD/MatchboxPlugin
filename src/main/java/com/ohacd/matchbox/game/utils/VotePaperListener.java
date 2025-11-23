@@ -25,8 +25,19 @@ public class VotePaperListener implements Listener {
         
         Player voter = (Player) event.getWhoClicked();
         
+        // Get session context for this player
+        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(voter.getUniqueId());
+        if (context == null) {
+            return; // Player not in any active game
+        }
+        
+        // Game must be active
+        if (!context.getGameState().isGameActive()) {
+            return;
+        }
+        
         // Only allow during voting phase
-        if (!gameManager.getPhaseManager().isPhase(GamePhase.VOTING)) {
+        if (!context.getPhaseManager().isPhase(GamePhase.VOTING)) {
             return;
         }
         
@@ -55,12 +66,12 @@ public class VotePaperListener implements Listener {
         }
         
         // Check if voter is alive
-        if (!gameManager.getGameState().isAlive(voter.getUniqueId())) {
+        if (!context.getGameState().isAlive(voter.getUniqueId())) {
             return;
         }
         
         // Check if target is alive
-        if (!gameManager.getGameState().isAlive(target.getUniqueId())) {
+        if (!context.getGameState().isAlive(target.getUniqueId())) {
             return;
         }
         
@@ -71,8 +82,9 @@ public class VotePaperListener implements Listener {
         boolean success = gameManager.handleVote(voter, target);
         
         if (success) {
-            // Remove the voting paper after successful vote
-            voter.getInventory().setItem(event.getSlot(), null);
+            // Replace voting paper with gray dye indicator
+            ItemStack usedIndicator = InventoryManager.createUsedIndicator(clicked);
+            voter.getInventory().setItem(event.getSlot(), usedIndicator);
             voter.updateInventory();
         }
     }

@@ -29,12 +29,16 @@ public class PlayerActionHandler {
     public void handleSwipe(SessionGameContext context, Player shooter, Player target) {
         if (context == null || shooter == null || target == null) return;
         
+        GameState gameState = context.getGameState();
+        
+        // Game must be active
+        if (!gameState.isGameActive()) return;
+        
         // Both players must be in the same session
-        if (!context.getGameState().getAllParticipatingPlayerIds().contains(target.getUniqueId())) {
+        if (!gameState.getAllParticipatingPlayerIds().contains(target.getUniqueId())) {
             return;
         }
         
-        GameState gameState = context.getGameState();
         com.ohacd.matchbox.game.phase.PhaseManager phaseManager = context.getPhaseManager();
         Map<UUID, Long> activeSwipeWindow = context.getActiveSwipeWindow();
         
@@ -85,12 +89,16 @@ public class PlayerActionHandler {
     public void handleCure(SessionGameContext context, Player medic, Player target) {
         if (context == null || medic == null || target == null) return;
         
+        GameState gameState = context.getGameState();
+        
+        // Game must be active
+        if (!gameState.isGameActive()) return;
+        
         // Both players must be in the same session
-        if (!context.getGameState().getAllParticipatingPlayerIds().contains(target.getUniqueId())) {
+        if (!gameState.getAllParticipatingPlayerIds().contains(target.getUniqueId())) {
             return;
         }
         
-        GameState gameState = context.getGameState();
         com.ohacd.matchbox.game.phase.PhaseManager phaseManager = context.getPhaseManager();
         Map<UUID, Long> activeCureWindow = context.getActiveCureWindow();
         
@@ -140,12 +148,16 @@ public class PlayerActionHandler {
     public boolean handleVote(SessionGameContext context, Player voter, Player target) {
         if (context == null || voter == null || target == null) return false;
         
+        GameState gameState = context.getGameState();
+        
+        // Game must be active
+        if (!gameState.isGameActive()) return false;
+        
         // Both players must be in the same session
-        if (!context.getGameState().getAllParticipatingPlayerIds().contains(target.getUniqueId())) {
+        if (!gameState.getAllParticipatingPlayerIds().contains(target.getUniqueId())) {
             return false;
         }
         
-        GameState gameState = context.getGameState();
         com.ohacd.matchbox.game.phase.PhaseManager phaseManager = context.getPhaseManager();
         VoteManager voteManager = context.getVoteManager();
         
