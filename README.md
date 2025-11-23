@@ -1,10 +1,12 @@
 # Matchbox - Minecraft Social Deduction Game
 
-Matchbox is a paranoia-inducing 7-player social deduction game for Minecraft, inspired by Among Us and designed with recording-proof mechanics. Every player looks identical (Steve skin), and the impostor (Spark) must eliminate others without being caught.
+A paranoia-inducing 7-player social deduction game for Minecraft, inspired by Among Us and designed with recording-proof mechanics.
 
 ---
 
-## Game Overview
+## What is Matchbox?
+
+Matchbox is a social deduction game where 7 players work together to identify and eliminate the impostor (Spark) before it's too late. Every player looks identical, and the Spark must eliminate others without being caught. The twist? Everything is recording-proof—even if someone streams their screen, you can't tell who the Spark is!
 
 ### Core Concept
 - 7 players enter each round
@@ -13,49 +15,122 @@ Matchbox is a paranoia-inducing 7-player social deduction game for Minecraft, in
 - 5 Innocents must identify and vote out the Spark
 - 100% recording-safe: Even if someone streams their screen, you can't tell who the Spark is
 
-### Roles
-- **Spark**: The impostor. Can infect one player per round using abilities.
-- **Medic**: Can cure infected players before they die.
-- **Innocent**: Regular players trying to survive and identify the Spark.
+---
 
-### Game Phases
-1. **Swipe Phase** (5 minutes): Players explore, Spark can infect someone
-2. **Discussion Phase**: Players teleport to discussion area and vote on who to eliminate
-3. Repeat until win condition is met
+## How to Play
+
+### For Players
+
+#### Getting Started
+1. Join a game session using `/matchbox join <session-name>`
+2. Wait for the game to start (admin will use `/matchbox begin`)
+3. You'll be assigned a role: Spark, Medic, or Innocent
+
+#### Your Role
+
+**Spark (Impostor)**
+- Your goal: Eliminate all other players without being caught
+- You can infect one player per round using your ability
+- Use Hunter Vision once per round to see all players
+- Infected players die at the start of the discussion phase
+- Win if you eliminate everyone or if you're not voted out
+
+**Medic**
+- Your goal: Help identify the Spark and save infected players
+- You can cure one infected player per round using your ability
+- Use Healing Sight once per round to see who's infected
+- Save players before they die at the discussion phase
+- Win if the Spark is eliminated
+
+**Innocent**
+- Your goal: Survive and help identify the Spark
+- You have no special abilities
+- Work with others to figure out who the Spark is
+- Vote to eliminate suspicious players
+- Win if the Spark is eliminated
+
+#### Game Phases
+
+**1. Swipe Phase (2 minutes)**
+- Explore the map and interact with other players
+- All players receive identical inventories automatically
+- Spark: Right-click the Swipe paper (above hotbar slot 0) to activate, then right-click a player to infect
+- Medic: Right-click the Healing Touch paper (above hotbar slot 0) to activate, then right-click an infected player to cure
+- Use Hunter Vision (Spark) or Healing Sight (Medic) by right-clicking the paper above hotbar slot 1
+- Use your crossbow and arrow to reveal a player's nametag (one arrow per round)
+- Chat appears as holograms above players' heads (no chat log)
+
+**2. Discussion Phase (1 minute)**
+- All players are teleported to the discussion area
+- Infected players who weren't cured will die
+- Chat normally to discuss who you think the Spark is
+- Share information and observations
+
+**3. Voting Phase (30 seconds)**
+- Right-click on players to vote for who you think is the Spark
+- The player with the most votes is eliminated
+- Ties are resolved randomly
+- The game continues to the next round
+
+**4. Repeat**
+- The cycle continues until a win condition is met
+
+#### Win Conditions
+
+**Spark Wins:**
+- All other players are eliminated
+- Spark survives until the end
+
+**Innocents & Medic Win:**
+- Spark is eliminated through voting
+- Spark is the last player eliminated
 
 ---
 
 ## Installation
 
 ### Requirements
-- **Minecraft Server**: Paper/Spigot 1.21+
-- **Java**: 21+
+- Minecraft Server: Paper/Spigot 1.21 or higher
+- Java: 21 or higher
+- Players: 2-7 players per game (optimal: 7)
 
-### Setup
-1. Download the latest `Matchbox.jar` from releases
-2. Place in your server's `plugins/` folder
-3. Restart the server
-4. Configure spawn points and discussion areas
+### Setup Steps
+
+1. Download the Plugin
+   - Download the latest Matchbox.jar from releases
+   - Place it in your server's plugins/ folder
+
+2. Restart Your Server
+   - Restart the server to load the plugin
+   - Check the console for "Matchbox has been enabled!"
+
+3. Configure Your Map
+   - Set spawn locations where players will start each round
+   - Set a discussion area where players will meet to vote
 
 ---
 
 ## Commands
 
-### Session Management
-/matchbox start - Create a new game session \
-/matchbox join - Join an existing session \
-/matchbox leave - Leave a session \
-/matchbox list - List all active sessions
+### For Players
 
-### Game Setup
-/matchbox setspawn - Add a spawn location (use multiple times for 7+ spawns) \
-/matchbox setdiscussion - Set the discussion area location
+| Command | Description |
+|---------|-------------|
+| `/matchbox join <session>` | Join a game session |
+| `/matchbox leave` | Leave your current session |
+| `/matchbox list` | List all active sessions |
 
-### Game Control
-/matchbox begin - Start the game (requires 2+ players and spawn points) \ 
-/matchbox stop - Stop and remove a session (restores all player states)
+Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 
-**Aliases**: `/mb` or `/mbox` work instead of `/matchbox`
+### For Server Admins
+
+| Command | Description |
+|---------|-------------|
+| `/matchbox start <session>` | Create a new game session |
+| `/matchbox setspawn <session>` | Add a spawn location (stand where you want it) |
+| `/matchbox setdiscussion <session>` | Set the discussion area location |
+| `/matchbox begin <session>` | Start the game (requires 2+ players) |
+| `/matchbox stop <session>` | Stop and remove a session |
 
 ---
 
@@ -63,165 +138,165 @@ Matchbox is a paranoia-inducing 7-player social deduction game for Minecraft, in
 
 ### For Server Admins
 
-1. **Create a Session**
+1. Create a Session
    ```
    /matchbox start game1
    ```
 
-2. **Set Spawn Locations** (stand at each location and run):
+2. Set Spawn Locations (stand at each location and run):
    ```
    /matchbox setspawn game1
    ```
-   *(Repeat 7+ times at different locations)*
+   (Repeat 7+ times at different locations)
 
-3. **Set Discussion Area**
+3. Set Discussion Area (stand at the discussion area):
    ```
    /matchbox setdiscussion game1
    ```
 
-4. **Have Players Join**
+4. Have Players Join
    ```
    /matchbox join game1
    ```
 
-5. **Start the Game**
+5. Start the Game (when you have 2+ players):
    ```
    /matchbox begin game1
    ```
 
-6. **Stop the Game Anytime**
+6. Stop the Game Anytime
    ```
    /matchbox stop game1
    ```
 
+### For Players
+
+1. Join a Session
+   ```
+   /matchbox join game1
+   ```
+
+2. Wait for the Game to Start
+   - You'll be teleported when the game begins
+   - Your role will be assigned automatically
+
+3. Play the Game
+   - Follow the phase instructions
+   - Use your abilities (if you have any)
+   - Work together to find the Spark!
+
 ---
 
-## Current Features (v1.0-SNAPSHOT)
+## Game Features
 
-### Implemented
+### Recording-Proof Design
+- Identical Inventories: All players have the same items in the same slots
+- Paper-Based Abilities: Abilities are activated by clicking papers (same for everyone)
+- No Unique Items: The Spark doesn't have special items that would show on stream
+- Hologram Chat: Chat appears as holograms during swipe phase (no chat log)
+- Visual Effects: All effects are recording-safe and don't reveal roles
+
+### Current Features (v1.0-SNAPSHOT)
+
+Fully Implemented:
 - Session management system
 - Role assignment (Spark, Medic, Innocent)
+- Automatic inventory system with identical layouts for all players
+- Role paper in top rightmost slot (shows your role and description)
+- Ability papers automatically placed (Swipe/Cure above hotbar slot 0, Vision/Sight above hotbar slot 1)
+- Fixed crossbow and arrow in hotbar (unmovable, one arrow per round)
 - Nametag hiding during gameplay
-- Hologram-based chat bubbles (Roblox-style)
-- Swipe phase with 90-second timer
-- Discussion phase with teleportation
-- Arrow-based hit detection and name reveal
-- One swipe per round tracking
-- Win condition checking
-- Proper game end with state restoration
-- Player elimination and spectator mode
-
-### Planned (Coming Soon)
-- Paper-based ability system (no hotbar giveaways)
-- Spark Vision (Eagle Vision) ability
+- Hologram-based chat bubbles during swipe phase
+- Normal chat during discussion and voting phases
+- Swipe phase with 2-minute timer
+- Discussion phase with teleportation (1 minute)
+- Voting phase with right-click voting (30 seconds)
+- Paper-based ability system (right-click to activate)
+- Spark Swipe ability (infect players via paper, delinked from arrows)
+- Spark Hunter Vision (see all players once per round)
+- Medic Healing Touch (cure infected players)
+- Medic Healing Sight (see infected players once per round)
+- Arrow system for nametag revelation (one per round, separate from swipe)
 - Infection system with delayed death
-- Medic cure ability with particle indicators
-- Voting system with paper ballots
-- Identical inventory layouts for all players
-- Cooldown system for abilities
-- ProtocolLib integration for client-side effects
+- Win condition detection
+- Player elimination and spectator mode
+- Player state backup and restore
+- Comprehensive defensive programming and error handling
+
+### Coming Soon
+- Configurable Settings: Customize phase durations and game settings via config.yml
+- Enhanced Spectator Mode: Teleport eliminated players to spectator area
+- ProtocolLib Integration: True single-player glow visibility for Hunter Vision
 
 ---
 
-## Design Philosophy
+## Tips & Strategies
 
-### Recording-Proof Paranoia
-Every mechanic is designed to be **impossible to detect on stream**:
-- All players have **identical inventories**
-- Abilities are activated by **clicking papers** (same for everyone)
-- No unique hotbar items for the Spark
-- No particles, sounds, or titles visible to spectators
-- Chat uses **holograms only** (no chat log)
+### For Spark (Impostor)
+- Blend in with the crowd—act like an innocent
+- Use Hunter Vision strategically to track players
+- Infect players when no one is watching
+- Create suspicion on others during discussion
+- Don't vote suspiciously—try to vote with the majority
 
-### Vanilla Client Compatible
-- No client-side mods required
-- Works with completely vanilla Minecraft clients
-- All special effects use server-side mechanics
+### For Medic
+- Use Healing Sight early to identify infected players
+- Save players who are likely to be valuable in voting
+- Share information carefully—don't reveal you're the Medic too early
+- Watch for suspicious behavior during swipe phase
 
----
-
-## Technical Architecture
-
-### Core Systems
-
-### Key Design Decisions
-- **Stateless rounds**: Each round is independent
-- **UUID-based tracking**: Players tracked by UUID, not objects
-- **Phase-driven logic**: All mechanics respect current game phase
-- **Modular systems**: Each subsystem can be extended independently
+### For Innocents
+- Pay attention to player movements and behavior
+- Use your arrow strategically to reveal someone's nametag (one per round)
+- Share observations during discussion
+- Don't trust anyone completely
+- Vote strategically—eliminate the most suspicious player
+- Work together but stay cautious
 
 ---
 
-## Known Issues
-- Swipe currently uses arrows (will be replaced with paper-click system)
-- Infection/death system not yet implemented
-- Voting system not yet implemented
-- Inventory system placeholder only
+## Known Limitations
+
+- Hunter Vision: Uses a particle workaround for single-player visibility (ProtocolLib integration would enable true single-player glow)
+- Spectator Mode: Eliminated players enter spectator mode but aren't teleported to a spectator area yet
+- Configuration: Phase durations are hardcoded (config.yml support coming)
 
 ---
 
-## Contributing
+## Reporting Issues
 
-This is a personal project, but feel free to:
-- Report bugs via issues
-- Suggest features
-- Fork and experiment
+Found a bug or have a suggestion? Please report it:
+- Create an issue on the project repository
+- Include your Minecraft version and server type
+- Describe what happened and how to reproduce it
 
 ---
 
 ## License
 
-*This project is under the **MIT** license*
+This project is under the MIT license.
 
 ---
 
-## Roadmap
+## Credits
 
-### Phase 1: Core Mechanics (Current)
-- [x] Session system
-- [x] Role assignment
-- [x] Phase management
-- [x] Nametag system
-- [x] Chat holograms
-- [x] Game stop command
-
-### Phase 2: Ability System (Next)
-- [ ] Inventory manager
-- [ ] Paper-based abilities
-- [ ] Spark Vision implementation
-- [ ] Swipe mode system
-
-### Phase 3: Infection & Cure
-- [ ] Infection tracking
-- [ ] Delayed death timer
-- [ ] Medic cure ability
-- [ ] ProtocolLib particles
-
-### Phase 4: Voting System
-- [ ] Voting papers
-- [ ] Vote collection
-- [ ] Tally and elimination
-
-### Phase 5: Polish
-- [ ] Fake names
-- [ ] Ability cooldowns
-- [ ] GUI improvements
-- [ ] Sound effects
-
----
-
-## Contact
-
-**Developer**: OhACD  
-**Version**: 1.0-SNAPSHOT  
-**Minecraft API**: 1.21
+Developer: OhACD  
+Version: 1.0-SNAPSHOT  
+Minecraft API: 1.21
 
 ---
 
 ## Disclaimer
 
-This is an **early development build**. Expect bugs, missing features, and breaking changes. Do not use on production servers without thorough testing.
+This is an early development build. Expect bugs, missing features, and potential breaking changes. Do not use on production servers without thorough testing.
 
 ---
 
-*"In Matchbox, paranoia isn't a bug—it's the core feature."*
+"In Matchbox, paranoia isn't a bug—it's the core feature."
+
+---
+
+## Additional Resources
+
+- Development Documentation: See DEVELOPMENT.md for technical details, architecture, and development plans
+- For Developers: Check DEVELOPMENT.md for code structure, known issues, and contribution guidelines

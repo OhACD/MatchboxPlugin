@@ -1,0 +1,12 @@
+name: Matchbox
+version: '1.0-SNAPSHOT'
+main: com.ohacd.matchbox.Matchbox
+api-version: '1.21'
+authors: [ OhACD ]
+description: A Minecraft Social Minigame
+
+commands:
+  matchbox:
+    description: Main command for Matchbox game
+    usage: /<command> [subcommand] [args]
+    aliases: [mb, mbox]

@@ -1,0 +1,634 @@
+package com.ohacd.matchbox.game.utils;
+
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemFlag;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.Plugin;
+
+import java.util.*;
+
+/**
+ * Manages game inventories for all players.
+ * Sets up identical inventory layouts with role-specific papers and fixed items.
+ * 
+ * Note: Uses deprecated ItemMeta methods (setDisplayName/setLore) which are still
+ * functional in Bukkit 1.21. These warnings can be safely ignored.
+ */
+@SuppressWarnings("deprecation")
+public class InventoryManager {
+    private final Plugin plugin;
+    
+    // Slot constants
+    private static final int ROLE_PAPER_SLOT = 8; // Top rightmost slot in inventory
+    private static final int SWIPE_CURE_PAPER_SLOT = 27; // Above hotbar slot 0
+    private static final int VISION_SIGHT_PAPER_SLOT = 28; // Above hotbar slot 1
+    private static final int CROSSBOW_HOTBAR_SLOT = 7; // Hotbar slot 7 (second from right)
+    private static final int ARROW_HOTBAR_SLOT = 8; // Hotbar slot 8 (rightmost)
+    private static final int VOTING_PAPER_START_SLOT = 0; // First slot for voting papers
+    private static final int VOTING_PAPER_END_SLOT = 6; // Last slot before crossbow (slot 7)
+    
+    // Track players who have used their arrow this round
+    private final Set<UUID> usedArrowThisRound = new HashSet<>();
+    
+    // Track voting papers (player UUID -> voting paper item)
+    private final Map<UUID, ItemStack> votingPapers = new HashMap<>();
+    
+    public InventoryManager(Plugin plugin) {
+        if (plugin == null) {
+            throw new IllegalArgumentException("Plugin cannot be null");
+        }
+        this.plugin = plugin;
+    }
+    
+    /**
+     * Sets up the game inventory for a player based on their role.
+     * All players get identical layouts with role-specific papers.
+     */
+    public void setupPlayerInventory(Player player, Role role) {
+        if (player == null || !player.isOnline()) {
+            plugin.getLogger().warning("Cannot setup inventory for null or offline player");
+            return;
+        }
+        
+        if (role == null) {
+            plugin.getLogger().warning("Cannot setup inventory for player " + player.getName() + " with null role");
+            return;
+        }
+        
+        try {
+            PlayerInventory inv = player.getInventory();
+            if (inv == null) {
+                plugin.getLogger().warning("Player inventory is null for " + player.getName());
+                return;
+            }
+            
+            // Clear inventory first
+            inv.clear();
+            
+            // Set role paper in top rightmost slot (slot 8)
+            ItemStack rolePaper = createRolePaper(role);
+            inv.setItem(ROLE_PAPER_SLOT, rolePaper);
+            
+            // Set ability papers based on role
+            if (role == Role.SPARK) {
+                // Spark: Swipe paper in slot 27, Hunter Vision in slot 28
+                ItemStack swipePaper = createSwipePaper();
+                ItemStack visionPaper = createHunterVisionPaper();
+                inv.setItem(SWIPE_CURE_PAPER_SLOT, swipePaper);
+                inv.setItem(VISION_SIGHT_PAPER_SLOT, visionPaper);
+            } else if (role == Role.MEDIC) {
+                // Medic: Healing Touch in slot 27, Healing Sight in slot 28
+                ItemStack curePaper = createHealingTouchPaper();
+                ItemStack sightPaper = createHealingSightPaper();
+                inv.setItem(SWIPE_CURE_PAPER_SLOT, curePaper);
+                inv.setItem(VISION_SIGHT_PAPER_SLOT, sightPaper);
+            } else {
+                // Innocent: Empty slots (or placeholder papers if needed)
+                // For now, leave empty for innocents
+            }
+            
+            // Set fixed crossbow in hotbar slot 7
+            ItemStack crossbow = createFixedCrossbow();
+            inv.setItem(CROSSBOW_HOTBAR_SLOT, crossbow);
+            
+            // Set fixed arrow in hotbar slot 8 (rightmost)
+            ItemStack arrow = createFixedArrow();
+            inv.setItem(ARROW_HOTBAR_SLOT, arrow);
+            
+            // Update inventory
+            player.updateInventory();
+            
+            plugin.getLogger().info("Set up inventory for " + player.getName() + " (Role: " + role + ")");
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error setting up inventory for " + player.getName() + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Sets up inventories for all players in a collection.
+     */
+    public void setupInventories(Collection<Player> players, Map<UUID, Role> roles) {
+        if (players == null || roles == null) {
+            plugin.getLogger().warning("Cannot setup inventories: players or roles is null");
+            return;
+        }
+        
+        for (Player player : players) {
+            if (player == null || !player.isOnline()) {
+                continue;
+            }
+            Role role = roles.get(player.getUniqueId());
+            if (role != null) {
+                setupPlayerInventory(player, role);
+            }
+        }
+    }
+    
+    /**
+     * Clears game items from player inventory.
+     * Should be called when game ends or player is eliminated.
+     */
+    public void clearGameItems(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        
+        try {
+            PlayerInventory inv = player.getInventory();
+            if (inv == null) {
+                return;
+            }
+            
+            // Remove game items
+            inv.setItem(ROLE_PAPER_SLOT, null);
+            inv.setItem(SWIPE_CURE_PAPER_SLOT, null);
+            inv.setItem(VISION_SIGHT_PAPER_SLOT, null);
+            inv.setItem(CROSSBOW_HOTBAR_SLOT, null);
+            inv.setItem(ARROW_HOTBAR_SLOT, null);
+            
+            player.updateInventory();
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error clearing game items for " + player.getName() + ": " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Resets arrow usage for a new round.
+     */
+    public void resetArrowUsage() {
+        usedArrowThisRound.clear();
+    }
+    
+    /**
+     * Gives voting papers to a player for all alive players.
+     * Papers fill slots 0-6 (before crossbow slot 7).
+     * Each paper corresponds to one alive player.
+     */
+    public void giveVotingPapers(Player voter, Collection<Player> alivePlayers) {
+        if (voter == null || !voter.isOnline()) {
+            plugin.getLogger().warning("Cannot give voting papers to null or offline player");
+            return;
+        }
+        
+        if (alivePlayers == null || alivePlayers.isEmpty()) {
+            plugin.getLogger().warning("Cannot give voting papers: no alive players");
+            return;
+        }
+        
+        try {
+            PlayerInventory inv = voter.getInventory();
+            if (inv == null) {
+                plugin.getLogger().warning("Player inventory is null for " + voter.getName());
+                return;
+            }
+            
+            // Clear voting papers from previous rounds
+            clearVotingPapers(voter);
+            
+            // Filter out the voter themselves and offline players
+            List<Player> voteablePlayers = new ArrayList<>();
+            for (Player player : alivePlayers) {
+                if (player != null && player.isOnline() && !player.getUniqueId().equals(voter.getUniqueId())) {
+                    voteablePlayers.add(player);
+                }
+            }
+            
+            // Limit to max 7 players (slots 0-6)
+            int maxPapers = Math.min(voteablePlayers.size(), 7);
+            
+            // Give voting papers starting from slot 0
+            for (int i = 0; i < maxPapers; i++) {
+                Player target = voteablePlayers.get(i);
+                ItemStack votePaper = createVotingPaper(target);
+                inv.setItem(VOTING_PAPER_START_SLOT + i, votePaper);
+                votingPapers.put(target.getUniqueId(), votePaper);
+            }
+            
+            voter.updateInventory();
+            plugin.getLogger().info("Gave " + maxPapers + " voting papers to " + voter.getName());
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error giving voting papers to " + voter.getName() + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Clears voting papers from a player's inventory.
+     */
+    public void clearVotingPapers(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        
+        try {
+            PlayerInventory inv = player.getInventory();
+            if (inv == null) {
+                return;
+            }
+            
+            // Clear slots 0-6
+            for (int i = VOTING_PAPER_START_SLOT; i <= VOTING_PAPER_END_SLOT; i++) {
+                ItemStack item = inv.getItem(i);
+                if (item != null && item.getType() == Material.PAPER && isVotingPaper(item)) {
+                    inv.setItem(i, null);
+                }
+            }
+            
+            player.updateInventory();
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error clearing voting papers for " + player.getName() + ": " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Clears voting papers from all players.
+     */
+    public void clearAllVotingPapers(Collection<Player> players) {
+        if (players == null) {
+            return;
+        }
+        for (Player player : players) {
+            if (player != null && player.isOnline()) {
+                clearVotingPapers(player);
+            }
+        }
+        votingPapers.clear();
+    }
+    
+    /**
+     * Creates a voting paper for a specific player.
+     */
+    private ItemStack createVotingPaper(Player target) {
+        if (target == null) {
+            return null;
+        }
+        
+        ItemStack paper = new ItemStack(Material.PAPER);
+        ItemMeta meta = paper.getItemMeta();
+        if (meta == null) {
+            return paper;
+        }
+        
+        meta.setDisplayName("§eVote: " + target.getName());
+        List<String> lore = new ArrayList<>();
+        lore.add("§7Right-click this paper to vote");
+        lore.add("§7for " + target.getName());
+        lore.add("§7during voting phase.");
+        
+        meta.setLore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        
+        // Store target UUID in persistent data container for identification
+        paper.setItemMeta(meta);
+        return makeUnmovable(paper);
+    }
+    
+    /**
+     * Checks if an item is a voting paper.
+     */
+    public static boolean isVotingPaper(ItemStack item) {
+        if (item == null || item.getType() != Material.PAPER) {
+            return false;
+        }
+        
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+        
+        String displayName = meta.getDisplayName();
+        if (displayName == null) {
+            return false;
+        }
+        
+        return displayName.startsWith("§eVote: ");
+    }
+    
+    /**
+     * Gets the target player name from a voting paper.
+     */
+    public static String getVotingPaperTarget(ItemStack paper) {
+        if (paper == null || !isVotingPaper(paper)) {
+            return null;
+        }
+        
+        ItemMeta meta = paper.getItemMeta();
+        if (meta == null) {
+            return null;
+        }
+        
+        String displayName = meta.getDisplayName();
+        if (displayName == null || !displayName.startsWith("§eVote: ")) {
+            return null;
+        }
+        
+        // Extract name from "§eVote: PlayerName"
+        return displayName.substring(8); // Remove "§eVote: "
+    }
+    
+    /**
+     * Marks that a player has used their arrow this round.
+     */
+    public void markArrowUsed(UUID playerId) {
+        if (playerId != null) {
+            usedArrowThisRound.add(playerId);
+        }
+    }
+    
+    /**
+     * Checks if a player has used their arrow this round.
+     */
+    public boolean hasUsedArrow(UUID playerId) {
+        if (playerId == null) {
+            return false;
+        }
+        return usedArrowThisRound.contains(playerId);
+    }
+    
+    /**
+     * Gives a new arrow to the player if they haven't used it this round.
+     */
+    public void giveArrowIfNeeded(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        
+        UUID playerId = player.getUniqueId();
+        if (hasUsedArrow(playerId)) {
+            return; // Already used arrow this round
+        }
+        
+        try {
+            PlayerInventory inv = player.getInventory();
+            if (inv == null) {
+                return;
+            }
+            
+            // Check if arrow slot is empty or has no arrows
+            ItemStack currentArrow = inv.getItem(ARROW_HOTBAR_SLOT);
+            if (currentArrow == null || currentArrow.getType() != Material.ARROW || currentArrow.getAmount() == 0) {
+                ItemStack arrow = createFixedArrow();
+                inv.setItem(ARROW_HOTBAR_SLOT, arrow);
+                player.updateInventory();
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error giving arrow to " + player.getName() + ": " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Creates a role paper with role-specific description.
+     */
+    private ItemStack createRolePaper(Role role) {
+        ItemStack paper = new ItemStack(Material.PAPER);
+        ItemMeta meta = paper.getItemMeta();
+        if (meta == null) {
+            return paper;
+        }
+        
+        meta.setDisplayName("§6Your Role");
+        List<String> lore = new ArrayList<>();
+        
+        switch (role) {
+            case SPARK:
+                lore.add("§c§lSPARK");
+                lore.add("§7You are the impostor!");
+                lore.add("§7Infect players to eliminate them.");
+                lore.add("§7Use your abilities to stay hidden.");
+                break;
+            case MEDIC:
+                lore.add("§a§lMEDIC");
+                lore.add("§7You can save infected players!");
+                lore.add("§7Use Healing Touch to cure players.");
+                lore.add("§7Use Healing Sight to see who's infected.");
+                break;
+            case INNOCENT:
+                lore.add("§f§lINNOCENT");
+                lore.add("§7You are a regular player.");
+                lore.add("§7Work with others to find the Spark.");
+                lore.add("§7Use your arrow to reveal nametags.");
+                break;
+        }
+        
+        meta.setLore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        meta.setUnbreakable(true);
+        paper.setItemMeta(meta);
+        return makeUnmovable(paper);
+    }
+    
+    /**
+     * Creates the Swipe ability paper.
+     */
+    private ItemStack createSwipePaper() {
+        ItemStack paper = new ItemStack(Material.PAPER);
+        ItemMeta meta = paper.getItemMeta();
+        if (meta == null) {
+            return paper;
+        }
+        
+        meta.setDisplayName("§cSwipe Ability");
+        List<String> lore = new ArrayList<>();
+        lore.add("§7Right-click to activate.");
+        lore.add("§7Then right-click a player to infect them.");
+        lore.add("§7You have 8 seconds to use it.");
+        lore.add("§7Once per round.");
+        
+        meta.setLore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        paper.setItemMeta(meta);
+        return makeUnmovable(paper);
+    }
+    
+    /**
+     * Creates the Hunter Vision ability paper.
+     */
+    private ItemStack createHunterVisionPaper() {
+        ItemStack paper = new ItemStack(Material.PAPER);
+        ItemMeta meta = paper.getItemMeta();
+        if (meta == null) {
+            return paper;
+        }
+        
+        meta.setDisplayName("§6Hunter Vision");
+        List<String> lore = new ArrayList<>();
+        lore.add("§7Right-click to see all players.");
+        lore.add("§7Lasts for 15 seconds.");
+        lore.add("§7Once per round.");
+        
+        meta.setLore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        paper.setItemMeta(meta);
+        return makeUnmovable(paper);
+    }
+    
+    /**
+     * Creates the Healing Touch (Cure) ability paper.
+     */
+    private ItemStack createHealingTouchPaper() {
+        ItemStack paper = new ItemStack(Material.PAPER);
+        ItemMeta meta = paper.getItemMeta();
+        if (meta == null) {
+            return paper;
+        }
+        
+        meta.setDisplayName("§aHealing Touch");
+        List<String> lore = new ArrayList<>();
+        lore.add("§7Right-click to activate.");
+        lore.add("§7Then right-click an infected player to cure them.");
+        lore.add("§7You have 8 seconds to use it.");
+        lore.add("§7Once per round.");
+        
+        meta.setLore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        paper.setItemMeta(meta);
+        return makeUnmovable(paper);
+    }
+    
+    /**
+     * Creates the Healing Sight ability paper.
+     */
+    private ItemStack createHealingSightPaper() {
+        ItemStack paper = new ItemStack(Material.PAPER);
+        ItemMeta meta = paper.getItemMeta();
+        if (meta == null) {
+            return paper;
+        }
+        
+        meta.setDisplayName("§aHealing Sight");
+        List<String> lore = new ArrayList<>();
+        lore.add("§7Right-click to see infected players.");
+        lore.add("§7Shows red particles on infected players.");
+        lore.add("§7Lasts for 15 seconds.");
+        lore.add("§7Once per round.");
+        
+        meta.setLore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        paper.setItemMeta(meta);
+        return makeUnmovable(paper);
+    }
+    
+    /**
+     * Creates a fixed crossbow that cannot be moved or dropped.
+     */
+    private ItemStack createFixedCrossbow() {
+        ItemStack crossbow = new ItemStack(Material.CROSSBOW);
+        ItemMeta meta = crossbow.getItemMeta();
+        if (meta == null) {
+            return crossbow;
+        }
+        
+        meta.setDisplayName("§7Crossbow");
+        List<String> lore = new ArrayList<>();
+        lore.add("§7Use to shoot arrows.");
+        lore.add("§7Reveals player nametags on hit.");
+        lore.add("§7One arrow per round.");
+        
+        meta.setLore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        meta.setUnbreakable(true);
+        crossbow.setItemMeta(meta);
+        return makeUnmovable(crossbow);
+    }
+    
+    /**
+     * Creates a fixed arrow that cannot be moved or dropped.
+     */
+    private ItemStack createFixedArrow() {
+        ItemStack arrow = new ItemStack(Material.ARROW, 1);
+        ItemMeta meta = arrow.getItemMeta();
+        if (meta == null) {
+            return arrow;
+        }
+        
+        meta.setDisplayName("§7Reveal Arrow");
+        List<String> lore = new ArrayList<>();
+        lore.add("§7Shoot a player to reveal their nametag.");
+        lore.add("§7One use per round.");
+        
+        meta.setLore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        arrow.setItemMeta(meta);
+        return makeUnmovable(arrow);
+    }
+    
+    /**
+     * Makes an item unmovable and undroppable by adding custom NBT or using persistent data.
+     * For now, we'll use a custom NBT tag that we'll check in event handlers.
+     */
+    private ItemStack makeUnmovable(ItemStack item) {
+        if (item == null) {
+            return null;
+        }
+        
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return item;
+        }
+        
+        // Add a persistent data container tag to mark it as game item
+        // This will be checked in event handlers to prevent moving/dropping
+        meta.setUnbreakable(true);
+        item.setItemMeta(meta);
+        return item;
+    }
+    
+    /**
+     * Checks if an item is a game item (should be fixed).
+     */
+    public static boolean isGameItem(ItemStack item) {
+        if (item == null) {
+            return false;
+        }
+        
+        // Voting papers are game items but can be used (right-click)
+        if (isVotingPaper(item)) {
+            return true;
+        }
+        
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+        
+        // Check if it's unbreakable (our marker for game items)
+        // Also check material and lore
+        if (meta.isUnbreakable()) {
+            List<String> lore = meta.getLore();
+            if (lore != null && !lore.isEmpty()) {
+                // Game items have lore
+                return true;
+            }
+        }
+        
+        // Also check by material and slot position in event handlers
+        Material type = item.getType();
+        return type == Material.PAPER || type == Material.CROSSBOW || type == Material.ARROW;
+    }
+    
+    // Getters for slot constants (for use in listeners)
+    public static int getRolePaperSlot() {
+        return ROLE_PAPER_SLOT;
+    }
+    
+    public static int getSwipeCurePaperSlot() {
+        return SWIPE_CURE_PAPER_SLOT;
+    }
+    
+    public static int getVisionSightPaperSlot() {
+        return VISION_SIGHT_PAPER_SLOT;
+    }
+    
+    public static int getCrossbowHotbarSlot() {
+        return CROSSBOW_HOTBAR_SLOT;
+    }
+    
+    public static int getArrowHotbarSlot() {
+        return ARROW_HOTBAR_SLOT;
+    }
+}
+

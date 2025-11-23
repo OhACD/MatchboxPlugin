@@ -12,6 +12,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -22,12 +23,16 @@ import java.util.stream.Collectors;
  * Handles all matchbox commands.
  */
 public class MatchboxCommand implements CommandExecutor, TabCompleter {
-    private final Matchbox plugin;
     private final SessionManager sessionManager;
     private final GameManager gameManager;
 
     public MatchboxCommand(Matchbox plugin, SessionManager sessionManager, GameManager gameManager) {
-        this.plugin = plugin;
+        if (sessionManager == null) {
+            throw new IllegalArgumentException("SessionManager cannot be null");
+        }
+        if (gameManager == null) {
+            throw new IllegalArgumentException("GameManager cannot be null");
+        }
         this.sessionManager = sessionManager;
         this.gameManager = gameManager;
     }
@@ -152,6 +157,13 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         }
 
         GameSession session = sessionManager.getSession(sessionName);
+        if (session == null) {
+            sender.sendMessage("§cSession '" + sessionName + "' doesn't exist.");
+            return true;
+        }
+
+        // Get players list before removing session
+        List<Player> playersInSession = new ArrayList<>(session.getPlayers());
 
         // If game is active, end it first
         if (session.isActive()) {
@@ -171,9 +183,13 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§aSession '" + sessionName + "' has been stopped and removed.");
 
         // Notify all players who were in the session
-        for (Player player : session.getPlayers()) {
-            if (!player.equals(sender)) {
-                player.sendMessage("§cSession '" + sessionName + "' has been stopped by " + sender.getName() + ".");
+        for (Player player : playersInSession) {
+            if (player != null && player.isOnline() && !player.equals(sender)) {
+                try {
+                    player.sendMessage("§cSession '" + sessionName + "' has been stopped by " + sender.getName() + ".");
+                } catch (Exception e) {
+                    // Ignore errors sending messages
+                }
             }
         }
 
@@ -310,12 +326,20 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (player == null || !player.isOnline()) {
+            sender.sendMessage("§cYou must be online to join a session!");
+            return true;
+        }
+
         if (session.hasPlayer(player)) {
             sender.sendMessage("§cYou are already in this session!");
             return true;
         }
 
-        session.addPlayer(player);
+        if (!session.addPlayer(player)) {
+            sender.sendMessage("§cFailed to join session. Please try again.");
+            return true;
+        }
         sender.sendMessage("§aYou joined session '" + sessionName + "'!");
         session.getPlayers().forEach(p -> {
             if (!p.equals(player)) {
@@ -331,12 +355,37 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        Player player = (Player) sender;
+        
+        // Check if player is in an active game
+        if (gameManager.getGameState().isGameActive() && 
+            gameManager.getGameState().getAllParticipatingPlayerIds().contains(player.getUniqueId())) {
+            // Player is in an active game - remove them from the game
+            boolean removed = gameManager.removePlayerFromGame(player);
+            if (removed) {
+                sender.sendMessage("§aYou have been removed from the active game.");
+                
+                // Also remove from session if they're in one
+                String activeSession = gameManager.getGameState().getActiveSessionName();
+                if (activeSession != null) {
+                    GameSession session = sessionManager.getSession(activeSession);
+                    if (session != null && session.hasPlayer(player)) {
+                        session.removePlayer(player);
+                    }
+                }
+            } else {
+                sender.sendMessage("§cFailed to remove you from the game. Please contact an admin.");
+            }
+            return true;
+        }
+        
+        // Player is not in an active game - handle session removal
         if (args.length < 2) {
-            sender.sendMessage("§cUsage: /matchbox leave <name>");
+            sender.sendMessage("§cUsage: /matchbox leave <session-name>");
+            sender.sendMessage("§7Or use /matchbox leave without arguments if you're in an active game.");
             return true;
         }
 
-        Player player = (Player) sender;
         String sessionName = args[1];
 
         GameSession session = sessionManager.getSession(sessionName);
@@ -349,11 +398,19 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("§cYou are not in this session!");
             return true;
         }
+        
+        if (session.isActive()) {
+            sender.sendMessage("§cThis session is currently active. You cannot leave during a game.");
+            sender.sendMessage("§7If you want to leave the active game, use /matchbox leave without arguments.");
+            return true;
+        }
 
         session.removePlayer(player);
         sender.sendMessage("§aYou left session '" + sessionName + "'.");
         session.getPlayers().forEach(p -> {
-            p.sendMessage("§e" + player.getName() + " left the session. (" + session.getPlayerCount() + " players)");
+            if (!p.equals(player)) {
+                p.sendMessage("§e" + player.getName() + " left the session. (" + session.getPlayerCount() + " players)");
+            }
         });
         return true;
     }

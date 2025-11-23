@@ -15,7 +15,13 @@ public class NameTagManager {
      * Hides a player's nametag using a session-specific team.
      */
     public static void hideNameTag(Player player, String sessionName) {
+        if (Bukkit.getScoreboardManager() == null) {
+            return; // Scoreboard manager not available
+        }
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
+        if (board == null) {
+            return; // Scoreboard not available
+        }
         String teamName = "matchbox_" + (sessionName != null ? sessionName : "default");
 
         // Limit team name to 16 characters (Minecraft limit)
@@ -44,7 +50,13 @@ public class NameTagManager {
      * Shows a player's nametag by removing them from all Matchbox teams.
      */
     public static void showNameTag(Player player) {
+        if (Bukkit.getScoreboardManager() == null) {
+            return; // Scoreboard manager not available
+        }
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
+        if (board == null) {
+            return; // Scoreboard not available
+        }
 
         // Remove from all teams that start with "matchbox_"
         for (Team team : board.getTeams()) {
@@ -59,7 +71,13 @@ public class NameTagManager {
      * Should be called on plugin disable or when clearing all games.
      */
     public static void cleanupAllTeams() {
+        if (Bukkit.getScoreboardManager() == null) {
+            return; // Scoreboard manager not available
+        }
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
+        if (board == null) {
+            return; // Scoreboard not available
+        }
 
         // Unregister all Matchbox teams
         for (Team team : board.getTeams()) {
@@ -74,7 +92,13 @@ public class NameTagManager {
      * Emergency cleanup method.
      */
     public static void restoreAllNameTags() {
+        if (Bukkit.getScoreboardManager() == null) {
+            return; // Scoreboard manager not available
+        }
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
+        if (board == null) {
+            return; // Scoreboard not available
+        }
 
         for (Team team : board.getTeams()) {
             if (team.getName().startsWith("matchbox_")) {

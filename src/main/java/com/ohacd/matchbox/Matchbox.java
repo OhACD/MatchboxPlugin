@@ -5,10 +5,12 @@ import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.chat.ChatListener;
 import com.ohacd.matchbox.game.hologram.HologramManager;
 import com.ohacd.matchbox.game.session.SessionManager;
+import com.ohacd.matchbox.game.utils.GameItemProtectionListener;
 import com.ohacd.matchbox.game.utils.HitRevealListener;
 import com.ohacd.matchbox.game.utils.NameTagManager;
 import com.ohacd.matchbox.game.utils.PlayerQuitListener;
 import com.ohacd.matchbox.game.utils.VoteItemListener;
+import com.ohacd.matchbox.game.utils.VotePaperListener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class Matchbox extends JavaPlugin {
@@ -27,10 +29,23 @@ public final class Matchbox extends JavaPlugin {
 
         // Register events
         getServer().getPluginManager().registerEvents(new ChatListener(hologramManager, gameManager), this);
-        getServer().getPluginManager().registerEvents(new HitRevealListener(gameManager, hologramManager), this);
-        getServer().getPluginManager().registerEvents(new VoteItemListener(), this);
+        getServer().getPluginManager().registerEvents(new HitRevealListener(gameManager, hologramManager, gameManager.getInventoryManager()), this);
+        getServer().getPluginManager().registerEvents(new GameItemProtectionListener(), this);
+        // Register swipe ability listeners
+        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.SwipeActivationListener(gameManager, this), this);
+        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.SwipeHitListener(gameManager), this);
+        // Register spark vision listener
+        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.SparkVisionListener(gameManager), this);
+        // Register medic ability listeners
+        // Healing Touch (Cure) - slot 9
+        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.MedicAbilityListener(gameManager, this), this);
+        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.MedicHitListener(gameManager), this);
+        // Healing Sight - slot 8
+        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.MedicSightListener(gameManager), this);
+        // Voting listeners
+        getServer().getPluginManager().registerEvents(new VoteItemListener(gameManager), this);
+        getServer().getPluginManager().registerEvents(new VotePaperListener(gameManager), this);
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(gameManager), this);
-
         // Register command
         MatchboxCommand commandHandler = new MatchboxCommand(this, sessionManager, gameManager);
         getCommand("matchbox").setExecutor(commandHandler);
@@ -42,6 +57,14 @@ public final class Matchbox extends JavaPlugin {
     @Override
     public void onDisable() {
         // Plugin shutdown logic
+        getLogger().info("Disabling Matchbox plugin...");
+        
+        // End any active game first (this cancels all tasks)
+        if (gameManager != null) {
+            gameManager.endGame();
+        }
+        
+        // Clear all holograms
         if (hologramManager != null) {
             hologramManager.clearAll();
         }

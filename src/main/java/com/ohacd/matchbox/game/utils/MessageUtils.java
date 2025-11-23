@@ -10,7 +10,9 @@ import java.util.Collection;
 
 /**
  * Utility class for sending messages to players and broadcasting.
+ * Uses deprecated methods as fallbacks for compatibility.
  */
+@SuppressWarnings("deprecation")
 public class MessageUtils {
     private final Plugin plugin;
 

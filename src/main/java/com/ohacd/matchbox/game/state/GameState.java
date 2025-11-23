@@ -13,6 +13,14 @@ public class GameState {
     private final Set<UUID> alivePlayers = new HashSet<>();
     private final Set<UUID> swipedThisRound = new HashSet<>();
     private final Set<UUID> curedThisRound = new HashSet<>();
+    private final Set<UUID> usedHealingSightThisRound = new HashSet<>();
+    private final Set<UUID> usedHunterVisionThisRound = new HashSet<>();
+
+    // NEW: track infected (swiped successfully) this round (before pending death application)
+    private final Set<UUID> infectedThisRound = new HashSet<>();
+
+    // NEW: pending death times (epoch millis when the pending elimination should be applied)
+    private final Map<UUID, Long> pendingDeathTime = new HashMap<>();
 
     // Track ALL players who started the round (for nametag restoration)
     private final Set<UUID> allParticipatingPlayers = new HashSet<>();
@@ -32,19 +40,27 @@ public class GameState {
         alivePlayers.clear();
         swipedThisRound.clear();
         curedThisRound.clear();
+        infectedThisRound.clear();
+        usedHealingSightThisRound.clear();
+        usedHunterVisionThisRound.clear();
+        pendingDeathTime.clear();
         allParticipatingPlayers.clear();
         activeSessionName = null;
         currentRound = 0;
     }
 
     /**
-     * Clears only per-round state (swipes, cures).
+     * Clears only per-round state (swipes, cures, infections).
      * Keeps player list, roles, and session intact.
      * This should be called at the start of each new round.
      */
     public void clearRoundState() {
         swipedThisRound.clear();
         curedThisRound.clear();
+        infectedThisRound.clear();
+        usedHealingSightThisRound.clear();
+        usedHunterVisionThisRound.clear();
+        // Note: do NOT clear pendingDeathTime here — pending deaths may span rounds.
     }
 
     /**
@@ -65,17 +81,27 @@ public class GameState {
      * Adds a player to the alive players set.
      */
     public void addAlivePlayer(Player player) {
+        if (player == null) {
+            return;
+        }
         UUID uuid = player.getUniqueId();
-        alivePlayers.add(uuid);
-        allParticipatingPlayers.add(uuid);
+        if (uuid != null) {
+            alivePlayers.add(uuid);
+            allParticipatingPlayers.add(uuid);
+        }
     }
 
     /**
      * Adds multiple players to the alive players set.
      */
     public void addAlivePlayers(Collection<Player> players) {
+        if (players == null) {
+            return;
+        }
         for (Player player : players) {
-            addAlivePlayer(player);
+            if (player != null) {
+                addAlivePlayer(player);
+            }
         }
     }
 
@@ -84,13 +110,24 @@ public class GameState {
      * Note: This does NOT remove them from allParticipatingPlayers.
      */
     public void removeAlivePlayer(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
         alivePlayers.remove(playerId);
+        // If they had pending death or infected flags, keep pending handling separate.
+        infectedThisRound.remove(playerId);
+        pendingDeathTime.remove(playerId);
+        swipedThisRound.remove(playerId);
+        curedThisRound.remove(playerId);
     }
 
     /**
      * Checks if a player is alive.
      */
     public boolean isAlive(UUID playerId) {
+        if (playerId == null) {
+            return false;
+        }
         return alivePlayers.contains(playerId);
     }
 
@@ -105,6 +142,9 @@ public class GameState {
      * Sets the role of a player.
      */
     public void setRole(UUID playerId, Role role) {
+        if (playerId == null || role == null) {
+            return;
+        }
         roles.put(playerId, role);
     }
 
@@ -112,7 +152,7 @@ public class GameState {
      * Gets all alive player UUIDs.
      */
     public Set<UUID> getAlivePlayerIds() {
-        return new HashSet<>(alivePlayers);
+        return new HashSet<>(alivePlayers); // Defensive copy
     }
 
     /**
@@ -148,6 +188,98 @@ public class GameState {
      */
     public boolean hasCuredThisRound(UUID playerId) {
         return curedThisRound.contains(playerId);
+    }
+
+    /**
+     * Marks that a player was infected (swiped successfully) this round.
+     */
+    public void markInfected(UUID playerId) {
+        infectedThisRound.add(playerId);
+    }
+
+    /**
+     * Checks if a player was infected this round.
+     */
+    public boolean wasInfectedThisRound(UUID playerId) {
+        return infectedThisRound.contains(playerId);
+    }
+
+    /**
+     * Clears infected flags for the round.
+     */
+    public void clearInfectedThisRound() {
+        infectedThisRound.clear();
+    }
+
+    /**
+     * Marks that a player has used healing sight this round.
+     */
+    public void markUsedHealingSight(UUID playerId) {
+        usedHealingSightThisRound.add(playerId);
+    }
+
+    /**
+     * Checks if a player has used healing sight this round.
+     */
+    public boolean hasUsedHealingSightThisRound(UUID playerId) {
+        return usedHealingSightThisRound.contains(playerId);
+    }
+
+    /**
+     * Marks that a player has used hunter vision this round.
+     */
+    public void markUsedHunterVision(UUID playerId) {
+        usedHunterVisionThisRound.add(playerId);
+    }
+
+    /**
+     * Checks if a player has used hunter vision this round.
+     */
+    public boolean hasUsedHunterVisionThisRound(UUID playerId) {
+        return usedHunterVisionThisRound.contains(playerId);
+    }
+
+    /**
+     * Schedules a pending death for a player at the given epoch millis.
+     * Use removePendingDeath to cancel (e.g. cured).
+     */
+    public void setPendingDeath(UUID playerId, long epochMillis) {
+        pendingDeathTime.put(playerId, epochMillis);
+    }
+
+    /**
+     * Removes pending death for a player (e.g. cured).
+     */
+    public void removePendingDeath(UUID playerId) {
+        pendingDeathTime.remove(playerId);
+    }
+
+    /**
+     * Checks if a player currently has a pending death scheduled.
+     */
+    public boolean hasPendingDeath(UUID playerId) {
+        return pendingDeathTime.containsKey(playerId);
+    }
+
+    /**
+     * Gets the scheduled pending death time for a player (epoch millis), or null if none.
+     */
+    public Long getPendingDeathTime(UUID playerId) {
+        return pendingDeathTime.get(playerId);
+    }
+
+    /**
+     * Returns a snapshot of player UUIDs whose pending death time is <= provided epoch millis.
+     * Useful for processing due pending deaths.
+     */
+    public Set<UUID> getPendingDeathsDueAt(long epochMillis) {
+        Set<UUID> due = new HashSet<>();
+        for (Map.Entry<UUID, Long> e : pendingDeathTime.entrySet()) {
+            if (e.getValue() <= epochMillis) {
+                due.add(e.getKey());
+            }
+        }
+        return due;
     }
 
     /**
@@ -203,8 +335,15 @@ public class GameState {
      * Returns true if state is valid, false otherwise.
      */
     public boolean validateState() {
+        if (alivePlayers == null || allParticipatingPlayers == null || roles == null) {
+            return false; // Null collections indicate corruption
+        }
+        
         // All alive players must be in participating players
         for (UUID alivePlayer : alivePlayers) {
+            if (alivePlayer == null) {
+                return false; // Null UUIDs indicate corruption
+            }
             if (!allParticipatingPlayers.contains(alivePlayer)) {
                 return false;
             }
@@ -212,6 +351,9 @@ public class GameState {
 
         // All players with roles must be in participating players
         for (UUID playerWithRole : roles.keySet()) {
+            if (playerWithRole == null) {
+                return false; // Null UUIDs indicate corruption
+            }
             if (!allParticipatingPlayers.contains(playerWithRole)) {
                 return false;
             }
@@ -230,14 +372,16 @@ public class GameState {
      */
     public String getDebugInfo() {
         return String.format(
-                "GameState[Round=%d, Session=%s, Participating=%d, Alive=%d, Roles=%d, Swiped=%d, Cured=%d]",
+                "GameState[Round=%d, Session=%s, Participating=%d, Alive=%d, Roles=%d, Swiped=%d, Cured=%d, Infected=%d, Pending=%d]",
                 currentRound,
                 activeSessionName != null ? activeSessionName : "none",
                 allParticipatingPlayers.size(),
                 alivePlayers.size(),
                 roles.size(),
                 swipedThisRound.size(),
-                curedThisRound.size()
+                curedThisRound.size(),
+                infectedThisRound.size(),
+                pendingDeathTime.size()
         );
     }
 }

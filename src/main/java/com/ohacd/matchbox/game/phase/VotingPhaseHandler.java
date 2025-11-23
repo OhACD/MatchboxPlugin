@@ -13,54 +13,65 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
- * Handles the swipe phase logic including timer and countdown.
+ * Handles the voting phase logic including timer and countdown.
  */
-public class SwipePhaseHandler {
+public class VotingPhaseHandler {
     private final Plugin plugin;
     private final MessageUtils messageUtils;
-    private BukkitRunnable swipeTask = null;
-    private final int DEFAULT_SWIPE_SECONDS = 60 * 2; // 2 minutes
+    private BukkitRunnable votingTask = null;
+    private final int DEFAULT_VOTING_SECONDS = 30; // 30 seconds for voting
     private Collection<UUID> currentPlayerIds = null;
 
-    public SwipePhaseHandler(Plugin plugin, MessageUtils messageUtils) {
+    public VotingPhaseHandler(Plugin plugin, MessageUtils messageUtils) {
         this.plugin = plugin;
         this.messageUtils = messageUtils;
     }
 
     /**
-     * Starts the swipe phase with a countdown timer.
+     * Starts the voting phase with a countdown timer.
      */
-    public void startSwipePhase(int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
+    public void startVotingPhase(int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
         if (seconds <= 0) {
-            plugin.getLogger().warning("Invalid swipe phase duration: " + seconds);
+            plugin.getLogger().warning("Invalid voting phase duration: " + seconds);
             return;
         }
         if (alivePlayerIds == null || alivePlayerIds.isEmpty()) {
-            plugin.getLogger().warning("Cannot start swipe phase with no players");
+            plugin.getLogger().warning("Cannot start voting phase with no players");
             return;
         }
         if (onPhaseEnd == null) {
-            plugin.getLogger().warning("Cannot start swipe phase with null callback");
+            plugin.getLogger().warning("Cannot start voting phase with null callback");
             return;
         }
         
-        cancelSwipeTask();
+        cancelVotingTask();
 
         this.currentPlayerIds = alivePlayerIds;
 
-        plugin.getLogger().info("Starting swipe phase for " + alivePlayerIds.size() + " players (" + seconds + "s)");
-        messageUtils.sendPlainMessage("§6Swipe phase started! You have " + seconds + " seconds to swipe.");
+        plugin.getLogger().info("Starting voting phase for " + alivePlayerIds.size() + " players (" + seconds + "s)");
+        messageUtils.sendPlainMessage("§c§lVOTING PHASE! Vote for who you think is the Spark!");
+
+        // Show title to all alive players at the start
+        Collection<Player> alivePlayers = getAlivePlayerObjects(alivePlayerIds);
+        messageUtils.sendTitle(
+                alivePlayers,
+                "§c§lVOTING",
+                "§7Right-click a player to vote!",
+                10, // fadeIn (0.5s)
+                40, // stay (2s)
+                10  // fadeOut (0.5s)
+        );
 
         AtomicInteger remaining = new AtomicInteger(seconds);
 
-        swipeTask = new BukkitRunnable() {
+        votingTask = new BukkitRunnable() {
             @Override
             public void run() {
                 int secs = remaining.getAndDecrement();
                 if (secs <= 0) {
                     cancel();
-                    swipeTask = null;
-                    plugin.getLogger().info("Swipe phase ended naturally");
+                    votingTask = null;
+                    plugin.getLogger().info("Voting phase ended naturally");
                     clearActionBars(); // Clear action bars before ending
                     onPhaseEnd.run();
                     return;
@@ -71,7 +82,7 @@ public class SwipePhaseHandler {
                     for (Player player : alivePlayers) {
                         if (player != null && player.isOnline()) {
                             try {
-                                messageUtils.sendActionBar(player, "§6Swipe: " + secs + "s");
+                                messageUtils.sendActionBar(player, "§cVoting: " + secs + "s");
                             } catch (Exception e) {
                                 // Ignore individual player errors
                             }
@@ -79,32 +90,32 @@ public class SwipePhaseHandler {
                     }
                 }
                 // Broadcast at specific times
-                if (secs == 60 || secs == 30 || secs == 10 || secs == 5 || secs <= 3) {
-                    messageUtils.sendPlainMessage("§eSwipe phase ends in " + secs + " seconds!");
+                if (secs == 20 || secs == 10 || secs == 5 || secs <= 3) {
+                    messageUtils.sendPlainMessage("§eVoting ends in " + secs + " seconds!");
                 }
             }
         };
-        swipeTask.runTaskTimer(plugin, 0L, 20L);
+        votingTask.runTaskTimer(plugin, 0L, 20L);
     }
 
     /**
-     * Starts the swipe phase with default duration.
+     * Starts the voting phase with default duration.
      */
-    public void startSwipePhase(Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
-        startSwipePhase(DEFAULT_SWIPE_SECONDS, alivePlayerIds, onPhaseEnd);
+    public void startVotingPhase(Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
+        startVotingPhase(DEFAULT_VOTING_SECONDS, alivePlayerIds, onPhaseEnd);
     }
 
     /**
-     * Cancels the current swipe phase task.
+     * Cancels the current voting phase task.
      */
-    public void cancelSwipeTask() {
-        if (swipeTask != null) {
+    public void cancelVotingTask() {
+        if (votingTask != null) {
             try {
-                plugin.getLogger().info("Cancelling swipe phase task");
-                swipeTask.cancel();
+                plugin.getLogger().info("Cancelling voting phase task");
+                votingTask.cancel();
                 clearActionBars();
             } catch (IllegalStateException ignored) {}
-            swipeTask = null;
+            votingTask = null;
         }
     }
 
@@ -113,26 +124,17 @@ public class SwipePhaseHandler {
      */
     private void clearActionBars() {
         if (currentPlayerIds != null) {
-            Collection<Player> players = getAlivePlayerObjects(currentPlayerIds);
-            if (players != null) {
-                for (Player player : players) {
-                    if (player != null && player.isOnline()) {
-                        try {
-                            messageUtils.sendActionBar(player, "");
-                        } catch (Exception e) {
-                            // Ignore individual player errors
-                        }
-                    }
-                }
+            for (Player player : getAlivePlayerObjects(currentPlayerIds)) {
+                messageUtils.sendActionBar(player, "");
             }
         }
     }
 
     /**
-     * Checks if swipe phase is currently active.
+     * Checks if voting phase is currently active.
      */
     public boolean isActive() {
-        return swipeTask != null;
+        return votingTask != null;
     }
 
     public Collection<Player> getAlivePlayerObjects(Collection<UUID> playerIds) {
@@ -142,3 +144,4 @@ public class SwipePhaseHandler {
                 .collect(Collectors.toList());
     }
 }
+

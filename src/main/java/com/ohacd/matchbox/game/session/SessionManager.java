@@ -12,18 +12,29 @@ public class SessionManager {
      * Creates a new game session.
      */
     public GameSession createSession(String name) {
-        if (sessions.containsKey(name.toLowerCase())) {
+        if (name == null || name.trim().isEmpty()) {
+            return null;
+        }
+        String key = name.toLowerCase();
+        if (sessions.containsKey(key)) {
             return null; // Session already exists
         }
-        GameSession session = new GameSession(name);
-        sessions.put(name.toLowerCase(), session);
-        return session;
+        try {
+            GameSession session = new GameSession(name);
+            sessions.put(key, session);
+            return session;
+        } catch (IllegalArgumentException e) {
+            return null; // Invalid session name
+        }
     }
 
     /**
      * Gets a session by name (case-insensitive).
      */
     public GameSession getSession(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return null;
+        }
         return sessions.get(name.toLowerCase());
     }
 
@@ -31,6 +42,9 @@ public class SessionManager {
      * Removes a session.
      */
     public boolean removeSession(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return false;
+        }
         return sessions.remove(name.toLowerCase()) != null;
     }
 
@@ -45,6 +59,9 @@ public class SessionManager {
      * Checks if a session exists.
      */
     public boolean sessionExists(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return false;
+        }
         return sessions.containsKey(name.toLowerCase());
     }
 
