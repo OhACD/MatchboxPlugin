@@ -19,7 +19,7 @@ public class SwipePhaseHandler {
     private final Plugin plugin;
     private final MessageUtils messageUtils;
     private BukkitRunnable swipeTask = null;
-    private final int DEFAULT_SWIPE_SECONDS = 60 * 2; // 2 minutes
+    private final int DEFAULT_SWIPE_SECONDS = 60 * 3; // 3 minutes
     private Collection<UUID> currentPlayerIds = null;
 
     public SwipePhaseHandler(Plugin plugin, MessageUtils messageUtils) {
@@ -79,7 +79,7 @@ public class SwipePhaseHandler {
                     }
                 }
                 // Broadcast at specific times
-                if (secs == 60 || secs == 30 || secs == 10 || secs == 5 || secs <= 3) {
+                if (secs == 120 || secs == 60 || secs == 30 || secs == 10 || secs == 5 || secs <= 3) {
                     messageUtils.sendPlainMessage("§eSwipe phase ends in " + secs + " seconds!");
                 }
             }

@@ -19,7 +19,7 @@ public class VotingPhaseHandler {
     private final Plugin plugin;
     private final MessageUtils messageUtils;
     private BukkitRunnable votingTask = null;
-    private final int DEFAULT_VOTING_SECONDS = 30; // 30 seconds for voting
+    private final int DEFAULT_VOTING_SECONDS = 15; // 15 seconds for voting
     private Collection<UUID> currentPlayerIds = null;
 
     public VotingPhaseHandler(Plugin plugin, MessageUtils messageUtils) {
@@ -90,7 +90,7 @@ public class VotingPhaseHandler {
                     }
                 }
                 // Broadcast at specific times
-                if (secs == 20 || secs == 10 || secs == 5 || secs <= 3) {
+                if (secs == 10 || secs == 5 || secs <= 3) {
                     messageUtils.sendPlainMessage("§eVoting ends in " + secs + " seconds!");
                 }
             }

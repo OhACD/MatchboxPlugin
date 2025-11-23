@@ -115,4 +115,87 @@ public class ParticleUtils {
             }
         }
     }
+    
+    /**
+     * Shows colored particles on a target player visible to ALL nearby players for a brief moment.
+     * Used for subtle visual cues (infection, cure) that everyone can see.
+     * 
+     * @param target The player to show particles on
+     * @param color The color (RGB)
+     * @param durationTicks How long to show particles (in ticks, typically 5-10 for split second)
+     * @param plugin Plugin instance for scheduling
+     */
+    public static void showColoredParticlesToEveryone(Player target, org.bukkit.Color color, int durationTicks, Plugin plugin) {
+        if (target == null || !target.isOnline() || target.getWorld() == null) {
+            return;
+        }
+        
+        // Determine particle type
+        Particle particleType;
+        boolean useDustOptions = false;
+        try {
+            particleType = Particle.valueOf("DUST");
+            useDustOptions = true;
+        } catch (IllegalArgumentException e) {
+            try {
+                particleType = Particle.valueOf("REDSTONE");
+                useDustOptions = true;
+            } catch (IllegalArgumentException e2) {
+                particleType = Particle.HEART; // Fallback - visible but subtle
+                useDustOptions = false;
+            }
+        }
+        
+        final Particle particle = particleType;
+        final boolean useDust = useDustOptions;
+        final org.bukkit.Color finalColor = color;
+        
+        // Show particles for a very brief moment (subtle cue)
+        // Use small radius and few particles to make it hard to see but not impossible
+        new BukkitRunnable() {
+            int ticks = 0;
+            
+            @Override
+            public void run() {
+                if (ticks >= durationTicks || !target.isOnline() || target.getWorld() == null) {
+                    cancel();
+                    return;
+                }
+                
+                Location loc = target.getLocation();
+                
+                // Show subtle particles - small radius, few particles, at player's body level
+                // Make it hard to see but not impossible
+                int particleCount = 3; // Very few particles for subtlety
+                double radius = 0.3; // Small radius
+                
+                for (int i = 0; i < particleCount; i++) {
+                    double angle = (2 * Math.PI * i) / particleCount;
+                    double x = loc.getX() + Math.cos(angle) * radius;
+                    double y = loc.getY() + 0.5; // At player's body level
+                    double z = loc.getZ() + Math.sin(angle) * radius;
+                    
+                    Location particleLoc = new Location(loc.getWorld(), x, y, z);
+                    
+                    // Spawn particle visible to everyone in the world
+                    try {
+                        if (useDust) {
+                            org.bukkit.Particle.DustOptions dustOptions = new org.bukkit.Particle.DustOptions(
+                                finalColor,
+                                0.5f // Small size for subtlety
+                            );
+                            target.getWorld().spawnParticle(particle, particleLoc, 1, 0, 0, 0, 0, dustOptions);
+                        } else {
+                            target.getWorld().spawnParticle(particle, particleLoc, 1);
+                        }
+                    } catch (Exception e) {
+                        // Fallback
+                        target.getWorld().spawnParticle(particle, particleLoc, 1);
+                    }
+                }
+                
+                ticks++;
+            }
+        }.runTaskTimer(plugin, 0L, 1L); // Run every tick for brief duration
+    }
 }

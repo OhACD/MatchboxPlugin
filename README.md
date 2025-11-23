@@ -51,7 +51,7 @@ Matchbox is a social deduction game where 7 players work together to identify an
 
 #### Game Phases
 
-**1. Swipe Phase (2 minutes)**
+**1. Swipe Phase (3 minutes)**
 - Explore the map and interact with other players
 - All players receive identical inventories automatically
 - Spark: Right-click the Swipe paper (above hotbar slot 0) to activate, then right-click a player to infect
@@ -60,13 +60,13 @@ Matchbox is a social deduction game where 7 players work together to identify an
 - Use your crossbow and arrow to reveal a player's nametag (one arrow per round)
 - Chat appears as holograms above players' heads (no chat log)
 
-**2. Discussion Phase (1 minute)**
+**2. Discussion Phase (30 seconds)**
 - All players are teleported to the discussion area
 - Infected players who weren't cured will die
 - Chat normally to discuss who you think the Spark is
 - Share information and observations
 
-**3. Voting Phase (30 seconds)**
+**3. Voting Phase (15 seconds)**
 - Right-click on players to vote for who you think is the Spark
 - The player with the most votes is eliminated
 - Ties are resolved randomly
@@ -196,37 +196,56 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 - Hologram Chat: Chat appears as holograms during swipe phase (no chat log)
 - Visual Effects: All effects are recording-safe and don't reveal roles
 
-### Current Features (v1.0-SNAPSHOT)
+### Current Features (v0.8-beta)
 
-Fully Implemented:
-- Session management system
-- Role assignment (Spark, Medic, Innocent)
-- Automatic inventory system with identical layouts for all players
-- Role paper in top rightmost slot (shows your role and description)
-- Ability papers automatically placed (Swipe/Cure above hotbar slot 0, Vision/Sight above hotbar slot 1)
-- Fixed crossbow and arrow in hotbar (unmovable, one arrow per round)
-- Nametag hiding during gameplay
-- Hologram-based chat bubbles during swipe phase
-- Normal chat during discussion and voting phases
-- Swipe phase with 2-minute timer
-- Discussion phase with teleportation (1 minute)
-- Voting phase with right-click voting (30 seconds)
-- Paper-based ability system (right-click to activate)
-- Spark Swipe ability (infect players via paper, delinked from arrows)
-- Spark Hunter Vision (see all players once per round)
-- Medic Healing Touch (cure infected players)
-- Medic Healing Sight (see infected players once per round)
-- Arrow system for nametag revelation (one per round, separate from swipe)
-- Infection system with delayed death
-- Win condition detection
-- Player elimination and spectator mode
-- Player state backup and restore
-- Comprehensive defensive programming and error handling
+**Status: Beta Testing Stage** - All core features are implemented and tested. Ready for beta testing!
 
-### Coming Soon
-- Configurable Settings: Customize phase durations and game settings via config.yml
-- Enhanced Spectator Mode: Teleport eliminated players to spectator area
-- ProtocolLib Integration: True single-player glow visibility for Hunter Vision
+**Fully Implemented:**
+- ✅ Session management system (create, join, leave, start, stop)
+- ✅ Role assignment (Spark, Medic, Innocent) with proper distribution
+- ✅ Automatic inventory system with identical layouts for all players
+- ✅ Role paper in top rightmost slot (shows your role and description)
+- ✅ Ability papers automatically placed (Swipe/Cure above hotbar slot 0, Vision/Sight above hotbar slot 1)
+- ✅ Fixed crossbow and arrow in hotbar (unmovable, one arrow per round)
+- ✅ Nametag hiding during gameplay (properly restored after game)
+- ✅ Hologram-based chat bubbles during swipe phase (no chat log)
+- ✅ Normal chat during discussion and voting phases
+- ✅ Swipe phase with 3-minute timer (configurable in code)
+- ✅ Discussion phase with teleportation (30 seconds, configurable)
+- ✅ Voting phase with right-click voting (15 seconds, configurable)
+- ✅ Paper-based ability system (right-click to activate)
+- ✅ Spark Swipe ability (infect players via paper, 8-second activation window)
+- ✅ Spark Hunter Vision (particles on all players, 15 seconds, once per round, no nametag visibility)
+- ✅ Medic Healing Touch (cure infected players, 8-second activation window)
+- ✅ Medic Healing Sight (see infected players via particles, 15 seconds, once per round)
+- ✅ Arrow system for nametag revelation (one per round, separate from swipe)
+- ✅ Infection system with delayed death (applied at discussion start)
+- ✅ Win condition detection (Spark wins, Innocents win)
+- ✅ Player elimination and spectator mode
+- ✅ Player state backup and restore (inventory, location, health, etc.)
+- ✅ Session cleanup on game end (prevents new rounds after game ends)
+- ✅ Comprehensive defensive programming and error handling
+- ✅ Edge case handling (offline players, 1-2 player games, etc.)
+
+**Recent Bug Fixes (Beta):**
+- ✅ Fixed: Hunter Vision no longer affects nametag visibility (only shows particles)
+- ✅ Fixed: Nametags properly restored after Hunter Vision ability expires
+- ✅ Fixed: Sessions properly marked inactive when games end naturally
+- ✅ Fixed: New rounds no longer start automatically after game ends
+
+### Planned for Full Release (v1.0)
+
+**Required:**
+- ⏳ **Configurable Settings**: Customize phase durations and game settings via config.yml
+  - Allow server admins to adjust swipe phase (default: 180s), discussion phase (default: 30s), and voting phase (default: 15s) durations
+
+**Recommended:**
+- ⏳ **Enhanced Spectator Mode**: Teleport eliminated players to spectator area
+  - Add `/matchbox setspectator <session>` command
+  - Automatically teleport eliminated players away from active game
+
+**Optional (Post-v1.0):**
+- ⏳ ProtocolLib Integration: True single-player glow visibility for Hunter Vision (current particle system works perfectly)
 
 ---
 
@@ -255,11 +274,11 @@ Fully Implemented:
 
 ---
 
-## Known Limitations
+## Known Limitations (Beta)
 
-- Hunter Vision: Uses a particle workaround for single-player visibility (ProtocolLib integration would enable true single-player glow)
-- Spectator Mode: Eliminated players enter spectator mode but aren't teleported to a spectator area yet
-- Configuration: Phase durations are hardcoded (config.yml support coming)
+- **Configuration**: Phase durations are hardcoded (180s swipe, 30s discussion, 15s voting). Config.yml support planned for v1.0
+- **Spectator Teleport**: Eliminated players enter spectator mode but aren't teleported to a spectator area yet (planned for v1.0)
+- **Hunter Vision**: Uses particles for visibility (works perfectly, but ProtocolLib integration would enable true single-player glow effect - optional enhancement)
 
 ---
 
@@ -281,14 +300,22 @@ This project is under the MIT license.
 ## Credits
 
 Developer: OhACD  
-Version: 1.0-SNAPSHOT  
+Version: 0.8-beta  
 Minecraft API: 1.21
 
 ---
 
-## Disclaimer
+## Beta Testing
 
-This is an early development build. Expect bugs, missing features, and potential breaking changes. Do not use on production servers without thorough testing.
+**Current Status: Beta Testing Stage**
+
+The plugin is feature-complete and ready for beta testing! All core game mechanics are implemented and working. We're looking for feedback on:
+- Game balance and timing
+- User experience and clarity
+- Edge cases and bugs
+- Feature requests
+
+Please report any issues or suggestions!
 
 ---
 
