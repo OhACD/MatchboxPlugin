@@ -13,6 +13,12 @@ import com.ohacd.matchbox.game.utils.VoteItemListener;
 import com.ohacd.matchbox.game.utils.VotePaperListener;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Set;
+
+/**
+ * Main plugin class for Matchbox - a social deduction game for Minecraft.
+ * Supports parallel game sessions with up to 7 players each.
+ */
 public final class Matchbox extends JavaPlugin {
     private static Matchbox instance;
     private HologramManager hologramManager;
@@ -21,32 +27,30 @@ public final class Matchbox extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // Plugin startup logic
         instance = this;
         this.hologramManager = new HologramManager(this);
         this.gameManager = new GameManager(this, hologramManager);
         this.sessionManager = new SessionManager();
 
-        // Register events
+        // Register event listeners
         getServer().getPluginManager().registerEvents(new ChatListener(hologramManager, gameManager), this);
         getServer().getPluginManager().registerEvents(new HitRevealListener(gameManager, hologramManager, gameManager.getInventoryManager()), this);
         getServer().getPluginManager().registerEvents(new GameItemProtectionListener(), this);
-        // Register swipe ability listeners
+        
+        // Register ability listeners
         getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.SwipeActivationListener(gameManager, this), this);
         getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.SwipeHitListener(gameManager), this);
-        // Register spark vision listener
         getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.SparkVisionListener(gameManager), this);
-        // Register medic ability listeners
-        // Healing Touch (Cure) - slot 9
         getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.MedicAbilityListener(gameManager, this), this);
         getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.MedicHitListener(gameManager), this);
-        // Healing Sight - slot 8
         getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.MedicSightListener(gameManager), this);
-        // Voting listeners
+        
+        // Register voting listeners
         getServer().getPluginManager().registerEvents(new VoteItemListener(gameManager), this);
         getServer().getPluginManager().registerEvents(new VotePaperListener(gameManager), this);
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(gameManager), this);
-        // Register command
+        
+        // Register command handler
         MatchboxCommand commandHandler = new MatchboxCommand(this, sessionManager, gameManager);
         getCommand("matchbox").setExecutor(commandHandler);
         getCommand("matchbox").setTabCompleter(commandHandler);
@@ -56,20 +60,32 @@ public final class Matchbox extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
         getLogger().info("Disabling Matchbox plugin...");
         
-        // End any active game first (this cancels all tasks)
+        // End all active games first (this cancels all tasks)
         if (gameManager != null) {
-            gameManager.endGame();
+            try {
+                Set<String> activeSessions = gameManager.getActiveSessionNames();
+                getLogger().info("Ending " + activeSessions.size() + " active game session(s)...");
+                for (String sessionName : activeSessions) {
+                    try {
+                        gameManager.endGame(sessionName);
+                    } catch (Exception e) {
+                        getLogger().warning("Error ending session " + sessionName + ": " + e.getMessage());
+                    }
+                }
+                
+                gameManager.emergencyCleanup();
+            } catch (Exception e) {
+                getLogger().severe("Error during plugin shutdown cleanup: " + e.getMessage());
+                e.printStackTrace();
+            }
         }
         
-        // Clear all holograms
         if (hologramManager != null) {
             hologramManager.clearAll();
         }
 
-        // Restore all nametags before shutdown
         getLogger().info("Restoring all nametags...");
         NameTagManager.restoreAllNameTags();
 

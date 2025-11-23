@@ -1,5 +1,5 @@
 name: Matchbox
-version: '0.8-beta'
+version: '0.8.6-beta'
 main: com.ohacd.matchbox.Matchbox
 api-version: '1.21'
 authors: [ OhACD ]

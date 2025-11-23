@@ -7,20 +7,23 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
  * Handles the voting phase logic including timer and countdown.
+ * Supports multiple parallel sessions.
  */
 public class VotingPhaseHandler {
     private final Plugin plugin;
     private final MessageUtils messageUtils;
-    private BukkitRunnable votingTask = null;
+    private final Map<String, BukkitRunnable> votingTasks = new ConcurrentHashMap<>();
+    private final Map<String, Collection<UUID>> currentPlayerIds = new ConcurrentHashMap<>();
     private final int DEFAULT_VOTING_SECONDS = 15; // 15 seconds for voting
-    private Collection<UUID> currentPlayerIds = null;
 
     public VotingPhaseHandler(Plugin plugin, MessageUtils messageUtils) {
         this.plugin = plugin;
@@ -28,9 +31,13 @@ public class VotingPhaseHandler {
     }
 
     /**
-     * Starts the voting phase with a countdown timer.
+     * Starts the voting phase with a countdown timer for a specific session.
      */
-    public void startVotingPhase(int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
+    public void startVotingPhase(String sessionName, int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            plugin.getLogger().warning("Cannot start voting phase with null or empty session name");
+            return;
+        }
         if (seconds <= 0) {
             plugin.getLogger().warning("Invalid voting phase duration: " + seconds);
             return;
@@ -44,9 +51,9 @@ public class VotingPhaseHandler {
             return;
         }
         
-        cancelVotingTask();
+        cancelVotingTask(sessionName);
 
-        this.currentPlayerIds = alivePlayerIds;
+        this.currentPlayerIds.put(sessionName, alivePlayerIds);
 
         plugin.getLogger().info("Starting voting phase for " + alivePlayerIds.size() + " players (" + seconds + "s)");
         messageUtils.sendPlainMessage("§c§lVOTING PHASE! Vote for who you think is the Spark!");
@@ -63,78 +70,117 @@ public class VotingPhaseHandler {
         );
 
         AtomicInteger remaining = new AtomicInteger(seconds);
+        final String sessionKey = sessionName;
 
-        votingTask = new BukkitRunnable() {
+        BukkitRunnable task = new BukkitRunnable() {
             @Override
             public void run() {
                 int secs = remaining.getAndDecrement();
                 if (secs <= 0) {
                     cancel();
-                    votingTask = null;
-                    plugin.getLogger().info("Voting phase ended naturally");
-                    clearActionBars(); // Clear action bars before ending
+                    votingTasks.remove(sessionKey);
+                    currentPlayerIds.remove(sessionKey);
+                    plugin.getLogger().info("Voting phase ended naturally for session: " + sessionKey);
+                    clearActionBars(sessionKey);
                     onPhaseEnd.run();
                     return;
                 }
-                // Updates actionbar for all alive players
-                Collection<Player> alivePlayers = getAlivePlayerObjects(alivePlayerIds);
-                if (alivePlayers != null) {
-                    for (Player player : alivePlayers) {
-                        if (player != null && player.isOnline()) {
-                            try {
-                                messageUtils.sendActionBar(player, "§cVoting: " + secs + "s");
-                            } catch (Exception e) {
-                                // Ignore individual player errors
+                // Updates actionbar for all alive players in this session
+                Collection<UUID> playerIds = currentPlayerIds.get(sessionKey);
+                if (playerIds != null) {
+                    Collection<Player> alivePlayers = getAlivePlayerObjects(playerIds);
+                    if (alivePlayers != null) {
+                        for (Player player : alivePlayers) {
+                            if (player != null && player.isOnline()) {
+                                try {
+                                    messageUtils.sendActionBar(player, "§cVoting: " + secs + "s");
+                                } catch (Exception e) {
+                                    // Ignore individual player errors
+                                }
                             }
                         }
                     }
                 }
-                // Broadcast at specific times
+                // Broadcast at specific times (only to players in this session)
                 if (secs == 10 || secs == 5 || secs <= 3) {
-                    messageUtils.sendPlainMessage("§eVoting ends in " + secs + " seconds!");
+                    Collection<UUID> playerIdsForMsg = currentPlayerIds.get(sessionKey);
+                    if (playerIdsForMsg != null) {
+                        Collection<Player> players = getAlivePlayerObjects(playerIdsForMsg);
+                        if (players != null && !players.isEmpty()) {
+                            for (Player p : players) {
+                                if (p != null && p.isOnline()) {
+                                    p.sendMessage("§eVoting ends in " + secs + " seconds!");
+                                }
+                            }
+                        }
+                    }
                 }
             }
         };
-        votingTask.runTaskTimer(plugin, 0L, 20L);
+        votingTasks.put(sessionName, task);
+        task.runTaskTimer(plugin, 0L, 20L);
     }
 
     /**
-     * Starts the voting phase with default duration.
+     * Starts the voting phase with default duration for a specific session.
      */
-    public void startVotingPhase(Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
-        startVotingPhase(DEFAULT_VOTING_SECONDS, alivePlayerIds, onPhaseEnd);
+    public void startVotingPhase(String sessionName, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
+        startVotingPhase(sessionName, DEFAULT_VOTING_SECONDS, alivePlayerIds, onPhaseEnd);
     }
 
     /**
-     * Cancels the current voting phase task.
+     * Cancels the voting phase task for a specific session.
      */
-    public void cancelVotingTask() {
-        if (votingTask != null) {
+    public void cancelVotingTask(String sessionName) {
+        if (sessionName == null) {
+            return;
+        }
+        BukkitRunnable task = votingTasks.remove(sessionName);
+        if (task != null) {
             try {
-                plugin.getLogger().info("Cancelling voting phase task");
-                votingTask.cancel();
-                clearActionBars();
+                plugin.getLogger().info("Cancelling voting phase task for session: " + sessionName);
+                task.cancel();
+                clearActionBars(sessionName);
             } catch (IllegalStateException ignored) {}
-            votingTask = null;
+        }
+        currentPlayerIds.remove(sessionName);
+    }
+    
+    /**
+     * Cancels all voting phase tasks (for cleanup).
+     */
+    public void cancelAllVotingTasks() {
+        for (String sessionName : new java.util.HashSet<>(votingTasks.keySet())) {
+            cancelVotingTask(sessionName);
         }
     }
 
     /**
-     * Clears action bars for all tracked players.
+     * Clears action bars for all tracked players in a session.
      */
-    private void clearActionBars() {
-        if (currentPlayerIds != null) {
-            for (Player player : getAlivePlayerObjects(currentPlayerIds)) {
-                messageUtils.sendActionBar(player, "");
+    private void clearActionBars(String sessionName) {
+        Collection<UUID> playerIds = currentPlayerIds.get(sessionName);
+        if (playerIds != null) {
+            Collection<Player> players = getAlivePlayerObjects(playerIds);
+            if (players != null) {
+                for (Player player : players) {
+                    if (player != null && player.isOnline()) {
+                        try {
+                            messageUtils.sendActionBar(player, "");
+                        } catch (Exception e) {
+                            // Ignore individual player errors
+                        }
+                    }
+                }
             }
         }
     }
 
     /**
-     * Checks if voting phase is currently active.
+     * Checks if voting phase is currently active for a session.
      */
-    public boolean isActive() {
-        return votingTask != null;
+    public boolean isActive(String sessionName) {
+        return votingTasks.containsKey(sessionName);
     }
 
     public Collection<Player> getAlivePlayerObjects(Collection<UUID> playerIds) {

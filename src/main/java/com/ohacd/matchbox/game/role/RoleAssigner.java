@@ -56,9 +56,5 @@ public class RoleAssigner {
         for (int i = 2; i < shuffled.size(); i++) {
             gameState.setRole(shuffled.get(i).getUniqueId(), Role.INNOCENT);
         }
-        
-        // Safety check: if only 1 player, they become Spark (no Medic)
-        // If only 2 players, first is Spark, second is Medic (no Innocents)
-        // This is already handled by the logic above
     }
 }

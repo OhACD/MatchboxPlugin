@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.ohacd'
-version = '0.8-beta'
+version = '0.8.5-beta'
 
 repositories {
     mavenCentral()

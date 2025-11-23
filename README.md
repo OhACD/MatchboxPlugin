@@ -196,11 +196,12 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 - Hologram Chat: Chat appears as holograms during swipe phase (no chat log)
 - Visual Effects: All effects are recording-safe and don't reveal roles
 
-### Current Features (v0.8-beta)
+### Current Features (v0.8.5-beta)
 
-**Status: Beta Testing Stage** - All core features are implemented and tested. Ready for beta testing!
+**Status: Beta Testing Stage** - All core features are implemented and tested. Parallel sessions now supported!
 
 **Fully Implemented:**
+- ✅ **Parallel Game Sessions**: Multiple games can run simultaneously without interference
 - ✅ Session management system (create, join, leave, start, stop)
 - ✅ Role assignment (Spark, Medic, Innocent) with proper distribution
 - ✅ Automatic inventory system with identical layouts for all players
@@ -225,13 +226,16 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 - ✅ Player state backup and restore (inventory, location, health, etc.)
 - ✅ Session cleanup on game end (prevents new rounds after game ends)
 - ✅ Comprehensive defensive programming and error handling
-- ✅ Edge case handling (offline players, 1-2 player games, etc.)
+- ✅ Edge case handling (offline players, 1-2 player games, parallel sessions, etc.)
+- ✅ Memory leak prevention (automatic session termination, proper cleanup)
 
-**Recent Bug Fixes (Beta):**
-- ✅ Fixed: Hunter Vision no longer affects nametag visibility (only shows particles)
-- ✅ Fixed: Nametags properly restored after Hunter Vision ability expires
-- ✅ Fixed: Sessions properly marked inactive when games end naturally
-- ✅ Fixed: New rounds no longer start automatically after game ends
+**Recent Bug Fixes (v0.8.5-beta):**
+- ✅ Fixed: Timer reset bug - timers now properly cancel when phases are force-skipped
+- ✅ Fixed: Memory leak - sessions now properly terminate when game ends or all players leave
+- ✅ Fixed: Chat listener now works correctly with parallel sessions
+- ✅ Fixed: Players can no longer join multiple sessions simultaneously
+- ✅ Fixed: Sessions properly validate before context creation
+- ✅ Fixed: Emergency cleanup on plugin disable prevents orphaned contexts
 
 ### Planned for Full Release (v1.0)
 
@@ -280,6 +284,14 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 - **Spectator Teleport**: Eliminated players enter spectator mode but aren't teleported to a spectator area yet (planned for v1.0)
 - **Hunter Vision**: Uses particles for visibility (works perfectly, but ProtocolLib integration would enable true single-player glow effect - optional enhancement)
 
+## Parallel Sessions
+
+Starting with v0.8.5-beta, Matchbox supports multiple simultaneous game sessions. This means:
+- Multiple groups can play different games at the same time
+- Each session has its own game state, timers, and players
+- Sessions are completely isolated from each other
+- Memory is properly managed with automatic cleanup
+
 ---
 
 ## Reporting Issues
@@ -300,7 +312,7 @@ This project is under the MIT license.
 ## Credits
 
 Developer: OhACD  
-Version: 0.8-beta  
+Version: 0.8.5-beta  
 Minecraft API: 1.21
 
 ---

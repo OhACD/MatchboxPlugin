@@ -61,8 +61,5 @@ public class HitRevealListener implements Listener {
         // Remove arrow from inventory (they used it)
         shooter.getInventory().setItem(InventoryManager.getArrowHotbarSlot(), null);
         shooter.updateInventory();
-        
-        // Note: Swipe is now completely delinked from arrows
-        // Swipe can only be activated via the paper in slot 27
     }
 }

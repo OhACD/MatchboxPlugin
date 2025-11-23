@@ -1,10 +1,19 @@
 package com.ohacd.matchbox.game.utils;
 
+/**
+ * Represents the different phases of a game round.
+ */
 public enum GamePhase {
-    WAITING, // The phase where players are waiting for the game
-    SWIPE, // The phase where the players are actively in the game, swiping, healing and things of sort happen here
+    /** Players are waiting for the game to start */
+    WAITING,
+    /** Active gameplay phase where players can swipe, cure, and use abilities */
+    SWIPE,
+    /** Discussion phase where players can talk and strategize */
     DISCUSSION,
+    /** Voting phase where players vote to eliminate suspects */
     VOTING,
+    /** Resolution phase (currently unused) */
     RESOLUTION,
+    /** Game has ended */
     ENDED
 }

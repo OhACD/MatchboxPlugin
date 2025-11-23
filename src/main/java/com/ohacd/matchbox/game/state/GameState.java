@@ -15,20 +15,10 @@ public class GameState {
     private final Set<UUID> curedThisRound = new HashSet<>();
     private final Set<UUID> usedHealingSightThisRound = new HashSet<>();
     private final Set<UUID> usedHunterVisionThisRound = new HashSet<>();
-
-    // NEW: track infected (swiped successfully) this round (before pending death application)
     private final Set<UUID> infectedThisRound = new HashSet<>();
-
-    // NEW: pending death times (epoch millis when the pending elimination should be applied)
     private final Map<UUID, Long> pendingDeathTime = new HashMap<>();
-
-    // Track ALL players who started the round (for nametag restoration)
     private final Set<UUID> allParticipatingPlayers = new HashSet<>();
-
-    // Track which session is currently active
     private String activeSessionName = null;
-
-    // Track current round number
     private int currentRound = 0;
 
     /**
@@ -60,7 +50,6 @@ public class GameState {
         infectedThisRound.clear();
         usedHealingSightThisRound.clear();
         usedHunterVisionThisRound.clear();
-        // Note: do NOT clear pendingDeathTime here — pending deaths may span rounds.
     }
 
     /**
@@ -107,7 +96,7 @@ public class GameState {
 
     /**
      * Removes a player from the alive players set.
-     * Note: This does NOT remove them from allParticipatingPlayers.
+     * Does not remove them from allParticipatingPlayers.
      */
     public void removeAlivePlayer(UUID playerId) {
         if (playerId == null) {
