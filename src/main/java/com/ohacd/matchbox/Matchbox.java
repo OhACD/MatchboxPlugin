@@ -13,6 +13,8 @@ import com.ohacd.matchbox.game.utils.VoteItemListener;
 import com.ohacd.matchbox.game.utils.VotePaperListener;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Set;
+
 public final class Matchbox extends JavaPlugin {
     private static Matchbox instance;
     private HologramManager hologramManager;
@@ -59,9 +61,25 @@ public final class Matchbox extends JavaPlugin {
         // Plugin shutdown logic
         getLogger().info("Disabling Matchbox plugin...");
         
-        // End any active game first (this cancels all tasks)
+        // End all active games first (this cancels all tasks)
         if (gameManager != null) {
-            gameManager.endGame();
+            try {
+                Set<String> activeSessions = gameManager.getActiveSessionNames();
+                getLogger().info("Ending " + activeSessions.size() + " active game session(s)...");
+                for (String sessionName : activeSessions) {
+                    try {
+                        gameManager.endGame(sessionName);
+                    } catch (Exception e) {
+                        getLogger().warning("Error ending session " + sessionName + ": " + e.getMessage());
+                    }
+                }
+                
+                // Emergency cleanup in case anything was missed
+                gameManager.emergencyCleanup();
+            } catch (Exception e) {
+                getLogger().severe("Error during plugin shutdown cleanup: " + e.getMessage());
+                e.printStackTrace();
+            }
         }
         
         // Clear all holograms

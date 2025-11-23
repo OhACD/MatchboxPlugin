@@ -1,11 +1,12 @@
 package com.ohacd.matchbox.game;
 
+import com.ohacd.matchbox.game.action.PlayerActionHandler;
 import com.ohacd.matchbox.game.hologram.HologramManager;
+import com.ohacd.matchbox.game.lifecycle.GameLifecycleManager;
 import com.ohacd.matchbox.game.phase.DiscussionPhaseHandler;
 import com.ohacd.matchbox.game.phase.PhaseManager;
 import com.ohacd.matchbox.game.phase.SwipePhaseHandler;
 import com.ohacd.matchbox.game.phase.VotingPhaseHandler;
-import com.ohacd.matchbox.game.role.RoleAssigner;
 import com.ohacd.matchbox.game.state.GameState;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.InventoryManager;
@@ -34,26 +35,22 @@ public class GameManager {
     private final Plugin plugin;
     private final HologramManager hologramManager;
 
-    // Core systems
-    private final GameState gameState;
-    public final PhaseManager phaseManager;
+    // Core systems (shared across all sessions)
     private final MessageUtils messageUtils;
-    private final RoleAssigner roleAssigner;
-    private final WinConditionChecker winConditionChecker;
     private final SwipePhaseHandler swipePhaseHandler;
     private final DiscussionPhaseHandler discussionPhaseHandler;
     private final VotingPhaseHandler votingPhaseHandler;
-    private final VoteManager voteManager;
     private final InventoryManager inventoryManager;
-    private final Map<UUID, Long> activeSwipeWindow = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> activeCureWindow = new ConcurrentHashMap<>();
-
-    // Player backups for restoration
+    
+    // Helper classes for code organization
+    private final GameLifecycleManager lifecycleManager;
+    private final PlayerActionHandler actionHandler;
+    
+    // Active game sessions - each session has its own game state and context
+    private final Map<String, SessionGameContext> activeSessions = new ConcurrentHashMap<>();
+    
+    // Player backups for restoration (shared, but keyed by player UUID)
     private final Map<UUID, PlayerBackup> playerBackups = new ConcurrentHashMap<>();
-
-    // Current round data
-    private Location currentDiscussionLocation;
-    private List<Location> currentSpawnLocations;
 
     public GameManager(Plugin plugin, HologramManager hologramManager) {
         if (plugin == null) {
@@ -66,17 +63,158 @@ public class GameManager {
         this.plugin = plugin;
         this.hologramManager = hologramManager;
 
-        // Initialize systems
-        this.gameState = new GameState();
-        this.phaseManager = new PhaseManager(plugin);
+        // Initialize shared systems
         this.messageUtils = new MessageUtils(plugin);
-        this.roleAssigner = new RoleAssigner(gameState);
-        this.winConditionChecker = new WinConditionChecker(gameState);
         this.swipePhaseHandler = new SwipePhaseHandler(plugin, messageUtils);
         this.discussionPhaseHandler = new DiscussionPhaseHandler(plugin, messageUtils);
         this.votingPhaseHandler = new VotingPhaseHandler(plugin, messageUtils);
-        this.voteManager = new VoteManager(gameState);
         this.inventoryManager = new InventoryManager(plugin);
+        
+        // Initialize helper classes
+        this.lifecycleManager = new GameLifecycleManager(plugin, messageUtils, swipePhaseHandler, inventoryManager, playerBackups);
+        this.actionHandler = new PlayerActionHandler(plugin);
+    }
+    
+    /**
+     * Gets the game context for a session, creating it if it doesn't exist.
+     * Also validates that the session exists in SessionManager.
+     */
+    private SessionGameContext getOrCreateContext(String sessionName) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Session name cannot be null or empty");
+        }
+        
+        // Validate session exists in SessionManager
+        try {
+            com.ohacd.matchbox.Matchbox matchboxPlugin = (com.ohacd.matchbox.Matchbox) plugin;
+            com.ohacd.matchbox.game.session.SessionManager sessionManager = matchboxPlugin.getSessionManager();
+            if (sessionManager != null && !sessionManager.sessionExists(sessionName)) {
+                plugin.getLogger().warning("Attempted to create context for non-existent session: " + sessionName);
+                return null;
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to validate session existence: " + e.getMessage());
+        }
+        
+        return activeSessions.computeIfAbsent(sessionName, name -> new SessionGameContext(plugin, name));
+    }
+    
+    /**
+     * Gets the game context for a session, or null if it doesn't exist.
+     */
+    public SessionGameContext getContext(String sessionName) {
+        if (sessionName == null) {
+            return null;
+        }
+        return activeSessions.get(sessionName);
+    }
+    
+    /**
+     * Gets the game context for a player by finding which session they're in.
+     * Returns null if player is not in any active game.
+     * Note: A player should only be in one session at a time.
+     */
+    public SessionGameContext getContextForPlayer(UUID playerId) {
+        if (playerId == null) {
+            return null;
+        }
+        
+        SessionGameContext found = null;
+        for (SessionGameContext context : activeSessions.values()) {
+            if (context != null && context.getGameState().getAllParticipatingPlayerIds().contains(playerId)) {
+                if (found != null) {
+                    // Edge case: Player found in multiple sessions (shouldn't happen, but handle it)
+                    plugin.getLogger().warning("Player " + playerId + " found in multiple sessions! Sessions: " + 
+                        found.getSessionName() + " and " + context.getSessionName());
+                    // Return the first one found, but log the issue
+                } else {
+                    found = context;
+                }
+            }
+        }
+        return found;
+    }
+    
+    /**
+     * Removes and cleans up a session context.
+     * Ensures all timers are cancelled and resources are freed.
+     */
+    private void removeContext(String sessionName) {
+        if (sessionName == null) {
+            return;
+        }
+        
+        SessionGameContext context = activeSessions.remove(sessionName);
+        if (context != null) {
+            // Cancel all timers for this session
+            try {
+                swipePhaseHandler.cancelSwipeTask(sessionName);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error cancelling swipe task during context cleanup: " + e.getMessage());
+            }
+            
+            try {
+                discussionPhaseHandler.cancelDiscussionTask(sessionName);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error cancelling discussion task during context cleanup: " + e.getMessage());
+            }
+            
+            try {
+                votingPhaseHandler.cancelVotingTask(sessionName);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error cancelling voting task during context cleanup: " + e.getMessage());
+            }
+            
+            // Clean up context resources
+            context.cleanup();
+            plugin.getLogger().info("Cleaned up context for session: " + sessionName);
+        }
+    }
+    
+    /**
+     * Validates that a player is not already in another active game session.
+     * Returns true if player can join, false if they're already in a game.
+     */
+    public boolean canPlayerJoinSession(UUID playerId, String targetSessionName) {
+        if (playerId == null || targetSessionName == null) {
+            return false;
+        }
+        
+        SessionGameContext existingContext = getContextForPlayer(playerId);
+        if (existingContext != null) {
+            String existingSession = existingContext.getSessionName();
+            if (!existingSession.equalsIgnoreCase(targetSessionName)) {
+                // Player is already in a different session
+                return false;
+            }
+            // Player is already in this session - that's fine
+        }
+        return true;
+    }
+    
+    /**
+     * Emergency cleanup: Removes all orphaned contexts and cancels all timers.
+     * Should only be called on plugin disable or severe errors.
+     */
+    public void emergencyCleanup() {
+        plugin.getLogger().warning("Performing emergency cleanup of all game sessions...");
+        
+        // Get all session names before clearing
+        Set<String> sessionNames = new HashSet<>(activeSessions.keySet());
+        
+        for (String sessionName : sessionNames) {
+            try {
+                removeContext(sessionName);
+            } catch (Exception e) {
+                plugin.getLogger().severe("Error during emergency cleanup of session " + sessionName + ": " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        
+        // Clear all player backups
+        playerBackups.clear();
+        
+        plugin.getLogger().info("Emergency cleanup completed. Removed " + sessionNames.size() + " session(s).");
     }
 
     /**
@@ -117,223 +255,153 @@ public class GameManager {
             plugin.getLogger().warning("Attempted to start game with no spawn locations");
             return;
         }
+        
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            plugin.getLogger().warning("Attempted to start game with no session name");
+            return;
+        }
 
-        this.currentDiscussionLocation = discussionLocation;
-        this.currentSpawnLocations = new ArrayList<>(spawnLocations); // Defensive copy
+        // Get or create session context
+        SessionGameContext context = getOrCreateContext(sessionName);
+        if (context == null) {
+            plugin.getLogger().warning("Failed to create context for session: " + sessionName);
+            return;
+        }
 
-        // Clear ALL game state (this is the first round)
-        gameState.clearGameState();
-        phaseManager.reset();
-
-        // Store session name
-        gameState.setActiveSessionName(sessionName);
-
-        // Backup player states before game starts
+        // Edge case: Check if any player is already in another game
         for (Player player : players) {
             if (player == null || !player.isOnline()) {
                 plugin.getLogger().warning("Skipping null or offline player during backup");
                 continue;
             }
-            try {
-                playerBackups.put(player.getUniqueId(), new PlayerBackup(player));
-            } catch (Exception e) {
-                plugin.getLogger().severe("Failed to backup player " + (player != null ? player.getName() : "null") + ": " + e.getMessage());
-                e.printStackTrace();
+            
+            UUID playerId = player.getUniqueId();
+            
+            // Edge case: Player already in another active game
+            if (!canPlayerJoinSession(playerId, sessionName)) {
+                SessionGameContext existingContext = getContextForPlayer(playerId);
+                plugin.getLogger().warning("Player " + player.getName() + " is already in session '" + 
+                    (existingContext != null ? existingContext.getSessionName() : "unknown") + 
+                    "'. Removing from previous session.");
+                
+                // Remove from previous session
+                if (existingContext != null) {
+                    String oldSession = existingContext.getSessionName();
+                    removePlayerFromGame(player);
+                    // Also end the old game if it's active
+                    if (existingContext.getGameState().isGameActive()) {
+                        plugin.getLogger().info("Ending previous game for player " + player.getName());
+                        endGame(oldSession);
+                    }
+                }
             }
         }
 
-        // Add players to alive set
-        gameState.addAlivePlayers(players);
-
-        // Assign roles (only once per game, not per round)
-        List<Player> playerList = new ArrayList<>(players);
-        roleAssigner.assignRoles(playerList);
-
-        // Validate state after initialization
-        if (!gameState.validateState()) {
-            plugin.getLogger().severe("Game state invalid after initialization: " + gameState.getDebugInfo());
-            plugin.getLogger().severe("Players: " + players.size() + ", Roles assigned: " + gameState.getAllParticipatingPlayerIds().size());
-            // Attempt cleanup
-            gameState.clearGameState();
-            phaseManager.reset();
-            return;
-        }
-
-        plugin.getLogger().info("Game started successfully with " + players.size() + " players. Roles: " + 
-            gameState.getAllParticipatingPlayerIds().stream()
-                .map(id -> {
-                    Role role = gameState.getRole(id);
-                    Player p = getPlayer(id);
-                    return (p != null ? p.getName() : id.toString()) + "=" + (role != null ? role : "null");
-                })
-                .collect(java.util.stream.Collectors.joining(", ")));
-
-        // Setup inventories for all players with their roles
-        Map<UUID, Role> roleMap = new HashMap<>();
-        for (UUID playerId : gameState.getAllParticipatingPlayerIds()) {
-            Role role = gameState.getRole(playerId);
-            if (role != null) {
-                roleMap.put(playerId, role);
-            }
-        }
-        inventoryManager.setupInventories(players, roleMap);
-
+        // Use lifecycle manager to start the game
+        lifecycleManager.startGame(context, players, spawnLocations, discussionLocation, sessionName);
+        
         // Start first round
-        startNewRound();
+        startNewRound(sessionName);
     }
 
     /**
      * Starts a new round (after discussion phase ends).
      * This does NOT reassign roles or reset player list.
      */
-    private void startNewRound() {
+    private void startNewRound(String sessionName) {
+        SessionGameContext context = getContext(sessionName);
+        if (context == null) {
+            plugin.getLogger().warning("Cannot start new round - no context for session: " + sessionName);
+            return;
+        }
+        
+        GameState gameState = context.getGameState();
+        
         // Check if game is still active (not ended)
         if (!gameState.isGameActive()) {
-            plugin.getLogger().info("Cannot start new round - game is not active");
+            plugin.getLogger().info("Cannot start new round - game is not active for session: " + sessionName);
             return;
         }
         
         // Check if session is still active
-        String activeSessionName = gameState.getActiveSessionName();
-        if (activeSessionName != null) {
-            try {
-                com.ohacd.matchbox.Matchbox matchboxPlugin = (com.ohacd.matchbox.Matchbox) plugin;
-                com.ohacd.matchbox.game.session.SessionManager sessionManager = matchboxPlugin.getSessionManager();
-                if (sessionManager != null) {
-                    com.ohacd.matchbox.game.session.GameSession session = sessionManager.getSession(activeSessionName);
-                    if (session != null && !session.isActive()) {
-                        plugin.getLogger().info("Cannot start new round - session is not active");
-                        return;
-                    }
+        try {
+            com.ohacd.matchbox.Matchbox matchboxPlugin = (com.ohacd.matchbox.Matchbox) plugin;
+            com.ohacd.matchbox.game.session.SessionManager sessionManager = matchboxPlugin.getSessionManager();
+            if (sessionManager != null) {
+                com.ohacd.matchbox.game.session.GameSession session = sessionManager.getSession(sessionName);
+                if (session != null && !session.isActive()) {
+                    plugin.getLogger().info("Cannot start new round - session is not active: " + sessionName);
+                    return;
                 }
-            } catch (Exception e) {
-                plugin.getLogger().warning("Failed to check session status: " + e.getMessage());
             }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to check session status: " + e.getMessage());
         }
         
         // Validate state before starting new round
         if (!gameState.validateState()) {
-            messageUtils.broadcast("§c§lERROR: Game state is corrupted! Ending game.");
-            plugin.getLogger().severe("Invalid game state detected: " + gameState.getDebugInfo());
-            endGame();
+            // Broadcast only to players in this session
+            Collection<Player> sessionPlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
+            if (sessionPlayers != null) {
+                for (Player p : sessionPlayers) {
+                    if (p != null && p.isOnline()) {
+                        p.sendMessage("§c§lERROR: Game state is corrupted! Ending game.");
+                    }
+                }
+            }
+            plugin.getLogger().severe("Invalid game state detected for session " + sessionName + ": " + gameState.getDebugInfo());
+            endGame(sessionName);
             return;
         }
 
-        // Increment round counter
-        gameState.incrementRound();
-        int roundNumber = gameState.getCurrentRound();
+        // Use lifecycle manager to start new round
+        lifecycleManager.startNewRound(context, sessionName);
+        
+        // Teleport players to spawns
+        lifecycleManager.teleportPlayersToSpawns(context, sessionName);
 
-        messageUtils.broadcast("§6§l=== ROUND " + roundNumber + " ===");
+        // Start swipe phase (will set up inventories with papers)
+        startSwipePhase(sessionName);
+    }
 
-        // Show title to all alive players
+
+    /**
+     * Starts the swipe phase for a session.
+     */
+    public void startSwipePhase(String sessionName) {
+        SessionGameContext context = getContext(sessionName);
+        if (context == null) {
+            plugin.getLogger().warning("Cannot start swipe phase - no context for session: " + sessionName);
+            return;
+        }
+        
+        GameState gameState = context.getGameState();
+        PhaseManager phaseManager = context.getPhaseManager();
+        
+        phaseManager.setPhase(GamePhase.SWIPE);
+        plugin.getLogger().info("Starting swipe phase for session '" + sessionName + "' - Round " + gameState.getCurrentRound());
+
+        // Setup inventories for all players with their roles (give papers now)
         Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
         if (alivePlayers != null && !alivePlayers.isEmpty()) {
-            messageUtils.sendTitle(
-                    alivePlayers,
-                    "§6§lROUND " + roundNumber,
-                    "§eGet ready to swipe!",
-                    10, // fadeIn (0.5s)
-                    40, // stay (2s)
-                    10  // fadeOut (0.5s)
-            );
-        }
-
-        // Clear per-round state (swipes, cures, votes) but keep roles and players
-        gameState.clearRoundState();
-        voteManager.clearVotes();
-        inventoryManager.resetArrowUsage();
-        
-        // Give arrows to all alive players for the new round (reuse alivePlayers from above)
-        if (alivePlayers != null) {
-            for (Player player : alivePlayers) {
-                if (player != null && player.isOnline()) {
-                    inventoryManager.giveArrowIfNeeded(player);
+            // Announce phase start only to players in this session
+            for (Player p : alivePlayers) {
+                if (p != null && p.isOnline()) {
+                    p.sendMessage("§6§l>> SWIPE PHASE STARTED <<");
                 }
             }
-        }
-
-        // Teleport alive players to spawn locations with better distribution
-        teleportPlayersToSpawns();
-
-        // Start swipe phase
-        startSwipePhase();
-    }
-
-    /**
-     * Teleports alive players to spawn locations.
-     * Uses a better algorithm to distribute players evenly across spawns.
-     */
-    private void teleportPlayersToSpawns() {
-        if (currentSpawnLocations == null || currentSpawnLocations.isEmpty()) {
-            plugin.getLogger().warning("No spawn locations set for round " + gameState.getCurrentRound());
-            return;
-        }
-
-        // Get all alive players
-        List<Player> alivePlayers = new ArrayList<>();
-        for (UUID playerId : gameState.getAlivePlayerIds()) {
-            Player player = getPlayer(playerId);
-            if (player != null && player.isOnline()) {
-                alivePlayers.add(player);
-            }
-        }
-
-        if (alivePlayers.isEmpty()) {
-            return;
-        }
-
-        // Shuffle spawn locations for randomness
-        List<Location> shuffledSpawns = new ArrayList<>(currentSpawnLocations);
-        java.util.Collections.shuffle(shuffledSpawns);
-
-        // Shuffle players too for extra randomness
-        java.util.Collections.shuffle(alivePlayers);
-
-        // Distribute players across spawns
-        int spawnCount = shuffledSpawns.size();
-        for (int i = 0; i < alivePlayers.size(); i++) {
-            Player player = alivePlayers.get(i);
-            Location spawnLoc = shuffledSpawns.get(i % spawnCount);
-
-            // Clone location to avoid reference issues
-            Location teleportLoc = spawnLoc.clone();
-            if (teleportLoc == null || teleportLoc.getWorld() == null) {
-                plugin.getLogger().warning("Invalid spawn location for player " + player.getName() + ", skipping teleport");
-                continue;
-            }
-
-            // Add small random offset if multiple players at same spawn
-            if (alivePlayers.size() > spawnCount) {
-                int playersAtThisSpawn = (i / spawnCount) + 1;
-                if (playersAtThisSpawn > 1) {
-                    // Spread players in a circle around the spawn point
-                    double angle = (2 * Math.PI * i) / alivePlayers.size();
-                    double radius = 2.0; // 2 blocks radius
-                    teleportLoc.add(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+            
+            Map<UUID, Role> roleMap = new HashMap<>();
+            for (UUID playerId : gameState.getAlivePlayerIds()) {
+                Role role = gameState.getRole(playerId);
+                if (role != null) {
+                    roleMap.put(playerId, role);
                 }
             }
-
-            try {
-                player.teleport(teleportLoc);
-            } catch (Exception e) {
-                plugin.getLogger().warning("Failed to teleport player " + player.getName() + ": " + e.getMessage());
-            }
+            inventoryManager.setupInventories(alivePlayers, roleMap);
         }
-    }
-
-    /**
-     * Starts the swipe phase.
-     */
-    public void startSwipePhase() {
-        phaseManager.setPhase(GamePhase.SWIPE);
-        plugin.getLogger().info("Starting swipe phase - Round " + gameState.getCurrentRound());
-
-        // Announce phase start
-        messageUtils.broadcast("§6§l>> SWIPE PHASE STARTED <<");
 
         // Hide the name tag for all alive players on phase start
-        String sessionName = gameState.getActiveSessionName();
-        Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
         if (alivePlayers != null) {
             for (Player player : alivePlayers) {
                 if (player != null && player.isOnline()) {
@@ -347,8 +415,9 @@ public class GameManager {
         }
 
         swipePhaseHandler.startSwipePhase(
+                sessionName,
                 gameState.getAlivePlayerIds(),
-                this::endSwipePhase
+                () -> endSwipePhase(sessionName)
         );
     }
 
@@ -359,6 +428,13 @@ public class GameManager {
     public void startSwipeWindow(Player spark, int seconds) {
         if (spark == null) return;
         UUID id = spark.getUniqueId();
+        
+        SessionGameContext context = getContextForPlayer(id);
+        if (context == null) return;
+        
+        GameState gameState = context.getGameState();
+        PhaseManager phaseManager = context.getPhaseManager();
+        Map<UUID, Long> activeSwipeWindow = context.getActiveSwipeWindow();
 
         // Only in SWIPE phase and only if spark role
         if (!phaseManager.isPhase(GamePhase.SWIPE)) return;
@@ -381,20 +457,19 @@ public class GameManager {
      * Ends swipe window immediately (manual cleanup).
      */
     public void endSwipeWindow(UUID playerId) {
-        activeSwipeWindow.remove(playerId);
+        SessionGameContext context = getContextForPlayer(playerId);
+        if (context != null) {
+            context.getActiveSwipeWindow().remove(playerId);
+        }
     }
 
     /**
      * Returns whether the given player has an active swipe window.
      */
     public boolean isSwipeWindowActive(UUID playerId) {
-        Long expiry = activeSwipeWindow.get(playerId);
-        if (expiry == null) return false;
-        if (expiry <= System.currentTimeMillis()) {
-            activeSwipeWindow.remove(playerId);
-            return false;
-        }
-        return true;
+        SessionGameContext context = getContextForPlayer(playerId);
+        if (context == null) return false;
+        return actionHandler.isSwipeWindowActive(context, playerId);
     }
 
     /**
@@ -404,6 +479,13 @@ public class GameManager {
     public void startCureWindow(Player medic, int seconds) {
         if (medic == null) return;
         UUID id = medic.getUniqueId();
+        
+        SessionGameContext context = getContextForPlayer(id);
+        if (context == null) return;
+        
+        GameState gameState = context.getGameState();
+        PhaseManager phaseManager = context.getPhaseManager();
+        Map<UUID, Long> activeCureWindow = context.getActiveCureWindow();
 
         // Only in SWIPE phase and only if medic role
         if (!phaseManager.isPhase(GamePhase.SWIPE)) return;
@@ -430,6 +512,12 @@ public class GameManager {
      */
     public void activateHealingSight(Player medic) {
         if (medic == null || !medic.isOnline()) return;
+        
+        SessionGameContext context = getContextForPlayer(medic.getUniqueId());
+        if (context == null) return;
+        
+        GameState gameState = context.getGameState();
+        PhaseManager phaseManager = context.getPhaseManager();
 
         // Only in SWIPE phase and only if medic role
         if (!phaseManager.isPhase(GamePhase.SWIPE)) return;
@@ -444,7 +532,7 @@ public class GameManager {
         gameState.markUsedHealingSight(medic.getUniqueId());
 
         // Show infected players to medic
-        showInfectedPlayersToMedic(medic);
+        showInfectedPlayersToMedic(medic, context);
     }
 
     /**
@@ -455,6 +543,12 @@ public class GameManager {
      */
     public void activateHunterVision(Player spark) {
         if (spark == null || !spark.isOnline()) return;
+        
+        SessionGameContext context = getContextForPlayer(spark.getUniqueId());
+        if (context == null) return;
+        
+        GameState gameState = context.getGameState();
+        PhaseManager phaseManager = context.getPhaseManager();
 
         // Only in SWIPE phase and only if spark role
         if (!phaseManager.isPhase(GamePhase.SWIPE)) return;
@@ -469,15 +563,17 @@ public class GameManager {
         gameState.markUsedHunterVision(spark.getUniqueId());
 
         // Show glow on all alive players (only visible to spark)
-        showGlowOnPlayers(spark);
+        showGlowOnPlayers(spark, context);
     }
 
     /**
      * Shows red particles on all players with pending deaths, visible only to the medic.
      * Particles last for 15 seconds.
      */
-    private void showInfectedPlayersToMedic(Player medic) {
+    private void showInfectedPlayersToMedic(Player medic, SessionGameContext context) {
         if (medic == null || !medic.isOnline()) return;
+        
+        GameState gameState = context.getGameState();
 
         // Get all alive players with pending deaths
         java.util.List<Player> infectedPlayers = new java.util.ArrayList<>();
@@ -511,8 +607,10 @@ public class GameManager {
      * Particles last for 15 seconds.
      * Note: Spark cannot see nametags - only particles are shown.
      */
-    private void showGlowOnPlayers(Player spark) {
+    private void showGlowOnPlayers(Player spark, SessionGameContext context) {
         if (spark == null || !spark.isOnline()) return;
+        
+        GameState gameState = context.getGameState();
 
         // Get all alive players (excluding spark)
         java.util.List<Player> alivePlayers = new java.util.ArrayList<>();
@@ -548,20 +646,19 @@ public class GameManager {
      * Ends cure window immediately (manual cleanup).
      */
     public void endCureWindow(UUID playerId) {
-        activeCureWindow.remove(playerId);
+        SessionGameContext context = getContextForPlayer(playerId);
+        if (context != null) {
+            context.getActiveCureWindow().remove(playerId);
+        }
     }
 
     /**
      * Returns whether the given player has an active cure window.
      */
     public boolean isCureWindowActive(UUID playerId) {
-        Long expiry = activeCureWindow.get(playerId);
-        if (expiry == null) return false;
-        if (expiry <= System.currentTimeMillis()) {
-            activeCureWindow.remove(playerId);
-            return false;
-        }
-        return true;
+        SessionGameContext context = getContextForPlayer(playerId);
+        if (context == null) return false;
+        return actionHandler.isCureWindowActive(context, playerId);
     }
 
     /**
@@ -569,22 +666,51 @@ public class GameManager {
      * Discussion phase start will apply pending deaths so infected players are removed
      * before discussion begins.
      */
-    public void endSwipePhase() {
-        plugin.getLogger().info("Ending swipe phase - Round " + gameState.getCurrentRound());
+    public void endSwipePhase(String sessionName) {
+        SessionGameContext context = getContext(sessionName);
+        if (context == null) {
+            plugin.getLogger().warning("Cannot end swipe phase - no context for session: " + sessionName);
+            return;
+        }
+        
+        GameState gameState = context.getGameState();
+        PhaseManager phaseManager = context.getPhaseManager();
+        
+        plugin.getLogger().info("Ending swipe phase for session '" + sessionName + "' - Round " + gameState.getCurrentRound());
+
+        // Cancel swipe timer first to prevent it from continuing
+        swipePhaseHandler.cancelSwipeTask(sessionName);
 
         // Transition to discussion but do not apply pending deaths here.
         phaseManager.setPhase(GamePhase.DISCUSSION);
-        messageUtils.broadcast("§e§l>> SWIPE PHASE ENDED <<");
+        
+        // Broadcast only to players in this session
+        Collection<Player> sessionPlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
+        if (sessionPlayers != null) {
+            for (Player p : sessionPlayers) {
+                if (p != null && p.isOnline()) {
+                    p.sendMessage("§e§l>> SWIPE PHASE ENDED <<");
+                }
+            }
+        }
 
         // Clear actionbars, stop timers, etc. (assume swipePhaseHandler cleared by caller)
         // Start the discussion phase which will apply pending deaths at its start
-        startDiscussionPhase();
+        startDiscussionPhase(sessionName);
     }
 
     /**
      * Starts the discussion phase and applies pending deaths immediately before players join discussion.
      */
-    private void startDiscussionPhase() {
+    private void startDiscussionPhase(String sessionName) {
+        SessionGameContext context = getContext(sessionName);
+        if (context == null) {
+            plugin.getLogger().warning("Cannot start discussion phase - no context for session: " + sessionName);
+            return;
+        }
+        
+        GameState gameState = context.getGameState();
+        
         // Apply ALL pending deaths now (regardless of timestamp) so infected players do not participate in discussion
         // This ensures pending deaths scheduled during swipe phase are applied at discussion start
         Set<UUID> allPendingDeaths = new HashSet<>();
@@ -598,7 +724,7 @@ public class GameManager {
         }
         
         if (!allPendingDeaths.isEmpty()) {
-            plugin.getLogger().info("Applying pending deaths for " + allPendingDeaths.size() + " players at discussion start.");
+            plugin.getLogger().info("Applying pending deaths for " + allPendingDeaths.size() + " players at discussion start in session: " + sessionName);
         }
         
         for (UUID victimId : allPendingDeaths) {
@@ -611,7 +737,7 @@ public class GameManager {
             Player victim = getPlayer(victimId);
             if (victim != null && victim.isOnline()) {
                 try {
-                    eliminatePlayer(victim); // ensure this removes them from alive and cleans state
+                    eliminatePlayer(sessionName, victim); // ensure this removes them from alive and cleans state
                 } catch (Exception e) {
                     plugin.getLogger().warning("Error eliminating player " + victim.getName() + ": " + e.getMessage());
                     // Fallback cleanup
@@ -630,16 +756,34 @@ public class GameManager {
         // Clear infected flags for the round
         gameState.clearInfectedThisRound();
 
+        // Clear ALL inventory for all alive players (they should have nothing during discussion)
+        alivePlayerIds = gameState.getAlivePlayerIds();
+        if (alivePlayerIds != null) {
+            for (UUID playerId : alivePlayerIds) {
+                if (playerId == null) continue;
+                Player player = org.bukkit.Bukkit.getPlayer(playerId);
+                if (player != null && player.isOnline()) {
+                    try {
+                        // Clear entire inventory
+                        player.getInventory().clear();
+                        player.updateInventory();
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to clear inventory for " + player.getName() + ": " + e.getMessage());
+                    }
+                }
+            }
+        }
+
         // Teleport alive players to discussion location
-        if (currentDiscussionLocation != null && currentDiscussionLocation.getWorld() != null) {
-            alivePlayerIds = gameState.getAlivePlayerIds();
+        Location discussionLocation = context.getCurrentDiscussionLocation();
+        if (discussionLocation != null && discussionLocation.getWorld() != null) {
             if (alivePlayerIds != null) {
                 for (UUID playerId : alivePlayerIds) {
                     if (playerId == null) continue;
                     Player player = org.bukkit.Bukkit.getPlayer(playerId);
                     if (player != null && player.isOnline()) {
                         try {
-                            player.teleport(currentDiscussionLocation);
+                            player.teleport(discussionLocation);
                         } catch (Exception e) {
                             plugin.getLogger().warning("Failed to teleport player " + player.getName() + " to discussion: " + e.getMessage());
                         }
@@ -647,54 +791,114 @@ public class GameManager {
                 }
             }
         } else {
-            plugin.getLogger().warning("Cannot teleport to discussion: location is null or world is null");
+            plugin.getLogger().warning("Cannot teleport to discussion: location is null or world is null for session: " + sessionName);
         }
 
         // Start the discussion timer and supply callback to endDiscussionPhase
-        discussionPhaseHandler.startDiscussionPhase(gameState.getAlivePlayerIds(), this::endDiscussionPhase);
+        discussionPhaseHandler.startDiscussionPhase(sessionName, gameState.getAlivePlayerIds(), () -> endDiscussionPhase(sessionName));
     }
 
     /**
      * Ends the discussion phase and starts voting phase.
+     * Made public for skip command.
      */
-    private void endDiscussionPhase() {
-        plugin.getLogger().info("Ending discussion phase - Round " + gameState.getCurrentRound());
-        messageUtils.broadcast("§e§l>> DISCUSSION PHASE ENDED <<");
+    public void endDiscussionPhase(String sessionName) {
+        SessionGameContext context = getContext(sessionName);
+        if (context == null) {
+            plugin.getLogger().warning("Cannot end discussion phase - no context for session: " + sessionName);
+            return;
+        }
+        
+        GameState gameState = context.getGameState();
+        VoteManager voteManager = context.getVoteManager();
+        
+        plugin.getLogger().info("Ending discussion phase for session '" + sessionName + "' - Round " + gameState.getCurrentRound());
+        
+        // Cancel discussion timer first to prevent it from continuing
+        discussionPhaseHandler.cancelDiscussionTask(sessionName);
+        
+        // Broadcast only to players in this session
+        Collection<Player> sessionPlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
+        if (sessionPlayers != null) {
+            for (Player p : sessionPlayers) {
+                if (p != null && p.isOnline()) {
+                    p.sendMessage("§e§l>> DISCUSSION PHASE ENDED <<");
+                }
+            }
+        }
 
         // Clear any previous votes
         voteManager.clearVotes();
 
         // Start voting phase
-        startVotingPhase();
+        startVotingPhase(sessionName);
     }
 
     /**
      * Starts the voting phase.
      */
-    private void startVotingPhase() {
+    private void startVotingPhase(String sessionName) {
+        SessionGameContext context = getContext(sessionName);
+        if (context == null) {
+            plugin.getLogger().warning("Cannot start voting phase - no context for session: " + sessionName);
+            return;
+        }
+        
+        GameState gameState = context.getGameState();
+        PhaseManager phaseManager = context.getPhaseManager();
+        
         phaseManager.setPhase(GamePhase.VOTING);
-        plugin.getLogger().info("Starting voting phase - Round " + gameState.getCurrentRound());
+        plugin.getLogger().info("Starting voting phase for session '" + sessionName + "' - Round " + gameState.getCurrentRound());
 
-        // Give voting papers to all alive players
+        // Clear all inventories first, then give ONLY voting papers
         Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
         if (alivePlayers != null && !alivePlayers.isEmpty()) {
             for (Player player : alivePlayers) {
                 if (player != null && player.isOnline()) {
+                    try {
+                        // Clear entire inventory first
+                        player.getInventory().clear();
+                        player.updateInventory();
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to clear inventory for " + player.getName() + " before voting: " + e.getMessage());
+                    }
+                    // Give ONLY voting papers
                     inventoryManager.giveVotingPapers(player, alivePlayers);
                 }
             }
         }
 
         // Start the voting timer and supply callback to endVotingPhase
-        votingPhaseHandler.startVotingPhase(gameState.getAlivePlayerIds(), this::endVotingPhase);
+        votingPhaseHandler.startVotingPhase(sessionName, gameState.getAlivePlayerIds(), () -> endVotingPhase(sessionName));
     }
 
     /**
      * Ends the voting phase, resolves votes, and eliminates the most-voted player.
+     * Made public for skip command.
      */
-    private void endVotingPhase() {
-        plugin.getLogger().info("Ending voting phase - Round " + gameState.getCurrentRound());
-        messageUtils.broadcast("§c§l>> VOTING PHASE ENDED <<");
+    public void endVotingPhase(String sessionName) {
+        SessionGameContext context = getContext(sessionName);
+        if (context == null) {
+            plugin.getLogger().warning("Cannot end voting phase - no context for session: " + sessionName);
+            return;
+        }
+        
+        GameState gameState = context.getGameState();
+        
+        plugin.getLogger().info("Ending voting phase for session '" + sessionName + "' - Round " + gameState.getCurrentRound());
+        
+        // Cancel voting timer first to prevent it from continuing
+        votingPhaseHandler.cancelVotingTask(sessionName);
+        
+        // Broadcast only to players in this session
+        Collection<Player> sessionPlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
+        if (sessionPlayers != null) {
+            for (Player p : sessionPlayers) {
+                if (p != null && p.isOnline()) {
+                    p.sendMessage("§c§l>> VOTING PHASE ENDED <<");
+                }
+            }
+        }
 
         // Clear voting papers from all players
         Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
@@ -704,7 +908,7 @@ public class GameManager {
 
         // Resolve votes and eliminate
         try {
-            resolveVotes();
+            resolveVotes(sessionName);
         } catch (Exception e) {
             plugin.getLogger().severe("Error resolving votes: " + e.getMessage());
             e.printStackTrace();
@@ -712,32 +916,32 @@ public class GameManager {
 
         // Check for win condition after voting
         try {
-            if (checkForWin()) {
-                plugin.getLogger().info("Win condition met - game ended, not starting new round");
+            if (checkForWin(sessionName)) {
+                plugin.getLogger().info("Win condition met - game ended, not starting new round for session: " + sessionName);
                 return; // Game ended
             }
         } catch (Exception e) {
             plugin.getLogger().severe("Error checking win conditions: " + e.getMessage());
             e.printStackTrace();
             // Don't continue to next round if check fails - end game instead
-            endGame();
+            endGame(sessionName);
             return;
         }
 
         // Double-check game is still active before starting new round
         if (!gameState.isGameActive()) {
-            plugin.getLogger().info("Game is not active after voting - not starting new round");
+            plugin.getLogger().info("Game is not active after voting - not starting new round for session: " + sessionName);
             return;
         }
 
         // Start next round
         try {
-            startNewRound();
+            startNewRound(sessionName);
         } catch (Exception e) {
             plugin.getLogger().severe("Error starting new round: " + e.getMessage());
             e.printStackTrace();
             // Attempt to end game gracefully
-            endGame();
+            endGame(sessionName);
         }
     }
 
@@ -745,9 +949,18 @@ public class GameManager {
      * Resolves votes and eliminates the most-voted player.
      * Handles ties by random elimination.
      */
-    private void resolveVotes() {
+    private void resolveVotes(String sessionName) {
+        SessionGameContext context = getContext(sessionName);
+        if (context == null) {
+            plugin.getLogger().warning("Cannot resolve votes - no context for session: " + sessionName);
+            return;
+        }
+        
+        GameState gameState = context.getGameState();
+        VoteManager voteManager = context.getVoteManager();
+        
         if (voteManager == null) {
-            plugin.getLogger().warning("VoteManager is null, cannot resolve votes");
+            plugin.getLogger().warning("VoteManager is null, cannot resolve votes for session: " + sessionName);
             return;
         }
         
@@ -759,10 +972,18 @@ public class GameManager {
             tied = Collections.emptyList();
         }
 
+        Collection<Player> sessionPlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
+        
         if (mostVoted == null && tied.isEmpty()) {
             // No votes cast - skip elimination
-            messageUtils.broadcast("§eNo votes were cast. No one is eliminated.");
-            plugin.getLogger().info("No votes cast this round. Total voters: " + voteManager.getVoters().size() + 
+            if (sessionPlayers != null) {
+                for (Player p : sessionPlayers) {
+                    if (p != null && p.isOnline()) {
+                        p.sendMessage("§eNo votes were cast. No one is eliminated.");
+                    }
+                }
+            }
+            plugin.getLogger().info("No votes cast this round for session " + sessionName + ". Total voters: " + voteManager.getVoters().size() + 
                 ", Alive players: " + gameState.getAlivePlayerCount());
             return;
         }
@@ -791,7 +1012,13 @@ public class GameManager {
             }
         } else {
             // Should not happen, but handle gracefully
-            messageUtils.broadcast("§eVoting completed but no elimination occurred.");
+            if (sessionPlayers != null) {
+                for (Player p : sessionPlayers) {
+                    if (p != null && p.isOnline()) {
+                        p.sendMessage("§eVoting completed but no elimination occurred.");
+                    }
+                }
+            }
             return;
         }
 
@@ -800,19 +1027,37 @@ public class GameManager {
             Player player = getPlayer(toEliminate);
             if (player != null && player.isOnline()) {
                 try {
-                    eliminatePlayer(player);
-                    messageUtils.broadcast(resultMessage);
+                    eliminatePlayer(sessionName, player);
+                    if (sessionPlayers != null) {
+                        for (Player p : sessionPlayers) {
+                            if (p != null && p.isOnline()) {
+                                p.sendMessage(resultMessage);
+                            }
+                        }
+                    }
                 } catch (Exception e) {
                     plugin.getLogger().severe("Error eliminating player " + player.getName() + ": " + e.getMessage());
                     e.printStackTrace();
                     // Fallback: remove from state
                     gameState.removeAlivePlayer(toEliminate);
-                    messageUtils.broadcast(resultMessage);
+                    if (sessionPlayers != null) {
+                        for (Player p : sessionPlayers) {
+                            if (p != null && p.isOnline()) {
+                                p.sendMessage(resultMessage);
+                            }
+                        }
+                    }
                 }
             } else {
                 // Player offline - remove from state
                 gameState.removeAlivePlayer(toEliminate);
-                messageUtils.broadcast(resultMessage);
+                if (sessionPlayers != null) {
+                    for (Player p : sessionPlayers) {
+                        if (p != null && p.isOnline()) {
+                            p.sendMessage(resultMessage);
+                        }
+                    }
+                }
             }
         }
     }
@@ -823,6 +1068,18 @@ public class GameManager {
      */
     public boolean handleVote(Player voter, Player target) {
         if (voter == null || target == null) return false;
+
+        SessionGameContext context = getContextForPlayer(voter.getUniqueId());
+        if (context == null) return false;
+        
+        // Both players must be in the same session
+        if (!context.getGameState().getAllParticipatingPlayerIds().contains(target.getUniqueId())) {
+            return false;
+        }
+        
+        GameState gameState = context.getGameState();
+        PhaseManager phaseManager = context.getPhaseManager();
+        VoteManager voteManager = context.getVoteManager();
 
         // Phase check
         if (!phaseManager.isPhase(GamePhase.VOTING)) {
@@ -847,7 +1104,7 @@ public class GameManager {
         
         if (success) {
             // Silent success - no message to prevent giving away information
-            plugin.getLogger().info("Vote registered: " + voter.getName() + " voted for " + target.getName());
+            plugin.getLogger().info("Vote registered in session '" + context.getSessionName() + "': " + voter.getName() + " voted for " + target.getName());
         }
 
         return success;
@@ -861,48 +1118,10 @@ public class GameManager {
     public void handleCure(Player medic, Player target) {
         if (medic == null || target == null) return;
 
-        // Phase and permission checks
-        if (!phaseManager.isPhase(GamePhase.SWIPE)) return;
-
-        UUID medicId = medic.getUniqueId();
-        UUID targetId = target.getUniqueId();
-
-        // Only a Medic can cure
-        if (gameState.getRole(medicId) != Role.MEDIC) {
-            return;
-        }
-
-        // Must have an active cure window
-        if (!isCureWindowActive(medicId)) {
-            return;
-        }
-
-        // Check if target has a pending death to cure
-        if (!gameState.hasPendingDeath(targetId)) {
-            // No pending death to cure - close window but don't mark as cured (allow retry)
-            activeCureWindow.remove(medicId);
-            return;
-        }
-
-        // Only mark as cured if successfully applied to a player
-        // This allows reactivation if window expires without use
-        gameState.markCured(medicId);
-        gameState.removePendingDeath(targetId);
-
-        // Show subtle blue particles to everyone (hard to see but not impossible)
-        // This provides a visual cue that someone was cured
-        ParticleUtils.showColoredParticlesToEveryone(
-            target,
-            org.bukkit.Color.fromRGB(0, 100, 255), // Blue
-            8, // 8 ticks = 0.4 seconds (split second)
-            plugin
-        );
-
-        // Close the cure window
-        activeCureWindow.remove(medicId);
-
-        // Log for debugging (silent to players)
-        plugin.getLogger().info("Medic " + medic.getName() + " cured " + target.getName());
+        SessionGameContext context = getContextForPlayer(medic.getUniqueId());
+        if (context == null) return;
+        
+        actionHandler.handleCure(context, medic, target);
     }
 
     /**
@@ -913,63 +1132,28 @@ public class GameManager {
     public void handleSwipe(Player shooter, Player target) {
         if (shooter == null || target == null) return;
 
-        // Phase and permission checks
-        if (!phaseManager.isPhase(GamePhase.SWIPE)) return;
-
-        UUID shooterId = shooter.getUniqueId();
-        UUID targetId = target.getUniqueId();
-
-        // Only a Spark can swipe
-        if (gameState.getRole(shooterId) != Role.SPARK) {
-            return;
-        }
-
-        // Must have an active swipe window
-        if (!isSwipeWindowActive(shooterId)) {
-            return;
-        }
-
-        // If target already has pending death, ignore duplicate (silent)
-        // Don't mark as swiped - allow retry
-        if (gameState.hasPendingDeath(targetId)) {
-            activeSwipeWindow.remove(shooterId);
-            return;
-        }
-
-        // Only mark as swiped if successfully applied to a player
-        // This allows reactivation if window expires without use
-        gameState.markSwiped(shooterId);
-        gameState.markInfected(targetId);
-
-        // Schedule pending death to be applied at discussion start.
-        // We set the pending death time to a future time (discussion start),
-        // but since we don't know exactly when discussion will start, we use a flag-based approach.
-        // The pending death will be applied when startDiscussionPhase() is called.
-        // For now, we mark it with current time but it will only be processed at discussion start.
-        gameState.setPendingDeath(targetId, System.currentTimeMillis());
-
-        // Show subtle lime particles to everyone (hard to see but not impossible)
-        // This makes it harder for Spark to swipe players in front of everyone
-        ParticleUtils.showColoredParticlesToEveryone(
-            target,
-            org.bukkit.Color.fromRGB(50, 205, 50), // Lime green
-            8, // 8 ticks = 0.4 seconds (split second)
-            plugin
-        );
-
-        // close the swipe window
-        activeSwipeWindow.remove(shooterId);
+        SessionGameContext context = getContextForPlayer(shooter.getUniqueId());
+        if (context == null) return;
+        
+        actionHandler.handleSwipe(context, shooter, target);
     }
 
     /**
      * Eliminates a player from the game.
      */
-    public void eliminatePlayer(Player player) {
+    public void eliminatePlayer(String sessionName, Player player) {
         if (player == null || !player.isOnline()) {
             plugin.getLogger().warning("Attempted to eliminate null or offline player");
             return;
         }
 
+        SessionGameContext context = getContext(sessionName);
+        if (context == null) {
+            plugin.getLogger().warning("Cannot eliminate player - no context for session: " + sessionName);
+            return;
+        }
+        
+        GameState gameState = context.getGameState();
         UUID playerId = player.getUniqueId();
         
         // Remove from alive set
@@ -999,22 +1183,36 @@ public class GameManager {
         // For now, they stay where they are
 
         // Log elimination
-        plugin.getLogger().info("Player " + player.getName() + " eliminated. Remaining alive: " + gameState.getAlivePlayerCount());
+        plugin.getLogger().info("Player " + player.getName() + " eliminated in session '" + sessionName + "'. Remaining alive: " + gameState.getAlivePlayerCount());
 
         // Check win conditions
-        checkForWin();
+        checkForWin(sessionName);
     }
 
     /**
      * Checks if a win condition has been met and handles it.
      * Returns true if game ended.
      */
-    public boolean checkForWin() {
+    public boolean checkForWin(String sessionName) {
+        SessionGameContext context = getContext(sessionName);
+        if (context == null) {
+            return false;
+        }
+        
+        WinConditionChecker winConditionChecker = context.getWinConditionChecker();
         WinConditionChecker.WinResult result = winConditionChecker.checkWinConditions();
 
         if (result != null) {
-            messageUtils.broadcast(result.getMessage());
-            endGame();
+            // Broadcast only to players in this session
+            Collection<Player> sessionPlayers = swipePhaseHandler.getAlivePlayerObjects(context.getGameState().getAlivePlayerIds());
+            if (sessionPlayers != null) {
+                for (Player p : sessionPlayers) {
+                    if (p != null && p.isOnline()) {
+                        p.sendMessage(result.getMessage());
+                    }
+                }
+            }
+            endGame(sessionName);
             return true;
         }
         return false;
@@ -1032,6 +1230,15 @@ public class GameManager {
         
         UUID playerId = player.getUniqueId();
         
+        SessionGameContext context = getContextForPlayer(playerId);
+        if (context == null) {
+            plugin.getLogger().info("Player " + player.getName() + " is not in any active game");
+            return false;
+        }
+        
+        GameState gameState = context.getGameState();
+        String sessionName = context.getSessionName();
+        
         // Check if player is in an active game
         if (!gameState.isGameActive()) {
             plugin.getLogger().info("No active game to remove player from");
@@ -1043,7 +1250,7 @@ public class GameManager {
             return false;
         }
         
-        plugin.getLogger().info("Removing player " + player.getName() + " from active game");
+        plugin.getLogger().info("Removing player " + player.getName() + " from active game in session: " + sessionName);
         
         // Restore nametag
         try {
@@ -1059,6 +1266,21 @@ public class GameManager {
         
         // Remove from alive players
         gameState.removeAlivePlayer(playerId);
+        
+        // Also remove from session if they're in one
+        try {
+            com.ohacd.matchbox.Matchbox matchboxPlugin = (com.ohacd.matchbox.Matchbox) plugin;
+            com.ohacd.matchbox.game.session.SessionManager sessionManager = matchboxPlugin.getSessionManager();
+            if (sessionManager != null) {
+                com.ohacd.matchbox.game.session.GameSession session = sessionManager.getSession(sessionName);
+                if (session != null && session.hasPlayer(player)) {
+                    session.removePlayer(player);
+                    plugin.getLogger().info("Removed player " + player.getName() + " from session " + sessionName);
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error removing player from session: " + e.getMessage());
+        }
         
         // Clear game items
         try {
@@ -1115,20 +1337,45 @@ public class GameManager {
         
         // Check for win condition after player leaves
         if (gameState.isGameActive()) {
-            checkForWin();
+            checkForWin(sessionName);
+            
+            // Also check if session should be ended (no players left)
+            try {
+                com.ohacd.matchbox.Matchbox matchboxPlugin = (com.ohacd.matchbox.Matchbox) plugin;
+                com.ohacd.matchbox.game.session.SessionManager sessionManager = matchboxPlugin.getSessionManager();
+                if (sessionManager != null) {
+                    com.ohacd.matchbox.game.session.GameSession session = sessionManager.getSession(sessionName);
+                    if (session != null) {
+                        // Check if session has no players left
+                        if (session.getPlayerCount() == 0) {
+                            session.setActive(false);
+                            plugin.getLogger().info("Session '" + sessionName + "' ended - no players left after player removal");
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error checking session status after player removal: " + e.getMessage());
+            }
         }
         
         return true;
     }
 
     /**
-     * Ends the game and resets all state.
+     * Ends the game and resets all state for a specific session.
      * This method is now PUBLIC so it can be called from commands.
      */
-    public void endGame() {
-        plugin.getLogger().info("Ending game. Final state: " + gameState.getDebugInfo());
-
-        messageUtils.broadcast("§e§lGame ended!");
+    public void endGame(String sessionName) {
+        SessionGameContext context = getContext(sessionName);
+        if (context == null) {
+            plugin.getLogger().warning("Cannot end game - no context for session: " + sessionName);
+            return;
+        }
+        
+        GameState gameState = context.getGameState();
+        PhaseManager phaseManager = context.getPhaseManager();
+        
+        plugin.getLogger().info("Ending game for session '" + sessionName + "'. Final state: " + gameState.getDebugInfo());
 
         // Restore all participating players' nametags, game modes, and inventories
         Set<UUID> allParticipatingIds = gameState.getAllParticipatingPlayerIds();
@@ -1137,6 +1384,16 @@ public class GameManager {
                 if (playerId == null) continue;
                 Player player = org.bukkit.Bukkit.getPlayer(playerId);
                 if (player != null && player.isOnline()) {
+                    try {
+                        // Clear all game items first
+                        inventoryManager.clearGameItems(player);
+                        inventoryManager.clearVotingPapers(player);
+                        player.getInventory().clear(); // Clear everything
+                        player.updateInventory();
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to clear game items for " + player.getName() + ": " + e.getMessage());
+                    }
+
                     try {
                         // Show nametag
                         NameTagManager.showNameTag(player);
@@ -1185,112 +1442,106 @@ public class GameManager {
                     } catch (Exception e) {
                         plugin.getLogger().warning("Failed to send restoration message to " + player.getName() + ": " + e.getMessage());
                     }
+                    
+                    // Remove from backups (only for this session's players)
+                    playerBackups.remove(playerId);
                 }
             }
         }
 
-        // Clear game items from all players (reuse allParticipatingIds from above)
-        if (allParticipatingIds != null) {
-            for (UUID playerId : allParticipatingIds) {
-                if (playerId == null) continue;
-                Player player = org.bukkit.Bukkit.getPlayer(playerId);
-                if (player != null && player.isOnline()) {
-                    try {
-                        inventoryManager.clearGameItems(player);
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("Error clearing game items for " + player.getName() + ": " + e.getMessage());
-                    }
-                }
-            }
-        }
-        
-        // Clear backups
-        playerBackups.clear();
-
-        // Cancel any running timers
+        // Cancel any running timers for this session
         try {
-            if (swipePhaseHandler != null) {
-                swipePhaseHandler.cancelSwipeTask();
-            }
+            swipePhaseHandler.cancelSwipeTask(sessionName);
         } catch (Exception e) {
             plugin.getLogger().warning("Error cancelling swipe task: " + e.getMessage());
         }
         
         try {
-            if (discussionPhaseHandler != null) {
-                discussionPhaseHandler.cancelDiscussionTask();
-            }
+            discussionPhaseHandler.cancelDiscussionTask(sessionName);
         } catch (Exception e) {
             plugin.getLogger().warning("Error cancelling discussion task: " + e.getMessage());
         }
         
         try {
-            if (votingPhaseHandler != null) {
-                votingPhaseHandler.cancelVotingTask();
-            }
+            votingPhaseHandler.cancelVotingTask(sessionName);
         } catch (Exception e) {
             plugin.getLogger().warning("Error cancelling voting task: " + e.getMessage());
         }
 
-        // Clear holograms
-        try {
-            if (hologramManager != null) {
-                hologramManager.clearAll();
-            }
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error clearing holograms: " + e.getMessage());
-        }
-
-        // Get session name BEFORE clearing game state
-        String activeSessionName = gameState.getActiveSessionName();
-        
         // Reset phase and game state
         phaseManager.reset();
         gameState.clearGameState();
         
+        // Clean up context
+        removeContext(sessionName);
+        
         // Mark session as inactive and ensure it stays terminated
-        if (activeSessionName != null) {
-            try {
-                // Access SessionManager via plugin instance
-                com.ohacd.matchbox.Matchbox matchboxPlugin = (com.ohacd.matchbox.Matchbox) plugin;
-                com.ohacd.matchbox.game.session.SessionManager sessionManager = matchboxPlugin.getSessionManager();
-                if (sessionManager != null) {
-                    com.ohacd.matchbox.game.session.GameSession session = sessionManager.getSession(activeSessionName);
-                    if (session != null) {
-                        session.setActive(false);
-                        plugin.getLogger().info("Marked session '" + activeSessionName + "' as inactive after game end");
+        try {
+            // Access SessionManager via plugin instance
+            com.ohacd.matchbox.Matchbox matchboxPlugin = (com.ohacd.matchbox.Matchbox) plugin;
+            com.ohacd.matchbox.game.session.SessionManager sessionManager = matchboxPlugin.getSessionManager();
+            if (sessionManager != null) {
+                com.ohacd.matchbox.game.session.GameSession session = sessionManager.getSession(sessionName);
+                if (session != null) {
+                    session.setActive(false);
+                    // Also check if session has no players and remove it
+                    if (session.getPlayerCount() == 0) {
+                        sessionManager.removeSession(sessionName);
+                        plugin.getLogger().info("Removed empty session '" + sessionName + "' after game end");
                     } else {
-                        plugin.getLogger().warning("Session '" + activeSessionName + "' not found when trying to mark inactive");
+                        plugin.getLogger().info("Marked session '" + sessionName + "' as inactive after game end");
                     }
                 } else {
-                    plugin.getLogger().warning("SessionManager is null when trying to mark session inactive");
+                    plugin.getLogger().warning("Session '" + sessionName + "' not found when trying to mark inactive");
                 }
-            } catch (Exception e) {
-                plugin.getLogger().severe("Failed to mark session as inactive: " + e.getMessage());
-                e.printStackTrace();
+            } else {
+                plugin.getLogger().warning("SessionManager is null when trying to mark session inactive");
             }
-        } else {
-            plugin.getLogger().info("No active session name found when ending game");
+        } catch (Exception e) {
+            plugin.getLogger().severe("Failed to mark session as inactive: " + e.getMessage());
+            e.printStackTrace();
         }
 
-        plugin.getLogger().info("Game ended successfully");
+        plugin.getLogger().info("Game ended successfully for session: " + sessionName);
     }
 
-    // Getters for external access
+    // Getters for external access (for backward compatibility - returns first active session or null)
     public GameState getGameState() {
-        return gameState;
+        // Return first active session's game state for backward compatibility
+        // Note: This is deprecated for parallel sessions - use getContextForPlayer or getContext instead
+        if (activeSessions.isEmpty()) {
+            return null;
+        }
+        return activeSessions.values().iterator().next().getGameState();
     }
 
     public PhaseManager getPhaseManager() {
-        return phaseManager;
+        // Return first active session's phase manager for backward compatibility
+        // Note: This is deprecated for parallel sessions - use getContextForPlayer or getContext instead
+        if (activeSessions.isEmpty()) {
+            return null;
+        }
+        return activeSessions.values().iterator().next().getPhaseManager();
+    }
+    
+    public VoteManager getVoteManager() {
+        // Return first active session's vote manager for backward compatibility
+        // Note: This is deprecated for parallel sessions - use getContextForPlayer or getContext instead
+        if (activeSessions.isEmpty()) {
+            return null;
+        }
+        return activeSessions.values().iterator().next().getVoteManager();
+    }
+    
+    /**
+     * Gets all active session names.
+     */
+    public Set<String> getActiveSessionNames() {
+        return new HashSet<>(activeSessions.keySet());
     }
 
     public MessageUtils getMessageUtils() {
         return messageUtils;
-    }
-
-    public VoteManager getVoteManager() {
-        return voteManager;
     }
     
     public InventoryManager getInventoryManager() {

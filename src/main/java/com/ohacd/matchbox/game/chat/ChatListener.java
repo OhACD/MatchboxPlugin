@@ -24,9 +24,19 @@ public class ChatListener implements Listener {
         // Check using isAsynchronous() player triggers run asynchronously
         if (!event.isAsynchronous()) return;
         
+        org.bukkit.entity.Player player = event.getPlayer();
+        if (player == null) return;
+        
+        // Find which session the player is in (if any)
+        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        if (context == null) {
+            // Player not in any active game - use normal chat
+            return;
+        }
+        
         // Only use holograms during SWIPE phase
         // In DISCUSSION, VOTING, and other phases, use normal chat
-        if (gameManager.phaseManager.getCurrentPhase() != GamePhase.SWIPE) {
+        if (context.getPhaseManager().getCurrentPhase() != GamePhase.SWIPE) {
             // Normal chat - don't cancel, let it work normally
             return;
         }
@@ -36,6 +46,6 @@ public class ChatListener implements Listener {
         // Render the message over the player for 100 ticks or 5 seconds
         String msg = PlainTextComponentSerializer.plainText().serialize(event.message());
         Logger.getLogger(msg);
-        hologramManager.showTextAbove(event.getPlayer(), msg, 100);
+        hologramManager.showTextAbove(player, msg, 100);
     }
 }

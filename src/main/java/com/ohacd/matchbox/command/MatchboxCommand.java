@@ -83,23 +83,41 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        GamePhase currentPhase = gameManager.getPhaseManager().getCurrentPhase();
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cThis command can only be used by players.");
+            return true;
+        }
+
+        Player player = (Player) sender;
+        
+        // Find which session the player is in
+        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        if (context == null) {
+            sender.sendMessage("§cYou are not in an active game.");
+            return true;
+        }
+        
+        String sessionName = context.getSessionName();
+        GamePhase currentPhase = context.getPhaseManager().getCurrentPhase();
 
         if (currentPhase == GamePhase.WAITING) {
             sender.sendMessage("§cNo active game to skip phases in.");
             return true;
         }
 
-        sender.sendMessage("§eForce-skipping current phase: " + currentPhase);
+        sender.sendMessage("§eForce-skipping current phase: " + currentPhase + " in session: " + sessionName);
 
         // Force end current phase by cancelling timers and calling callbacks
-        // This is a bit hacky but useful for testing
         if (currentPhase == GamePhase.SWIPE) {
-            gameManager.endSwipePhase();
+            gameManager.endSwipePhase(sessionName);
         } else if (currentPhase == GamePhase.DISCUSSION) {
-            // Manually trigger discussion end by cancelling the task
-            // Note: This is a workaround since we don't have direct access to endDiscussionPhase
-            sender.sendMessage("§cCannot skip discussion phase directly. Use /matchbox stop instead.");
+            // End discussion phase and move to voting
+            gameManager.endDiscussionPhase(sessionName);
+        } else if (currentPhase == GamePhase.VOTING) {
+            // End voting phase and move to next round or end game
+            gameManager.endVotingPhase(sessionName);
+        } else {
+            sender.sendMessage("§cCannot skip phase: " + currentPhase);
         }
 
         return true;
@@ -112,12 +130,23 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         }
 
         sender.sendMessage("§6=== Matchbox Debug Info ===");
-        sender.sendMessage("§eGame State: " + gameManager.getGameState().getDebugInfo());
-        sender.sendMessage("§eState Valid: " + (gameManager.getGameState().validateState() ? "§aYes" : "§cNo"));
-        sender.sendMessage("§ePhase Info: " + gameManager.getPhaseManager().getDebugInfo());
+        
+        // Show active game sessions
+        Set<String> activeSessionNames = gameManager.getActiveSessionNames();
+        sender.sendMessage("§eActive Game Sessions: " + activeSessionNames.size());
+        
+        for (String sessionName : activeSessionNames) {
+            com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContext(sessionName);
+            if (context != null) {
+                sender.sendMessage("  §7- " + sessionName + ":");
+                sender.sendMessage("    §7Game State: " + context.getGameState().getDebugInfo());
+                sender.sendMessage("    §7State Valid: " + (context.getGameState().validateState() ? "§aYes" : "§cNo"));
+                sender.sendMessage("    §7Phase Info: " + context.getPhaseManager().getDebugInfo());
+            }
+        }
 
-        // List all sessions
-        sender.sendMessage("§eSessions: " + sessionManager.getAllSessionNames().size());
+        // List all sessions (including inactive)
+        sender.sendMessage("§eAll Sessions: " + sessionManager.getAllSessionNames().size());
         for (String sessionName : sessionManager.getAllSessionNames()) {
             GameSession session = sessionManager.getSession(sessionName);
             sender.sendMessage("  §7- " + sessionName + " (Active: " + session.isActive() + ", Players: " + session.getPlayerCount() + ")");
@@ -138,6 +167,11 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleStop(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+        
         if (!(sender instanceof Player)) {
             sender.sendMessage("§cThis command can only be used by players.");
             return true;
@@ -167,15 +201,9 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
 
         // If game is active, end it first
         if (session.isActive()) {
-            // Check if this is actually the active game
-            String activeSession = gameManager.getGameState().getActiveSessionName();
-            if (activeSession != null && activeSession.equals(sessionName)) {
-                sender.sendMessage("§eEnding active game for session '" + sessionName + "'...");
-                gameManager.endGame();
-            }
-
-            // Mark session as inactive
-            session.setActive(false);
+            sender.sendMessage("§eEnding active game for session '" + sessionName + "'...");
+            gameManager.endGame(sessionName);
+            // Note: endGame() already marks session as inactive
         }
 
         // Remove the session
@@ -197,6 +225,11 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleRemove(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+        
         if (!(sender instanceof Player)) {
             sender.sendMessage("§cThis command can only be used by players.");
             return true;
@@ -221,6 +254,11 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleStart(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+        
         if (!(sender instanceof Player)) {
             sender.sendMessage("§cThis command can only be used by players.");
             return true;
@@ -253,6 +291,11 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleBegin(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+        
         if (!(sender instanceof Player)) {
             sender.sendMessage("§cThis command can only be used by players.");
             return true;
@@ -276,9 +319,18 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        // Note: Parallel sessions are now supported, so we don't check for other active games
+        // Each session can run independently
+
         List<Player> players = session.getPlayers();
         if (players.size() < 2) {
             sender.sendMessage("§cYou need at least 2 players to start a game!");
+            return true;
+        }
+        
+        // Check if session has too many players (max 7)
+        if (players.size() > 7) {
+            sender.sendMessage("§cThis session has too many players! Maximum 7 players allowed.");
             return true;
         }
 
@@ -336,6 +388,32 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        // Edge case: Check if session is already active (game started)
+        if (session.isActive()) {
+            com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContext(sessionName);
+            if (context != null && context.getGameState().isGameActive()) {
+                sender.sendMessage("§cThis session's game has already started! You cannot join an active game.");
+                sender.sendMessage("§7Wait for the game to end or join a different session.");
+                return true;
+            }
+        }
+
+        // Edge case: Check if player is already in another active game
+        if (!gameManager.canPlayerJoinSession(player.getUniqueId(), sessionName)) {
+            com.ohacd.matchbox.game.SessionGameContext existingContext = gameManager.getContextForPlayer(player.getUniqueId());
+            if (existingContext != null) {
+                sender.sendMessage("§cYou are already in an active game in session '" + existingContext.getSessionName() + "'!");
+                sender.sendMessage("§7Leave that game first using /matchbox leave");
+                return true;
+            }
+        }
+
+        // Check if session is full (max 7 players)
+        if (session.getPlayerCount() >= 7) {
+            sender.sendMessage("§cThis session is full! Maximum 7 players allowed.");
+            return true;
+        }
+
         if (!session.addPlayer(player)) {
             sender.sendMessage("§cFailed to join session. Please try again.");
             return true;
@@ -358,8 +436,8 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         Player player = (Player) sender;
         
         // Check if player is in an active game
-        if (gameManager.getGameState().isGameActive() && 
-            gameManager.getGameState().getAllParticipatingPlayerIds().contains(player.getUniqueId())) {
+        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        if (context != null && context.getGameState().isGameActive()) {
             // Player is in an active game - remove them from the game
             boolean removed = gameManager.removePlayerFromGame(player);
             if (removed) {
@@ -412,10 +490,22 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 p.sendMessage("§e" + player.getName() + " left the session. (" + session.getPlayerCount() + " players)");
             }
         });
+        
+        // If session is now empty, remove it
+        if (session.getPlayerCount() == 0) {
+            sessionManager.removeSession(sessionName);
+            sender.sendMessage("§7Session '" + sessionName + "' was removed (no players left).");
+        }
+        
         return true;
     }
 
     private boolean handleSetDiscussion(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+        
         if (!(sender instanceof Player)) {
             sender.sendMessage("§cThis command can only be used by players.");
             return true;
@@ -441,6 +531,11 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleSetSpawn(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+        
         if (!(sender instanceof Player)) {
             sender.sendMessage("§cThis command can only be used by players.");
             return true;
@@ -467,15 +562,34 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
 
     private boolean handleList(CommandSender sender) {
         Set<String> sessionNames = sessionManager.getAllSessionNames();
-        if (sessionNames.isEmpty()) {
+        
+        // Filter out empty sessions and clean them up
+        List<String> activeSessions = new ArrayList<>();
+        for (String name : sessionNames) {
+            GameSession session = sessionManager.getSession(name);
+            if (session != null) {
+                // Remove empty sessions
+                if (session.getPlayerCount() == 0) {
+                    sessionManager.removeSession(name);
+                    continue;
+                }
+                // Only show non-empty sessions
+                activeSessions.add(name);
+            }
+        }
+        
+        if (activeSessions.isEmpty()) {
             sender.sendMessage("§eNo active sessions.");
             return true;
         }
 
         sender.sendMessage("§aActive sessions:");
-        for (String name : sessionNames) {
+        for (String name : activeSessions) {
             GameSession session = sessionManager.getSession(name);
-            sender.sendMessage("§7- §e" + name + " §7(" + session.getPlayerCount() + " players)");
+            if (session != null) {
+                String status = session.isActive() ? "§c[ACTIVE]" : "§7[Waiting]";
+                sender.sendMessage("§7- §e" + name + " §7(" + session.getPlayerCount() + " players) " + status);
+            }
         }
         return true;
     }
