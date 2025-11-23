@@ -14,6 +14,12 @@ public class GameState {
     private final Set<UUID> swipedThisRound = new HashSet<>();
     private final Set<UUID> curedThisRound = new HashSet<>();
 
+    // Track ALL players who started the round (for nametag restoration)
+    private final Set<UUID> allParticipatingPlayers = new HashSet<>();
+
+    // Track which session is currently active
+    private String activeSessionName = null;
+
     /**
      * Clears all state for a new round.
      */
@@ -22,6 +28,8 @@ public class GameState {
         alivePlayers.clear();
         swipedThisRound.clear();
         curedThisRound.clear();
+        allParticipatingPlayers.clear();
+        activeSessionName = null;
     }
 
     /**
@@ -29,6 +37,7 @@ public class GameState {
      */
     public void addAlivePlayer(Player player) {
         alivePlayers.add(player.getUniqueId());
+        allParticipatingPlayers.add(player.getUniqueId());
     }
 
     /**
@@ -36,7 +45,7 @@ public class GameState {
      */
     public void addAlivePlayers(Collection<Player> players) {
         for (Player player : players) {
-            alivePlayers.add(player.getUniqueId());
+            addAlivePlayer(player);
         }
     }
 
@@ -128,5 +137,33 @@ public class GameState {
         return alivePlayers.stream()
                 .filter(uuid -> roles.get(uuid) == Role.INNOCENT)
                 .count();
+    }
+
+    /**
+     * Gets all participating player UUIDs (including eliminated ones).
+     */
+    public Set<UUID> getAllParticipatingPlayerIds() {
+        return new HashSet<>(allParticipatingPlayers);
+    }
+
+    /**
+     * Sets the active session name.
+     */
+    public void setActiveSessionName(String sessionName) {
+        this.activeSessionName = sessionName;
+    }
+
+    /**
+     * Gets the active session name.
+     */
+    public String getActiveSessionName() {
+        return activeSessionName;
+    }
+
+    /**
+     * Checks if there's an active game.
+     */
+    public boolean isGameActive() {
+        return !allParticipatingPlayers.isEmpty();
     }
 }

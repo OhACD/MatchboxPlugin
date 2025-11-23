@@ -44,6 +44,8 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 return handleStart(sender, args);
             case "begin":
                 return handleBegin(sender, args);
+            case "stop":
+                return handleStop(sender, args);
             case "join":
                 return handleJoin(sender, args);
             case "leave":
@@ -60,6 +62,54 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 sendHelp(sender);
                 return true;
         }
+    }
+
+    private boolean handleStop(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cThis command can only be used by players.");
+            return true;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage("§cUsage: /matchbox stop <name>");
+            return true;
+        }
+
+        String sessionName = args[1];
+
+        // Check if session exists
+        if (!sessionManager.sessionExists(sessionName)) {
+            sender.sendMessage("§cSession '" + sessionName + "' doesn't exist.");
+            return true;
+        }
+
+        GameSession session = sessionManager.getSession(sessionName);
+
+        // If game is active, end it first
+        if (session.isActive()) {
+            // Check if this is actually the active game
+            String activeSession = gameManager.getGameState().getActiveSessionName();
+            if (activeSession != null && activeSession.equals(sessionName)) {
+                sender.sendMessage("§eEnding active game for session '" + sessionName + "'...");
+                gameManager.endGame();
+            }
+
+            // Mark session as inactive
+            session.setActive(false);
+        }
+
+        // Remove the session
+        sessionManager.removeSession(sessionName);
+        sender.sendMessage("§aSession '" + sessionName + "' has been stopped and removed.");
+
+        // Notify all players who were in the session
+        for (Player player : session.getPlayers()) {
+            if (!player.equals(sender)) {
+                player.sendMessage("§cSession '" + sessionName + "' has been stopped by " + sender.getName() + ".");
+            }
+        }
+
+        return true;
     }
 
     private boolean handleRemove(CommandSender sender, String[] args) {
@@ -156,8 +206,8 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         // Mark session as active
         session.setActive(true);
 
-        // Start the game round
-        gameManager.startRound(players, session.getSpawnLocations(), session.getDiscussionLocation());
+        // Start the game round with session name
+        gameManager.startRound(players, session.getSpawnLocations(), session.getDiscussionLocation(), sessionName);
 
         // Notify all players
         for (Player p : players) {
@@ -309,8 +359,9 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§6=== Matchbox Commands ===");
         sender.sendMessage("§e/matchbox start <name> §7- Create a new game session");
         sender.sendMessage("§e/matchbox begin <name> §7- Begin the game for a session");
+        sender.sendMessage("§e/matchbox stop <name> §7- Stop and remove a session");
         sender.sendMessage("§e/matchbox join <name> §7- Join a game session");
-        sender.sendMessage("§e/matchbox remove §7- Remove a game session");
+        sender.sendMessage("§e/matchbox remove <name> §7- Remove a session (deprecated, use stop)");
         sender.sendMessage("§e/matchbox leave <name> §7- Leave a game session");
         sender.sendMessage("§e/matchbox setdiscussion <name> §7- Set discussion location");
         sender.sendMessage("§e/matchbox setspawn <name> §7- Add a spawn location");
@@ -320,7 +371,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            List<String> subCommands = Arrays.asList("start", "begin", "join", "leave", "setdiscussion", "setspawn", "list");
+            List<String> subCommands = Arrays.asList("start", "begin", "stop", "join", "leave", "setdiscussion", "setspawn", "list", "remove");
             return subCommands.stream()
                     .filter(cmd -> cmd.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
@@ -328,8 +379,9 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 2) {
             String subCommand = args[0].toLowerCase();
-            if (subCommand.equals("begin") || subCommand.equals("join") || subCommand.equals("leave") ||
-                subCommand.equals("setdiscussion") || subCommand.equals("setspawn")) {
+            if (subCommand.equals("begin") || subCommand.equals("stop") || subCommand.equals("join") ||
+                    subCommand.equals("leave") || subCommand.equals("setdiscussion") ||
+                    subCommand.equals("setspawn") || subCommand.equals("remove")) {
                 return sessionManager.getAllSessionNames().stream()
                         .filter(name -> name.startsWith(args[1].toLowerCase()))
                         .collect(Collectors.toList());

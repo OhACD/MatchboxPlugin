@@ -71,11 +71,22 @@ public class GameManager {
      * Players will be teleported to random spawn locations.
      */
     public void startRound(Collection<Player> players, List<Location> spawnLocations, Location discussionLocation) {
+        startRound(players, spawnLocations, discussionLocation, null);
+    }
+
+    /**
+     * Starts a new round with the given players, spawn locations, discussion location, and session name.
+     * Players will be teleported to random spawn locations.
+     */
+    public void startRound(Collection<Player> players, List<Location> spawnLocations, Location discussionLocation, String sessionName) {
         this.currentDiscussionLocation = discussionLocation;
         // Clear previous round state
         gameState.clearRoundState();
         // Resets the phase to waiting phase
         phaseManager.reset();
+
+        // Store session name
+        gameState.setActiveSessionName(sessionName);
 
         // Add players to alive set
         gameState.addAlivePlayers(players);
@@ -118,8 +129,8 @@ public class GameManager {
         }
 
         swipePhaseHandler.startSwipePhase(
-            gameState.getAlivePlayerIds(),
-            this::endSwipePhase
+                gameState.getAlivePlayerIds(),
+                this::endSwipePhase
         );
     }
 
@@ -201,14 +212,38 @@ public class GameManager {
 
     /**
      * Ends the game and resets all state.
+     * This method is now PUBLIC so it can be called from commands.
      */
-    private void endGame() {
+    public void endGame() {
         messageUtils.broadcast("§eGame ended!");
-        phaseManager.reset();
-        gameState.clearRoundState();
+
+        // Restore all participating players' nametags and game modes
+        for (UUID playerId : gameState.getAllParticipatingPlayerIds()) {
+            Player player = org.bukkit.Bukkit.getPlayer(playerId);
+            if (player != null && player.isOnline()) {
+                // Show nametag
+                NameTagManager.showNameTag(player);
+
+                // Reset to survival mode
+                player.setGameMode(GameMode.SURVIVAL);
+
+                // Clear inventory (TODO: Store and restore original inventories later)
+                player.getInventory().clear();
+
+                // Send feedback
+                player.sendMessage("§aYou have been returned to normal state.");
+            }
+        }
+
+        // Cancel any running timers
         swipePhaseHandler.cancelSwipeTask();
 
-        // TODO: Teleport players back, reset inventories, etc.
+        // Clear holograms
+        hologramManager.clearAll();
+
+        // Reset phase and game state
+        phaseManager.reset();
+        gameState.clearRoundState();
     }
 
     // Getters for external access
