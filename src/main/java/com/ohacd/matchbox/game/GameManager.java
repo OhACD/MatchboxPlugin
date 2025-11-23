@@ -713,12 +713,21 @@ public class GameManager {
         // Check for win condition after voting
         try {
             if (checkForWin()) {
+                plugin.getLogger().info("Win condition met - game ended, not starting new round");
                 return; // Game ended
             }
         } catch (Exception e) {
             plugin.getLogger().severe("Error checking win conditions: " + e.getMessage());
             e.printStackTrace();
-            // Continue to next round even if check fails
+            // Don't continue to next round if check fails - end game instead
+            endGame();
+            return;
+        }
+
+        // Double-check game is still active before starting new round
+        if (!gameState.isGameActive()) {
+            plugin.getLogger().info("Game is not active after voting - not starting new round");
+            return;
         }
 
         // Start next round
@@ -1232,11 +1241,14 @@ public class GameManager {
             plugin.getLogger().warning("Error clearing holograms: " + e.getMessage());
         }
 
+        // Get session name BEFORE clearing game state
+        String activeSessionName = gameState.getActiveSessionName();
+        
         // Reset phase and game state
         phaseManager.reset();
+        gameState.clearGameState();
         
-        // Mark session as inactive before clearing game state (so we can access session name)
-        String activeSessionName = gameState.getActiveSessionName();
+        // Mark session as inactive and ensure it stays terminated
         if (activeSessionName != null) {
             try {
                 // Access SessionManager via plugin instance
@@ -1246,15 +1258,20 @@ public class GameManager {
                     com.ohacd.matchbox.game.session.GameSession session = sessionManager.getSession(activeSessionName);
                     if (session != null) {
                         session.setActive(false);
-                        plugin.getLogger().info("Marked session '" + activeSessionName + "' as inactive");
+                        plugin.getLogger().info("Marked session '" + activeSessionName + "' as inactive after game end");
+                    } else {
+                        plugin.getLogger().warning("Session '" + activeSessionName + "' not found when trying to mark inactive");
                     }
+                } else {
+                    plugin.getLogger().warning("SessionManager is null when trying to mark session inactive");
                 }
             } catch (Exception e) {
-                plugin.getLogger().warning("Failed to mark session as inactive: " + e.getMessage());
+                plugin.getLogger().severe("Failed to mark session as inactive: " + e.getMessage());
+                e.printStackTrace();
             }
+        } else {
+            plugin.getLogger().info("No active session name found when ending game");
         }
-        
-        gameState.clearGameState();
 
         plugin.getLogger().info("Game ended successfully");
     }

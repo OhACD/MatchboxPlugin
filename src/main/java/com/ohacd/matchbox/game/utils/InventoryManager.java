@@ -22,7 +22,7 @@ public class InventoryManager {
     private final Plugin plugin;
     
     // Slot constants
-    private static final int ROLE_PAPER_SLOT = 8; // Top rightmost slot in inventory
+    private static final int ROLE_PAPER_SLOT = 17; // Top rightmost slot in inventory (top row, rightmost)
     private static final int SWIPE_CURE_PAPER_SLOT = 27; // Above hotbar slot 0
     private static final int VISION_SIGHT_PAPER_SLOT = 28; // Above hotbar slot 1
     private static final int CROSSBOW_HOTBAR_SLOT = 7; // Hotbar slot 7 (second from right)
