@@ -187,6 +187,30 @@ public class GameManager {
      * This does NOT reassign roles or reset player list.
      */
     private void startNewRound() {
+        // Check if game is still active (not ended)
+        if (!gameState.isGameActive()) {
+            plugin.getLogger().info("Cannot start new round - game is not active");
+            return;
+        }
+        
+        // Check if session is still active
+        String activeSessionName = gameState.getActiveSessionName();
+        if (activeSessionName != null) {
+            try {
+                com.ohacd.matchbox.Matchbox matchboxPlugin = (com.ohacd.matchbox.Matchbox) plugin;
+                com.ohacd.matchbox.game.session.SessionManager sessionManager = matchboxPlugin.getSessionManager();
+                if (sessionManager != null) {
+                    com.ohacd.matchbox.game.session.GameSession session = sessionManager.getSession(activeSessionName);
+                    if (session != null && !session.isActive()) {
+                        plugin.getLogger().info("Cannot start new round - session is not active");
+                        return;
+                    }
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to check session status: " + e.getMessage());
+            }
+        }
+        
         // Validate state before starting new round
         if (!gameState.validateState()) {
             messageUtils.broadcast("§c§lERROR: Game state is corrupted! Ending game.");
@@ -425,7 +449,8 @@ public class GameManager {
 
     /**
      * Activates Hunter Vision for the spark.
-     * Shows glow effect on all alive players for 15 seconds (only visible to spark, works through walls).
+     * Shows particles on all alive players for 15 seconds (only visible to spark).
+     * Spark cannot see nametags - only particles are shown.
      * Can only be used once per round.
      */
     public void activateHunterVision(Player spark) {
@@ -482,9 +507,9 @@ public class GameManager {
     }
 
     /**
-     * Shows glow effect on all alive players, visible only to the spark.
-     * Glow works through walls and lasts for 15 seconds.
-     * Note: Currently uses scoreboard teams. For true single-player visibility, ProtocolLib is needed.
+     * Shows particles on all alive players, visible only to the spark.
+     * Particles last for 15 seconds.
+     * Note: Spark cannot see nametags - only particles are shown.
      */
     private void showGlowOnPlayers(Player spark) {
         if (spark == null || !spark.isOnline()) return;
@@ -509,71 +534,14 @@ public class GameManager {
             return;
         }
 
-        // Create a temporary team with glow effect
-        // Note: This is visible to all players. For true single-player visibility, ProtocolLib is needed.
-        String teamName = "matchbox_glow_" + spark.getUniqueId().toString().substring(0, 8);
-        if (teamName.length() > 16) {
-            teamName = teamName.substring(0, 16);
-        }
-
-        org.bukkit.scoreboard.Scoreboard board = org.bukkit.Bukkit.getScoreboardManager().getMainScoreboard();
-        if (board == null) {
-            plugin.getLogger().warning("Scoreboard not available for glow effect");
-            return;
-        }
-
-        org.bukkit.scoreboard.Team team = board.getTeam(teamName);
-        
-        if (team == null) {
-            team = board.registerNewTeam(teamName);
-        }
-
-        final org.bukkit.scoreboard.Team finalTeam = team;
-        final java.util.List<Player> finalAlivePlayers = new java.util.ArrayList<>(alivePlayers);
-
-        // Enable glow effect using team color
-        try {
-            // Note: True glow effect requires ProtocolLib for single-player visibility
-            // TODO: Use ProtocolLib for true single-player glow visibility
-            // For now, we'll use particles as a workaround for visibility
-        } catch (Exception e) {
-            plugin.getLogger().warning("Could not set glow effect: " + e.getMessage());
-        }
-
-        // Add all alive players to the team
-        for (Player player : finalAlivePlayers) {
-            try {
-                finalTeam.addEntry(player.getName());
-            } catch (Exception e) {
-                plugin.getLogger().warning("Could not add " + player.getName() + " to glow team: " + e.getMessage());
-            }
-        }
-
-        // Show particles around players as a visual indicator (glow workaround)
+        // Show particles around players as a visual indicator
         // This is visible only to the spark (using viewer.spawnParticle)
-        for (Player target : finalAlivePlayers) {
+        // No nametag visibility changes - nametags remain hidden for spark
+        for (Player target : alivePlayers) {
             ParticleUtils.showRedParticlesOnPlayer(spark, target, 15, plugin);
         }
 
-        // Remove glow after 15 seconds
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            try {
-                // Remove players from team
-                for (Player player : finalAlivePlayers) {
-                    if (player != null && player.isOnline()) {
-                        finalTeam.removeEntry(player.getName());
-                    }
-                }
-                // Unregister team if empty
-                if (finalTeam.getEntries().isEmpty()) {
-                    finalTeam.unregister();
-                }
-            } catch (Exception e) {
-                plugin.getLogger().warning("Error removing glow effect: " + e.getMessage());
-            }
-        }, 15 * 20L); // 15 seconds
-
-        plugin.getLogger().info("Showing glow on " + alivePlayers.size() + " player(s) to spark " + spark.getName());
+        plugin.getLogger().info("Showing particles on " + alivePlayers.size() + " player(s) to spark " + spark.getName());
     }
 
     /**
@@ -912,6 +880,15 @@ public class GameManager {
         gameState.markCured(medicId);
         gameState.removePendingDeath(targetId);
 
+        // Show subtle blue particles to everyone (hard to see but not impossible)
+        // This provides a visual cue that someone was cured
+        ParticleUtils.showColoredParticlesToEveryone(
+            target,
+            org.bukkit.Color.fromRGB(0, 100, 255), // Blue
+            8, // 8 ticks = 0.4 seconds (split second)
+            plugin
+        );
+
         // Close the cure window
         activeCureWindow.remove(medicId);
 
@@ -961,6 +938,15 @@ public class GameManager {
         // The pending death will be applied when startDiscussionPhase() is called.
         // For now, we mark it with current time but it will only be processed at discussion start.
         gameState.setPendingDeath(targetId, System.currentTimeMillis());
+
+        // Show subtle lime particles to everyone (hard to see but not impossible)
+        // This makes it harder for Spark to swipe players in front of everyone
+        ParticleUtils.showColoredParticlesToEveryone(
+            target,
+            org.bukkit.Color.fromRGB(50, 205, 50), // Lime green
+            8, // 8 ticks = 0.4 seconds (split second)
+            plugin
+        );
 
         // close the swipe window
         activeSwipeWindow.remove(shooterId);
@@ -1248,6 +1234,26 @@ public class GameManager {
 
         // Reset phase and game state
         phaseManager.reset();
+        
+        // Mark session as inactive before clearing game state (so we can access session name)
+        String activeSessionName = gameState.getActiveSessionName();
+        if (activeSessionName != null) {
+            try {
+                // Access SessionManager via plugin instance
+                com.ohacd.matchbox.Matchbox matchboxPlugin = (com.ohacd.matchbox.Matchbox) plugin;
+                com.ohacd.matchbox.game.session.SessionManager sessionManager = matchboxPlugin.getSessionManager();
+                if (sessionManager != null) {
+                    com.ohacd.matchbox.game.session.GameSession session = sessionManager.getSession(activeSessionName);
+                    if (session != null) {
+                        session.setActive(false);
+                        plugin.getLogger().info("Marked session '" + activeSessionName + "' as inactive");
+                    }
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to mark session as inactive: " + e.getMessage());
+            }
+        }
+        
         gameState.clearGameState();
 
         plugin.getLogger().info("Game ended successfully");

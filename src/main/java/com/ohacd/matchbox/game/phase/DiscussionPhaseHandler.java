@@ -19,7 +19,7 @@ public class DiscussionPhaseHandler {
     private final Plugin plugin;
     private final MessageUtils messageUtils;
     private BukkitRunnable discussionTask = null;
-    private final int DEFAULT_DISCUSSION_SECONDS = 60; // 1 minute discussion
+    private final int DEFAULT_DISCUSSION_SECONDS = 30; // 30 seconds discussion
     private Collection<UUID> currentPlayerIds = null;
 
     public DiscussionPhaseHandler(Plugin plugin, MessageUtils messageUtils) {
@@ -90,7 +90,7 @@ public class DiscussionPhaseHandler {
                     }
                 }
                 // Broadcast at specific times
-                if (secs == 30 || secs == 10 || secs == 5 || secs <= 3) {
+                if (secs == 20 || secs == 10 || secs == 5 || secs <= 3) {
                     messageUtils.sendPlainMessage("§eDiscussion phase ends in " + secs + " seconds!");
                 }
             }

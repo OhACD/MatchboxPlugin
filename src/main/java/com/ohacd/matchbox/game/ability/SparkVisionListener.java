@@ -12,7 +12,8 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 
 /**
  * Activates Hunter Vision when a Spark clicks a PAPER in slot 28 (above hotbar slot 1).
- * Shows glow effect on all alive players for 15 seconds (only visible to spark, works through walls).
+ * Shows particles on all alive players for 15 seconds (only visible to spark).
+ * Spark cannot see nametags - only particles are shown.
  * Can only be used once per round.
  * Silent by design (no messages/holograms).
  */

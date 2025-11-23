@@ -69,7 +69,7 @@ public class InventoryManager {
             inv.clear();
             
             // Set role paper in top rightmost slot (slot 8)
-            ItemStack rolePaper = createRolePaper(role);
+            ItemStack rolePaper = createRolePaper(player, role);
             inv.setItem(ROLE_PAPER_SLOT, rolePaper);
             
             // Set ability papers based on role
@@ -381,36 +381,47 @@ public class InventoryManager {
     }
     
     /**
-     * Creates a role paper with role-specific description.
+     * Creates a role paper with player name, role, and role-specific description.
      */
-    private ItemStack createRolePaper(Role role) {
+    private ItemStack createRolePaper(Player player, Role role) {
         ItemStack paper = new ItemStack(Material.PAPER);
         ItemMeta meta = paper.getItemMeta();
         if (meta == null) {
             return paper;
         }
         
-        meta.setDisplayName("§6Your Role");
+        String playerName = player != null ? player.getName() : "Unknown";
+        meta.setDisplayName("§6" + playerName + "'s Role");
         List<String> lore = new ArrayList<>();
+        
+        // Add player name
+        lore.add("§7Player: §f" + playerName);
+        lore.add(""); // Empty line
         
         switch (role) {
             case SPARK:
-                lore.add("§c§lSPARK");
+                lore.add("§c§lROLE: SPARK");
+                lore.add("");
                 lore.add("§7You are the impostor!");
                 lore.add("§7Infect players to eliminate them.");
                 lore.add("§7Use your abilities to stay hidden.");
+                lore.add("§7Win by eliminating all other players.");
                 break;
             case MEDIC:
-                lore.add("§a§lMEDIC");
+                lore.add("§a§lROLE: MEDIC");
+                lore.add("");
                 lore.add("§7You can save infected players!");
                 lore.add("§7Use Healing Touch to cure players.");
                 lore.add("§7Use Healing Sight to see who's infected.");
+                lore.add("§7Win by eliminating the Spark.");
                 break;
             case INNOCENT:
-                lore.add("§f§lINNOCENT");
+                lore.add("§f§lROLE: INNOCENT");
+                lore.add("");
                 lore.add("§7You are a regular player.");
                 lore.add("§7Work with others to find the Spark.");
                 lore.add("§7Use your arrow to reveal nametags.");
+                lore.add("§7Win by eliminating the Spark.");
                 break;
         }
         
