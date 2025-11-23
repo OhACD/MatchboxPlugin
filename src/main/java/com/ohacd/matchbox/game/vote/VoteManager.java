@@ -26,6 +26,14 @@ public class VoteManager {
      * Returns true if vote was registered, false if voter already voted or target is invalid.
      */
     public boolean registerVote(UUID voterId, UUID targetId) {
+        if (voterId == null || targetId == null) {
+            return false;
+        }
+        
+        if (gameState == null) {
+            return false;
+        }
+        
         // Check if voter is alive
         if (!gameState.isAlive(voterId)) {
             return false;
@@ -91,7 +99,7 @@ public class VoteManager {
      * Returns null if there's a tie or no votes.
      */
     public UUID getMostVotedPlayer() {
-        if (voteCounts.isEmpty()) {
+        if (voteCounts == null || voteCounts.isEmpty()) {
             return null;
         }
         
@@ -101,13 +109,17 @@ public class VoteManager {
         // Find all players with max votes
         List<UUID> topVoted = new ArrayList<>();
         for (Map.Entry<UUID, Integer> entry : voteCounts.entrySet()) {
-            if (entry.getValue() == maxVotes) {
+            if (entry.getKey() != null && entry.getValue() != null && entry.getValue() == maxVotes) {
                 topVoted.add(entry.getKey());
             }
         }
         
         // If tie, return null (caller should handle tie resolution)
         if (topVoted.size() > 1) {
+            return null;
+        }
+        
+        if (topVoted.isEmpty()) {
             return null;
         }
         
@@ -119,7 +131,7 @@ public class VoteManager {
      * Returns empty list if no tie or no votes.
      */
     public List<UUID> getTiedPlayers() {
-        if (voteCounts.isEmpty()) {
+        if (voteCounts == null || voteCounts.isEmpty()) {
             return Collections.emptyList();
         }
         
@@ -127,7 +139,7 @@ public class VoteManager {
         List<UUID> tied = new ArrayList<>();
         
         for (Map.Entry<UUID, Integer> entry : voteCounts.entrySet()) {
-            if (entry.getValue() == maxVotes) {
+            if (entry.getKey() != null && entry.getValue() != null && entry.getValue() == maxVotes) {
                 tied.add(entry.getKey());
             }
         }
@@ -140,7 +152,7 @@ public class VoteManager {
      * Gets the vote count for the most voted player.
      */
     public int getMaxVoteCount() {
-        if (voteCounts.isEmpty()) {
+        if (voteCounts == null || voteCounts.isEmpty()) {
             return 0;
         }
         return Collections.max(voteCounts.values());

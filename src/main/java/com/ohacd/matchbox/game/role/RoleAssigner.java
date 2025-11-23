@@ -23,7 +23,23 @@ public class RoleAssigner {
      * Ensures ALL players get a role assigned.
      */
     public void assignRoles(List<Player> players) {
-        List<Player> shuffled = new ArrayList<>(players);
+        if (players == null || players.isEmpty()) {
+            return;
+        }
+        
+        // Filter out null players
+        List<Player> validPlayers = new ArrayList<>();
+        for (Player player : players) {
+            if (player != null && player.isOnline()) {
+                validPlayers.add(player);
+            }
+        }
+        
+        if (validPlayers.isEmpty()) {
+            return;
+        }
+        
+        List<Player> shuffled = new ArrayList<>(validPlayers);
         Collections.shuffle(shuffled);
 
         // Assign Spark to first player (if exists)

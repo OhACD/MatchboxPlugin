@@ -8,6 +8,7 @@ import com.ohacd.matchbox.game.phase.VotingPhaseHandler;
 import com.ohacd.matchbox.game.role.RoleAssigner;
 import com.ohacd.matchbox.game.state.GameState;
 import com.ohacd.matchbox.game.utils.GamePhase;
+import com.ohacd.matchbox.game.utils.InventoryManager;
 import com.ohacd.matchbox.game.utils.MessageUtils;
 import com.ohacd.matchbox.game.utils.NameTagManager;
 import com.ohacd.matchbox.game.utils.ParticleUtils;
@@ -43,6 +44,7 @@ public class GameManager {
     private final DiscussionPhaseHandler discussionPhaseHandler;
     private final VotingPhaseHandler votingPhaseHandler;
     private final VoteManager voteManager;
+    private final InventoryManager inventoryManager;
     private final Map<UUID, Long> activeSwipeWindow = new ConcurrentHashMap<>();
     private final Map<UUID, Long> activeCureWindow = new ConcurrentHashMap<>();
 
@@ -54,6 +56,13 @@ public class GameManager {
     private List<Location> currentSpawnLocations;
 
     public GameManager(Plugin plugin, HologramManager hologramManager) {
+        if (plugin == null) {
+            throw new IllegalArgumentException("Plugin cannot be null");
+        }
+        if (hologramManager == null) {
+            throw new IllegalArgumentException("HologramManager cannot be null");
+        }
+        
         this.plugin = plugin;
         this.hologramManager = hologramManager;
 
@@ -67,6 +76,7 @@ public class GameManager {
         this.discussionPhaseHandler = new DiscussionPhaseHandler(plugin, messageUtils);
         this.votingPhaseHandler = new VotingPhaseHandler(plugin, messageUtils);
         this.voteManager = new VoteManager(gameState);
+        this.inventoryManager = new InventoryManager(plugin);
     }
 
     /**
@@ -120,7 +130,16 @@ public class GameManager {
 
         // Backup player states before game starts
         for (Player player : players) {
-            playerBackups.put(player.getUniqueId(), new PlayerBackup(player));
+            if (player == null || !player.isOnline()) {
+                plugin.getLogger().warning("Skipping null or offline player during backup");
+                continue;
+            }
+            try {
+                playerBackups.put(player.getUniqueId(), new PlayerBackup(player));
+            } catch (Exception e) {
+                plugin.getLogger().severe("Failed to backup player " + (player != null ? player.getName() : "null") + ": " + e.getMessage());
+                e.printStackTrace();
+            }
         }
 
         // Add players to alive set
@@ -149,7 +168,15 @@ public class GameManager {
                 })
                 .collect(java.util.stream.Collectors.joining(", ")));
 
-        // TODO: Give items, set role paper to the top right slot in the inventory.
+        // Setup inventories for all players with their roles
+        Map<UUID, Role> roleMap = new HashMap<>();
+        for (UUID playerId : gameState.getAllParticipatingPlayerIds()) {
+            Role role = gameState.getRole(playerId);
+            if (role != null) {
+                roleMap.put(playerId, role);
+            }
+        }
+        inventoryManager.setupInventories(players, roleMap);
 
         // Start first round
         startNewRound();
@@ -176,18 +203,30 @@ public class GameManager {
 
         // Show title to all alive players
         Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
-        messageUtils.sendTitle(
-                alivePlayers,
-                "§6§lROUND " + roundNumber,
-                "§eGet ready to swipe!",
-                10, // fadeIn (0.5s)
-                40, // stay (2s)
-                10  // fadeOut (0.5s)
-        );
+        if (alivePlayers != null && !alivePlayers.isEmpty()) {
+            messageUtils.sendTitle(
+                    alivePlayers,
+                    "§6§lROUND " + roundNumber,
+                    "§eGet ready to swipe!",
+                    10, // fadeIn (0.5s)
+                    40, // stay (2s)
+                    10  // fadeOut (0.5s)
+            );
+        }
 
         // Clear per-round state (swipes, cures, votes) but keep roles and players
         gameState.clearRoundState();
         voteManager.clearVotes();
+        inventoryManager.resetArrowUsage();
+        
+        // Give arrows to all alive players for the new round (reuse alivePlayers from above)
+        if (alivePlayers != null) {
+            for (Player player : alivePlayers) {
+                if (player != null && player.isOnline()) {
+                    inventoryManager.giveArrowIfNeeded(player);
+                }
+            }
+        }
 
         // Teleport alive players to spawn locations with better distribution
         teleportPlayersToSpawns();
@@ -234,6 +273,10 @@ public class GameManager {
 
             // Clone location to avoid reference issues
             Location teleportLoc = spawnLoc.clone();
+            if (teleportLoc == null || teleportLoc.getWorld() == null) {
+                plugin.getLogger().warning("Invalid spawn location for player " + player.getName() + ", skipping teleport");
+                continue;
+            }
 
             // Add small random offset if multiple players at same spawn
             if (alivePlayers.size() > spawnCount) {
@@ -246,7 +289,11 @@ public class GameManager {
                 }
             }
 
-            player.teleport(teleportLoc);
+            try {
+                player.teleport(teleportLoc);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to teleport player " + player.getName() + ": " + e.getMessage());
+            }
         }
     }
 
@@ -262,8 +309,17 @@ public class GameManager {
 
         // Hide the name tag for all alive players on phase start
         String sessionName = gameState.getActiveSessionName();
-        for (Player player : swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds())) {
-            NameTagManager.hideNameTag(player, sessionName);
+        Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
+        if (alivePlayers != null) {
+            for (Player player : alivePlayers) {
+                if (player != null && player.isOnline()) {
+                    try {
+                        NameTagManager.hideNameTag(player, sessionName);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to hide nametag for " + player.getName() + ": " + e.getMessage());
+                    }
+                }
+            }
         }
 
         swipePhaseHandler.startSwipePhase(
@@ -400,11 +456,15 @@ public class GameManager {
 
         // Get all alive players with pending deaths
         java.util.List<Player> infectedPlayers = new java.util.ArrayList<>();
-        for (UUID playerId : gameState.getAlivePlayerIds()) {
-            if (gameState.hasPendingDeath(playerId)) {
-                Player infected = getPlayer(playerId);
-                if (infected != null && infected.isOnline()) {
-                    infectedPlayers.add(infected);
+        Set<UUID> alivePlayerIds = gameState.getAlivePlayerIds();
+        if (alivePlayerIds != null) {
+            for (UUID playerId : alivePlayerIds) {
+                if (playerId == null) continue;
+                if (gameState.hasPendingDeath(playerId)) {
+                    Player infected = getPlayer(playerId);
+                    if (infected != null && infected.isOnline()) {
+                        infectedPlayers.add(infected);
+                    }
                 }
             }
         }
@@ -431,11 +491,16 @@ public class GameManager {
 
         // Get all alive players (excluding spark)
         java.util.List<Player> alivePlayers = new java.util.ArrayList<>();
-        for (UUID playerId : gameState.getAlivePlayerIds()) {
-            if (!playerId.equals(spark.getUniqueId())) {
-                Player player = getPlayer(playerId);
-                if (player != null && player.isOnline()) {
-                    alivePlayers.add(player);
+        Set<UUID> alivePlayerIds = gameState.getAlivePlayerIds();
+        if (alivePlayerIds != null && spark != null) {
+            UUID sparkId = spark.getUniqueId();
+            for (UUID playerId : alivePlayerIds) {
+                if (playerId == null) continue;
+                if (!playerId.equals(sparkId)) {
+                    Player player = getPlayer(playerId);
+                    if (player != null && player.isOnline()) {
+                        alivePlayers.add(player);
+                    }
                 }
             }
         }
@@ -548,7 +613,6 @@ public class GameManager {
         startDiscussionPhase();
     }
 
-
     /**
      * Starts the discussion phase and applies pending deaths immediately before players join discussion.
      */
@@ -556,9 +620,12 @@ public class GameManager {
         // Apply ALL pending deaths now (regardless of timestamp) so infected players do not participate in discussion
         // This ensures pending deaths scheduled during swipe phase are applied at discussion start
         Set<UUID> allPendingDeaths = new HashSet<>();
-        for (UUID playerId : gameState.getAlivePlayerIds()) {
-            if (gameState.hasPendingDeath(playerId)) {
-                allPendingDeaths.add(playerId);
+        Set<UUID> alivePlayerIds = gameState.getAlivePlayerIds();
+        if (alivePlayerIds != null) {
+            for (UUID playerId : alivePlayerIds) {
+                if (playerId != null && gameState.hasPendingDeath(playerId)) {
+                    allPendingDeaths.add(playerId);
+                }
             }
         }
         
@@ -567,18 +634,28 @@ public class GameManager {
         }
         
         for (UUID victimId : allPendingDeaths) {
+            if (victimId == null) continue;
+            
             if (!gameState.isAlive(victimId)) {
                 gameState.removePendingDeath(victimId);
                 continue;
             }
             Player victim = getPlayer(victimId);
             if (victim != null && victim.isOnline()) {
-                eliminatePlayer(victim); // ensure this removes them from alive and cleans state
+                try {
+                    eliminatePlayer(victim); // ensure this removes them from alive and cleans state
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Error eliminating player " + victim.getName() + ": " + e.getMessage());
+                    // Fallback cleanup
+                    gameState.removeAlivePlayer(victimId);
+                    gameState.removePendingDeath(victimId);
+                }
             } else {
                 // server-side cleanup if offline
                 gameState.removeAlivePlayer(victimId);
                 gameState.removePendingDeath(victimId);
             }
+            // Ensure pending death is removed
             gameState.removePendingDeath(victimId);
         }
 
@@ -586,13 +663,23 @@ public class GameManager {
         gameState.clearInfectedThisRound();
 
         // Teleport alive players to discussion location
-        if (currentDiscussionLocation != null) {
-            for (UUID playerId : gameState.getAlivePlayerIds()) {
-                Player player = org.bukkit.Bukkit.getPlayer(playerId);
-                if (player != null && player.isOnline()) {
-                    player.teleport(currentDiscussionLocation);
+        if (currentDiscussionLocation != null && currentDiscussionLocation.getWorld() != null) {
+            alivePlayerIds = gameState.getAlivePlayerIds();
+            if (alivePlayerIds != null) {
+                for (UUID playerId : alivePlayerIds) {
+                    if (playerId == null) continue;
+                    Player player = org.bukkit.Bukkit.getPlayer(playerId);
+                    if (player != null && player.isOnline()) {
+                        try {
+                            player.teleport(currentDiscussionLocation);
+                        } catch (Exception e) {
+                            plugin.getLogger().warning("Failed to teleport player " + player.getName() + " to discussion: " + e.getMessage());
+                        }
+                    }
                 }
             }
+        } else {
+            plugin.getLogger().warning("Cannot teleport to discussion: location is null or world is null");
         }
 
         // Start the discussion timer and supply callback to endDiscussionPhase
@@ -620,6 +707,16 @@ public class GameManager {
         phaseManager.setPhase(GamePhase.VOTING);
         plugin.getLogger().info("Starting voting phase - Round " + gameState.getCurrentRound());
 
+        // Give voting papers to all alive players
+        Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
+        if (alivePlayers != null && !alivePlayers.isEmpty()) {
+            for (Player player : alivePlayers) {
+                if (player != null && player.isOnline()) {
+                    inventoryManager.giveVotingPapers(player, alivePlayers);
+                }
+            }
+        }
+
         // Start the voting timer and supply callback to endVotingPhase
         votingPhaseHandler.startVotingPhase(gameState.getAlivePlayerIds(), this::endVotingPhase);
     }
@@ -631,16 +728,40 @@ public class GameManager {
         plugin.getLogger().info("Ending voting phase - Round " + gameState.getCurrentRound());
         messageUtils.broadcast("§c§l>> VOTING PHASE ENDED <<");
 
+        // Clear voting papers from all players
+        Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
+        if (alivePlayers != null) {
+            inventoryManager.clearAllVotingPapers(alivePlayers);
+        }
+
         // Resolve votes and eliminate
-        resolveVotes();
+        try {
+            resolveVotes();
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error resolving votes: " + e.getMessage());
+            e.printStackTrace();
+        }
 
         // Check for win condition after voting
-        if (checkForWin()) {
-            return; // Game ended
+        try {
+            if (checkForWin()) {
+                return; // Game ended
+            }
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error checking win conditions: " + e.getMessage());
+            e.printStackTrace();
+            // Continue to next round even if check fails
         }
 
         // Start next round
-        startNewRound();
+        try {
+            startNewRound();
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error starting new round: " + e.getMessage());
+            e.printStackTrace();
+            // Attempt to end game gracefully
+            endGame();
+        }
     }
 
     /**
@@ -648,9 +769,18 @@ public class GameManager {
      * Handles ties by random elimination.
      */
     private void resolveVotes() {
+        if (voteManager == null) {
+            plugin.getLogger().warning("VoteManager is null, cannot resolve votes");
+            return;
+        }
+        
         UUID mostVoted = voteManager.getMostVotedPlayer();
         List<UUID> tied = voteManager.getTiedPlayers();
         int maxVotes = voteManager.getMaxVoteCount();
+        
+        if (tied == null) {
+            tied = Collections.emptyList();
+        }
 
         if (mostVoted == null && tied.isEmpty()) {
             // No votes cast - skip elimination
@@ -692,8 +822,16 @@ public class GameManager {
         if (toEliminate != null) {
             Player player = getPlayer(toEliminate);
             if (player != null && player.isOnline()) {
-                eliminatePlayer(player);
-                messageUtils.broadcast(resultMessage);
+                try {
+                    eliminatePlayer(player);
+                    messageUtils.broadcast(resultMessage);
+                } catch (Exception e) {
+                    plugin.getLogger().severe("Error eliminating player " + player.getName() + ": " + e.getMessage());
+                    e.printStackTrace();
+                    // Fallback: remove from state
+                    gameState.removeAlivePlayer(toEliminate);
+                    messageUtils.broadcast(resultMessage);
+                }
             } else {
                 // Player offline - remove from state
                 gameState.removeAlivePlayer(toEliminate);
@@ -843,11 +981,24 @@ public class GameManager {
         gameState.removeAlivePlayer(playerId);
         
         // when a player gets eliminated they show their name tag
-        NameTagManager.showNameTag(player);
-        player.sendMessage("§cYou have been eliminated!");
+        try {
+            NameTagManager.showNameTag(player);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to show nametag for eliminated player " + player.getName() + ": " + e.getMessage());
+        }
+        
+        try {
+            player.sendMessage("§cYou have been eliminated!");
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to send elimination message to " + player.getName() + ": " + e.getMessage());
+        }
 
         // Set spectator mode
-        player.setGameMode(GameMode.SPECTATOR);
+        try {
+            player.setGameMode(GameMode.SPECTATOR);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to set spectator mode for " + player.getName() + ": " + e.getMessage());
+        }
 
         // TODO: Teleport eliminated player to spectator area (if discussion location is set)
         // For now, they stay where they are
@@ -873,6 +1024,107 @@ public class GameManager {
         }
         return false;
     }
+    
+    /**
+     * Removes a player from an active game and restores their state.
+     * This is called when a player uses /matchbox leave during an active game.
+     */
+    public boolean removePlayerFromGame(Player player) {
+        if (player == null || !player.isOnline()) {
+            plugin.getLogger().warning("Cannot remove null or offline player from game");
+            return false;
+        }
+        
+        UUID playerId = player.getUniqueId();
+        
+        // Check if player is in an active game
+        if (!gameState.isGameActive()) {
+            plugin.getLogger().info("No active game to remove player from");
+            return false;
+        }
+        
+        if (!gameState.getAllParticipatingPlayerIds().contains(playerId)) {
+            plugin.getLogger().info("Player " + player.getName() + " is not in the active game");
+            return false;
+        }
+        
+        plugin.getLogger().info("Removing player " + player.getName() + " from active game");
+        
+        // Restore nametag
+        try {
+            NameTagManager.showNameTag(player);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to restore nametag for " + player.getName() + ": " + e.getMessage());
+        }
+        
+        // Remove pending death if they had one
+        if (gameState.hasPendingDeath(playerId)) {
+            gameState.removePendingDeath(playerId);
+        }
+        
+        // Remove from alive players
+        gameState.removeAlivePlayer(playerId);
+        
+        // Clear game items
+        try {
+            inventoryManager.clearGameItems(player);
+            inventoryManager.clearVotingPapers(player);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error clearing game items for " + player.getName() + ": " + e.getMessage());
+        }
+        
+        // Restore from backup if available
+        PlayerBackup backup = playerBackups.get(playerId);
+        if (backup != null) {
+            try {
+                if (!backup.restore(player)) {
+                    plugin.getLogger().warning("Failed to restore backup for " + player.getName());
+                    // Fallback: reset to survival mode and clear inventory
+                    try {
+                        player.setGameMode(GameMode.SURVIVAL);
+                        player.getInventory().clear();
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to reset game mode/inventory for " + player.getName() + ": " + e.getMessage());
+                    }
+                }
+            } catch (Exception e) {
+                plugin.getLogger().severe("Error restoring backup for " + player.getName() + ": " + e.getMessage());
+                e.printStackTrace();
+                // Fallback: reset to survival mode and clear inventory
+                try {
+                    player.setGameMode(GameMode.SURVIVAL);
+                    player.getInventory().clear();
+                } catch (Exception ex) {
+                    plugin.getLogger().warning("Failed to reset game mode/inventory for " + player.getName() + ": " + ex.getMessage());
+                }
+            }
+        } else {
+            // Fallback: reset to survival mode and clear inventory
+            try {
+                player.setGameMode(GameMode.SURVIVAL);
+                player.getInventory().clear();
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to reset game mode/inventory for " + player.getName() + ": " + e.getMessage());
+            }
+        }
+        
+        // Remove from backups
+        playerBackups.remove(playerId);
+        
+        // Send feedback
+        try {
+            player.sendMessage("§aYou have been removed from the game and returned to normal state.");
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to send removal message to " + player.getName() + ": " + e.getMessage());
+        }
+        
+        // Check for win condition after player leaves
+        if (gameState.isGameActive()) {
+            checkForWin();
+        }
+        
+        return true;
+    }
 
     /**
      * Ends the game and resets all state.
@@ -884,37 +1136,115 @@ public class GameManager {
         messageUtils.broadcast("§e§lGame ended!");
 
         // Restore all participating players' nametags, game modes, and inventories
-        for (UUID playerId : gameState.getAllParticipatingPlayerIds()) {
-            Player player = org.bukkit.Bukkit.getPlayer(playerId);
-            if (player != null && player.isOnline()) {
-                // Show nametag
-                NameTagManager.showNameTag(player);
+        Set<UUID> allParticipatingIds = gameState.getAllParticipatingPlayerIds();
+        if (allParticipatingIds != null) {
+            for (UUID playerId : allParticipatingIds) {
+                if (playerId == null) continue;
+                Player player = org.bukkit.Bukkit.getPlayer(playerId);
+                if (player != null && player.isOnline()) {
+                    try {
+                        // Show nametag
+                        NameTagManager.showNameTag(player);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to restore nametag for " + player.getName() + ": " + e.getMessage());
+                    }
 
-                // Restore from backup if available
-                PlayerBackup backup = playerBackups.get(playerId);
-                if (backup != null) {
-                    backup.restore(player);
-                } else {
-                    // Fallback: reset to survival mode and clear inventory
-                    player.setGameMode(GameMode.SURVIVAL);
-                    player.getInventory().clear();
+                    // Restore from backup if available
+                    PlayerBackup backup = playerBackups.get(playerId);
+                    if (backup != null) {
+                        try {
+                            if (!backup.restore(player)) {
+                                plugin.getLogger().warning("Failed to restore backup for " + player.getName());
+                                // Fallback: reset to survival mode and clear inventory
+                                try {
+                                    player.setGameMode(GameMode.SURVIVAL);
+                                    player.getInventory().clear();
+                                } catch (Exception e) {
+                                    plugin.getLogger().warning("Failed to reset game mode/inventory for " + player.getName() + ": " + e.getMessage());
+                                }
+                            }
+                        } catch (Exception e) {
+                            plugin.getLogger().severe("Error restoring backup for " + player.getName() + ": " + e.getMessage());
+                            e.printStackTrace();
+                            // Fallback: reset to survival mode and clear inventory
+                            try {
+                                player.setGameMode(GameMode.SURVIVAL);
+                                player.getInventory().clear();
+                            } catch (Exception ex) {
+                                plugin.getLogger().warning("Failed to reset game mode/inventory for " + player.getName() + ": " + ex.getMessage());
+                            }
+                        }
+                    } else {
+                        // Fallback: reset to survival mode and clear inventory
+                        try {
+                            player.setGameMode(GameMode.SURVIVAL);
+                            player.getInventory().clear();
+                        } catch (Exception e) {
+                            plugin.getLogger().warning("Failed to reset game mode/inventory for " + player.getName() + ": " + e.getMessage());
+                        }
+                    }
+
+                    // Send feedback
+                    try {
+                        player.sendMessage("§aYou have been returned to normal state.");
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Failed to send restoration message to " + player.getName() + ": " + e.getMessage());
+                    }
                 }
-
-                // Send feedback
-                player.sendMessage("§aYou have been returned to normal state.");
             }
         }
 
+        // Clear game items from all players (reuse allParticipatingIds from above)
+        if (allParticipatingIds != null) {
+            for (UUID playerId : allParticipatingIds) {
+                if (playerId == null) continue;
+                Player player = org.bukkit.Bukkit.getPlayer(playerId);
+                if (player != null && player.isOnline()) {
+                    try {
+                        inventoryManager.clearGameItems(player);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("Error clearing game items for " + player.getName() + ": " + e.getMessage());
+                    }
+                }
+            }
+        }
+        
         // Clear backups
         playerBackups.clear();
 
         // Cancel any running timers
-        swipePhaseHandler.cancelSwipeTask();
-        discussionPhaseHandler.cancelDiscussionTask();
-        votingPhaseHandler.cancelVotingTask();
+        try {
+            if (swipePhaseHandler != null) {
+                swipePhaseHandler.cancelSwipeTask();
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error cancelling swipe task: " + e.getMessage());
+        }
+        
+        try {
+            if (discussionPhaseHandler != null) {
+                discussionPhaseHandler.cancelDiscussionTask();
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error cancelling discussion task: " + e.getMessage());
+        }
+        
+        try {
+            if (votingPhaseHandler != null) {
+                votingPhaseHandler.cancelVotingTask();
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error cancelling voting task: " + e.getMessage());
+        }
 
         // Clear holograms
-        hologramManager.clearAll();
+        try {
+            if (hologramManager != null) {
+                hologramManager.clearAll();
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error clearing holograms: " + e.getMessage());
+        }
 
         // Reset phase and game state
         phaseManager.reset();
@@ -938,5 +1268,9 @@ public class GameManager {
 
     public VoteManager getVoteManager() {
         return voteManager;
+    }
+    
+    public InventoryManager getInventoryManager() {
+        return inventoryManager;
     }
 }

@@ -81,17 +81,27 @@ public class GameState {
      * Adds a player to the alive players set.
      */
     public void addAlivePlayer(Player player) {
+        if (player == null) {
+            return;
+        }
         UUID uuid = player.getUniqueId();
-        alivePlayers.add(uuid);
-        allParticipatingPlayers.add(uuid);
+        if (uuid != null) {
+            alivePlayers.add(uuid);
+            allParticipatingPlayers.add(uuid);
+        }
     }
 
     /**
      * Adds multiple players to the alive players set.
      */
     public void addAlivePlayers(Collection<Player> players) {
+        if (players == null) {
+            return;
+        }
         for (Player player : players) {
-            addAlivePlayer(player);
+            if (player != null) {
+                addAlivePlayer(player);
+            }
         }
     }
 
@@ -100,6 +110,9 @@ public class GameState {
      * Note: This does NOT remove them from allParticipatingPlayers.
      */
     public void removeAlivePlayer(UUID playerId) {
+        if (playerId == null) {
+            return;
+        }
         alivePlayers.remove(playerId);
         // If they had pending death or infected flags, keep pending handling separate.
         infectedThisRound.remove(playerId);
@@ -112,6 +125,9 @@ public class GameState {
      * Checks if a player is alive.
      */
     public boolean isAlive(UUID playerId) {
+        if (playerId == null) {
+            return false;
+        }
         return alivePlayers.contains(playerId);
     }
 
@@ -126,6 +142,9 @@ public class GameState {
      * Sets the role of a player.
      */
     public void setRole(UUID playerId, Role role) {
+        if (playerId == null || role == null) {
+            return;
+        }
         roles.put(playerId, role);
     }
 
@@ -133,7 +152,7 @@ public class GameState {
      * Gets all alive player UUIDs.
      */
     public Set<UUID> getAlivePlayerIds() {
-        return new HashSet<>(alivePlayers);
+        return new HashSet<>(alivePlayers); // Defensive copy
     }
 
     /**
@@ -316,8 +335,15 @@ public class GameState {
      * Returns true if state is valid, false otherwise.
      */
     public boolean validateState() {
+        if (alivePlayers == null || allParticipatingPlayers == null || roles == null) {
+            return false; // Null collections indicate corruption
+        }
+        
         // All alive players must be in participating players
         for (UUID alivePlayer : alivePlayers) {
+            if (alivePlayer == null) {
+                return false; // Null UUIDs indicate corruption
+            }
             if (!allParticipatingPlayers.contains(alivePlayer)) {
                 return false;
             }
@@ -325,6 +351,9 @@ public class GameState {
 
         // All players with roles must be in participating players
         for (UUID playerWithRole : roles.keySet()) {
+            if (playerWithRole == null) {
+                return false; // Null UUIDs indicate corruption
+            }
             if (!allParticipatingPlayers.contains(playerWithRole)) {
                 return false;
             }

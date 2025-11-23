@@ -16,6 +16,9 @@ public class GameSession {
     private boolean active = false;
 
     public GameSession(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Session name cannot be null or empty");
+        }
         this.name = name;
     }
 
@@ -30,21 +33,42 @@ public class GameSession {
      * Adds a player to the session.
      */
     public boolean addPlayer(Player player) {
-        return players.add(player.getUniqueId());
+        if (player == null || !player.isOnline()) {
+            return false;
+        }
+        UUID uuid = player.getUniqueId();
+        if (uuid == null) {
+            return false;
+        }
+        return players.add(uuid);
     }
 
     /**
      * Removes a player from the session.
      */
     public boolean removePlayer(Player player) {
-        return players.remove(player.getUniqueId());
+        if (player == null) {
+            return false;
+        }
+        UUID uuid = player.getUniqueId();
+        if (uuid == null) {
+            return false;
+        }
+        return players.remove(uuid);
     }
 
     /**
      * Checks if a player is in the session.
      */
     public boolean hasPlayer(Player player) {
-        return players.contains(player.getUniqueId());
+        if (player == null) {
+            return false;
+        }
+        UUID uuid = player.getUniqueId();
+        if (uuid == null) {
+            return false;
+        }
+        return players.contains(uuid);
     }
 
     /**
@@ -59,10 +83,13 @@ public class GameSession {
      */
     public List<Player> getPlayers() {
         List<Player> playerList = new ArrayList<>();
-        for (UUID uuid : players) {
-            Player player = org.bukkit.Bukkit.getPlayer(uuid);
-            if (player != null && player.isOnline()) {
-                playerList.add(player);
+        if (players != null) {
+            for (UUID uuid : players) {
+                if (uuid == null) continue;
+                Player player = org.bukkit.Bukkit.getPlayer(uuid);
+                if (player != null && player.isOnline()) {
+                    playerList.add(player);
+                }
             }
         }
         return playerList;
@@ -79,6 +106,9 @@ public class GameSession {
      * Adds a spawn location.
      */
     public void addSpawnLocation(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return;
+        }
         spawnLocations.add(location);
     }
 
@@ -93,18 +123,33 @@ public class GameSession {
      * Gets a random spawn location. Returns null if no spawns are set.
      */
     public Location getRandomSpawnLocation() {
-        if (spawnLocations.isEmpty()) {
+        if (spawnLocations == null || spawnLocations.isEmpty()) {
             return null;
         }
-        Collections.shuffle(spawnLocations);
-        return spawnLocations.get(0).clone();
+        // Filter out null or invalid locations
+        List<Location> validLocations = new ArrayList<>();
+        for (Location loc : spawnLocations) {
+            if (loc != null && loc.getWorld() != null) {
+                validLocations.add(loc);
+            }
+        }
+        if (validLocations.isEmpty()) {
+            return null;
+        }
+        Collections.shuffle(validLocations);
+        Location selected = validLocations.get(0);
+        return selected != null ? selected.clone() : null;
     }
 
     /**
      * Sets the discussion location.
      */
     public void setDiscussionLocation(Location location) {
-        this.discussionLocation = location;
+        if (location == null || location.getWorld() == null) {
+            this.discussionLocation = null;
+            return;
+        }
+        this.discussionLocation = location.clone();
     }
 
     /**

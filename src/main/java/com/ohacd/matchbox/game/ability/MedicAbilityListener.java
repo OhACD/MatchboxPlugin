@@ -3,6 +3,7 @@ package com.ohacd.matchbox.game.ability;
 import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.utils.GamePhase;
+import com.ohacd.matchbox.game.utils.InventoryManager;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,7 +13,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 /**
- * Activates an 8s cure window when a Medic clicks a PAPER in slot 9 (raw slot 9).
+ * Activates an 8s cure window when a Medic clicks a PAPER in slot 27 (above hotbar slot 0).
  * Silent by design (no messages/holograms).
  */
 public class MedicAbilityListener implements Listener {
@@ -27,13 +28,20 @@ public class MedicAbilityListener implements Listener {
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player)) return;
-        // Only care about top-level player inventory clicks (rawSlot indexes player inventory)
-        int raw = event.getRawSlot();
-        if (raw != 9) return; // slot right above hotbar first slot
+        
+        Player player = (Player) event.getWhoClicked();
+        
+        // Check if right-clicking the cure paper slot
+        int slot = event.getSlot();
+        int rawSlot = event.getRawSlot();
+        
+        // Slot 27 is above hotbar slot 0 (raw slot 27 in player inventory)
+        if (slot != InventoryManager.getSwipeCurePaperSlot() && rawSlot != InventoryManager.getSwipeCurePaperSlot()) {
+            return;
+        }
+        
         if (event.getClickedInventory() == null) return;
         if (event.getSlotType() == null) return;
-
-        Player player = (Player) event.getWhoClicked();
 
         // Only allow activation with PAPER in that slot, and only during active game swipe phase
         if (event.getCurrentItem() == null || event.getCurrentItem().getType() != Material.PAPER) return;
@@ -43,6 +51,12 @@ public class MedicAbilityListener implements Listener {
         // Check if medic already cured this round
         if (gameManager.getGameState().hasCuredThisRound(player.getUniqueId())) {
             return; // Silent - already used cure this round
+        }
+
+        // Only allow right-click for activation
+        if (!event.getClick().isRightClick()) {
+            event.setCancelled(true);
+            return;
         }
 
         // Consume the click (prevent moving the paper)

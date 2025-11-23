@@ -31,6 +31,19 @@ public class DiscussionPhaseHandler {
      * Starts the discussion phase with a countdown timer.
      */
     public void startDiscussionPhase(int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
+        if (seconds <= 0) {
+            plugin.getLogger().warning("Invalid discussion phase duration: " + seconds);
+            return;
+        }
+        if (alivePlayerIds == null || alivePlayerIds.isEmpty()) {
+            plugin.getLogger().warning("Cannot start discussion phase with no players");
+            return;
+        }
+        if (onPhaseEnd == null) {
+            plugin.getLogger().warning("Cannot start discussion phase with null callback");
+            return;
+        }
+        
         cancelDiscussionTask();
 
         this.currentPlayerIds = alivePlayerIds;
@@ -64,8 +77,17 @@ public class DiscussionPhaseHandler {
                     return;
                 }
                 // Updates actionbar for all alive players
-                for (Player player : getAlivePlayerObjects(alivePlayerIds)) {
-                    messageUtils.sendActionBar(player, "§eDiscussion: " + secs + "s");
+                Collection<Player> alivePlayers = getAlivePlayerObjects(alivePlayerIds);
+                if (alivePlayers != null) {
+                    for (Player player : alivePlayers) {
+                        if (player != null && player.isOnline()) {
+                            try {
+                                messageUtils.sendActionBar(player, "§eDiscussion: " + secs + "s");
+                            } catch (Exception e) {
+                                // Ignore individual player errors
+                            }
+                        }
+                    }
                 }
                 // Broadcast at specific times
                 if (secs == 30 || secs == 10 || secs == 5 || secs <= 3) {

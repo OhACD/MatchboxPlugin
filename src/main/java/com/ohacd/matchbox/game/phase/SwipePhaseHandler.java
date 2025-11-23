@@ -31,6 +31,19 @@ public class SwipePhaseHandler {
      * Starts the swipe phase with a countdown timer.
      */
     public void startSwipePhase(int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
+        if (seconds <= 0) {
+            plugin.getLogger().warning("Invalid swipe phase duration: " + seconds);
+            return;
+        }
+        if (alivePlayerIds == null || alivePlayerIds.isEmpty()) {
+            plugin.getLogger().warning("Cannot start swipe phase with no players");
+            return;
+        }
+        if (onPhaseEnd == null) {
+            plugin.getLogger().warning("Cannot start swipe phase with null callback");
+            return;
+        }
+        
         cancelSwipeTask();
 
         this.currentPlayerIds = alivePlayerIds;
@@ -53,8 +66,17 @@ public class SwipePhaseHandler {
                     return;
                 }
                 // Updates actionbar for all alive players
-                for (Player player : getAlivePlayerObjects(alivePlayerIds)) {
-                    messageUtils.sendActionBar(player, "§6Swipe: " + secs + "s");
+                Collection<Player> alivePlayers = getAlivePlayerObjects(alivePlayerIds);
+                if (alivePlayers != null) {
+                    for (Player player : alivePlayers) {
+                        if (player != null && player.isOnline()) {
+                            try {
+                                messageUtils.sendActionBar(player, "§6Swipe: " + secs + "s");
+                            } catch (Exception e) {
+                                // Ignore individual player errors
+                            }
+                        }
+                    }
                 }
                 // Broadcast at specific times
                 if (secs == 60 || secs == 30 || secs == 10 || secs == 5 || secs <= 3) {
@@ -91,8 +113,17 @@ public class SwipePhaseHandler {
      */
     private void clearActionBars() {
         if (currentPlayerIds != null) {
-            for (Player player : getAlivePlayerObjects(currentPlayerIds)) {
-                messageUtils.sendActionBar(player, "");
+            Collection<Player> players = getAlivePlayerObjects(currentPlayerIds);
+            if (players != null) {
+                for (Player player : players) {
+                    if (player != null && player.isOnline()) {
+                        try {
+                            messageUtils.sendActionBar(player, "");
+                        } catch (Exception e) {
+                            // Ignore individual player errors
+                        }
+                    }
+                }
             }
         }
     }

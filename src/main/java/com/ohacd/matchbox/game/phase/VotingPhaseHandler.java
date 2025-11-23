@@ -31,6 +31,19 @@ public class VotingPhaseHandler {
      * Starts the voting phase with a countdown timer.
      */
     public void startVotingPhase(int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
+        if (seconds <= 0) {
+            plugin.getLogger().warning("Invalid voting phase duration: " + seconds);
+            return;
+        }
+        if (alivePlayerIds == null || alivePlayerIds.isEmpty()) {
+            plugin.getLogger().warning("Cannot start voting phase with no players");
+            return;
+        }
+        if (onPhaseEnd == null) {
+            plugin.getLogger().warning("Cannot start voting phase with null callback");
+            return;
+        }
+        
         cancelVotingTask();
 
         this.currentPlayerIds = alivePlayerIds;
@@ -64,8 +77,17 @@ public class VotingPhaseHandler {
                     return;
                 }
                 // Updates actionbar for all alive players
-                for (Player player : getAlivePlayerObjects(alivePlayerIds)) {
-                    messageUtils.sendActionBar(player, "§cVoting: " + secs + "s");
+                Collection<Player> alivePlayers = getAlivePlayerObjects(alivePlayerIds);
+                if (alivePlayers != null) {
+                    for (Player player : alivePlayers) {
+                        if (player != null && player.isOnline()) {
+                            try {
+                                messageUtils.sendActionBar(player, "§cVoting: " + secs + "s");
+                            } catch (Exception e) {
+                                // Ignore individual player errors
+                            }
+                        }
+                    }
                 }
                 // Broadcast at specific times
                 if (secs == 20 || secs == 10 || secs == 5 || secs <= 3) {

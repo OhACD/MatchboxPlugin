@@ -53,10 +53,12 @@ Matchbox is a social deduction game where 7 players work together to identify an
 
 **1. Swipe Phase (2 minutes)**
 - Explore the map and interact with other players
-- Spark: Use your ability to infect someone (right-click with paper in slot 9)
-- Medic: Use your ability to cure infected players (right-click with paper in slot 9)
+- All players receive identical inventories automatically
+- Spark: Right-click the Swipe paper (above hotbar slot 0) to activate, then right-click a player to infect
+- Medic: Right-click the Healing Touch paper (above hotbar slot 0) to activate, then right-click an infected player to cure
+- Use Hunter Vision (Spark) or Healing Sight (Medic) by right-clicking the paper above hotbar slot 1
+- Use your crossbow and arrow to reveal a player's nametag (one arrow per round)
 - Chat appears as holograms above players' heads (no chat log)
-- Use Hunter Vision (Spark) or Healing Sight (Medic) from slot 8 once per round
 
 **2. Discussion Phase (1 minute)**
 - All players are teleported to the discussion area
@@ -199,26 +201,32 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 Fully Implemented:
 - Session management system
 - Role assignment (Spark, Medic, Innocent)
+- Automatic inventory system with identical layouts for all players
+- Role paper in top rightmost slot (shows your role and description)
+- Ability papers automatically placed (Swipe/Cure above hotbar slot 0, Vision/Sight above hotbar slot 1)
+- Fixed crossbow and arrow in hotbar (unmovable, one arrow per round)
 - Nametag hiding during gameplay
 - Hologram-based chat bubbles during swipe phase
 - Normal chat during discussion and voting phases
 - Swipe phase with 2-minute timer
 - Discussion phase with teleportation (1 minute)
 - Voting phase with right-click voting (30 seconds)
-- Paper-based ability system (slots 8 and 9)
-- Spark Swipe ability (infect players)
+- Paper-based ability system (right-click to activate)
+- Spark Swipe ability (infect players via paper, delinked from arrows)
 - Spark Hunter Vision (see all players once per round)
 - Medic Healing Touch (cure infected players)
 - Medic Healing Sight (see infected players once per round)
+- Arrow system for nametag revelation (one per round, separate from swipe)
 - Infection system with delayed death
 - Win condition detection
 - Player elimination and spectator mode
 - Player state backup and restore
+- Comprehensive defensive programming and error handling
 
 ### Coming Soon
-- Automatic Inventory System: Papers will be automatically placed in the correct slots
-- Configurable Settings: Customize phase durations and game settings
-- Enhanced Spectator Mode: Better experience for eliminated players
+- Configurable Settings: Customize phase durations and game settings via config.yml
+- Enhanced Spectator Mode: Teleport eliminated players to spectator area
+- ProtocolLib Integration: True single-player glow visibility for Hunter Vision
 
 ---
 
@@ -239,6 +247,7 @@ Fully Implemented:
 
 ### For Innocents
 - Pay attention to player movements and behavior
+- Use your arrow strategically to reveal someone's nametag (one per round)
 - Share observations during discussion
 - Don't trust anyone completely
 - Vote strategically—eliminate the most suspicious player
@@ -248,9 +257,9 @@ Fully Implemented:
 
 ## Known Limitations
 
-- Manual Paper Placement: Currently, players need to manually place papers in slots 8 and 9 (will be automated soon)
-- Hunter Vision: Uses a particle workaround for single-player visibility (ProtocolLib integration coming)
+- Hunter Vision: Uses a particle workaround for single-player visibility (ProtocolLib integration would enable true single-player glow)
 - Spectator Mode: Eliminated players enter spectator mode but aren't teleported to a spectator area yet
+- Configuration: Phase durations are hardcoded (config.yml support coming)
 
 ---
 
