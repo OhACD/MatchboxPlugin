@@ -4,6 +4,8 @@ import com.ohacd.matchbox.Matchbox;
 import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.session.GameSession;
 import com.ohacd.matchbox.game.session.SessionManager;
+import com.ohacd.matchbox.game.utils.GamePhase;
+import com.ohacd.matchbox.game.utils.NameTagManager;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -58,10 +60,76 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 return handleList(sender);
             case "remove":
                 return handleRemove(sender, args);
+            case "cleanup":
+                return handleCleanup(sender);
+            case "debug":
+                return handleDebug(sender);
+            case "skip":
+                return handleSkip(sender);
             default:
                 sendHelp(sender);
                 return true;
         }
+    }
+
+    private boolean handleSkip(CommandSender sender) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+
+        GamePhase currentPhase = gameManager.getPhaseManager().getCurrentPhase();
+
+        if (currentPhase == GamePhase.WAITING) {
+            sender.sendMessage("§cNo active game to skip phases in.");
+            return true;
+        }
+
+        sender.sendMessage("§eForce-skipping current phase: " + currentPhase);
+
+        // Force end current phase by cancelling timers and calling callbacks
+        // This is a bit hacky but useful for testing
+        if (currentPhase == GamePhase.SWIPE) {
+            gameManager.endSwipePhase();
+        } else if (currentPhase == GamePhase.DISCUSSION) {
+            // Manually trigger discussion end by cancelling the task
+            // Note: This is a workaround since we don't have direct access to endDiscussionPhase
+            sender.sendMessage("§cCannot skip discussion phase directly. Use /matchbox stop instead.");
+        }
+
+        return true;
+    }
+
+    private boolean handleDebug(CommandSender sender) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+
+        sender.sendMessage("§6=== Matchbox Debug Info ===");
+        sender.sendMessage("§eGame State: " + gameManager.getGameState().getDebugInfo());
+        sender.sendMessage("§eState Valid: " + (gameManager.getGameState().validateState() ? "§aYes" : "§cNo"));
+        sender.sendMessage("§ePhase Info: " + gameManager.getPhaseManager().getDebugInfo());
+
+        // List all sessions
+        sender.sendMessage("§eSessions: " + sessionManager.getAllSessionNames().size());
+        for (String sessionName : sessionManager.getAllSessionNames()) {
+            GameSession session = sessionManager.getSession(sessionName);
+            sender.sendMessage("  §7- " + sessionName + " (Active: " + session.isActive() + ", Players: " + session.getPlayerCount() + ")");
+        }
+
+        return true;
+    }
+    private boolean handleCleanup(CommandSender sender) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+
+        sender.sendMessage("§eRestoring all nametags and cleaning up teams...");
+        NameTagManager.restoreAllNameTags();
+        sender.sendMessage("§aCleanup complete! All nametags restored.");
+        return true;
     }
 
     private boolean handleStop(CommandSender sender, String[] args) {
@@ -366,12 +434,15 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/matchbox setdiscussion <name> §7- Set discussion location");
         sender.sendMessage("§e/matchbox setspawn <name> §7- Add a spawn location");
         sender.sendMessage("§e/matchbox list §7- List all sessions");
+        sender.sendMessage("§e/matchbox cleanup §7- Emergency nametag restore (admin only)");
+        sender.sendMessage("§e/matchbox debug §7- Show debug info (admin only)");
+        sender.sendMessage("§e/matchbox skip §7- Skip current phase (admin only)");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            List<String> subCommands = Arrays.asList("start", "begin", "stop", "join", "leave", "setdiscussion", "setspawn", "list", "remove");
+            List<String> subCommands = Arrays.asList("start", "begin", "stop", "join", "leave", "setdiscussion", "setspawn", "list", "remove", "cleanup", "debug", "skip");
             return subCommands.stream()
                     .filter(cmd -> cmd.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());

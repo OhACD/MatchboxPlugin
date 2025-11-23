@@ -19,7 +19,8 @@ public class SwipePhaseHandler {
     private final Plugin plugin;
     private final MessageUtils messageUtils;
     private BukkitRunnable swipeTask = null;
-    private final int DEFAULT_SWIPE_SECONDS = 60 * 2;
+    private final int DEFAULT_SWIPE_SECONDS = 60 * 2; // 2 minutes
+    private Collection<UUID> currentPlayerIds = null;
 
     public SwipePhaseHandler(Plugin plugin, MessageUtils messageUtils) {
         this.plugin = plugin;
@@ -32,7 +33,11 @@ public class SwipePhaseHandler {
     public void startSwipePhase(int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
         cancelSwipeTask();
 
-        messageUtils.sendPlainMessage("Swipe phase started! You have " + seconds + " seconds to swipe.");
+        this.currentPlayerIds = alivePlayerIds;
+
+        plugin.getLogger().info("Starting swipe phase for " + alivePlayerIds.size() + " players (" + seconds + "s)");
+        messageUtils.sendPlainMessage("§6Swipe phase started! You have " + seconds + " seconds to swipe.");
+
         AtomicInteger remaining = new AtomicInteger(seconds);
 
         swipeTask = new BukkitRunnable() {
@@ -42,16 +47,18 @@ public class SwipePhaseHandler {
                 if (secs <= 0) {
                     cancel();
                     swipeTask = null;
+                    plugin.getLogger().info("Swipe phase ended naturally");
+                    clearActionBars(); // Clear action bars before ending
                     onPhaseEnd.run();
                     return;
                 }
                 // Updates actionbar for all alive players
                 for (Player player : getAlivePlayerObjects(alivePlayerIds)) {
-                    messageUtils.sendActionBar(player, "Swipe: " + secs + "s");
+                    messageUtils.sendActionBar(player, "§6Swipe: " + secs + "s");
                 }
                 // Broadcast at specific times
-                if (secs == 10 || secs == 5 || secs <= 3) {
-                    messageUtils.sendPlainMessage("Swipe phase ends in " + secs + " seconds!");
+                if (secs == 60 || secs == 30 || secs == 10 || secs == 5 || secs <= 3) {
+                    messageUtils.sendPlainMessage("§eSwipe phase ends in " + secs + " seconds!");
                 }
             }
         };
@@ -71,10 +78,30 @@ public class SwipePhaseHandler {
     public void cancelSwipeTask() {
         if (swipeTask != null) {
             try {
+                plugin.getLogger().info("Cancelling swipe phase task");
                 swipeTask.cancel();
+                clearActionBars();
             } catch (IllegalStateException ignored) {}
             swipeTask = null;
         }
+    }
+
+    /**
+     * Clears action bars for all tracked players.
+     */
+    private void clearActionBars() {
+        if (currentPlayerIds != null) {
+            for (Player player : getAlivePlayerObjects(currentPlayerIds)) {
+                messageUtils.sendActionBar(player, "");
+            }
+        }
+    }
+
+    /**
+     * Checks if swipe phase is currently active.
+     */
+    public boolean isActive() {
+        return swipeTask != null;
     }
 
     public Collection<Player> getAlivePlayerObjects(Collection<UUID> playerIds) {
