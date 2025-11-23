@@ -1,130 +1,261 @@
 package com.ohacd.matchbox.game;
 
 import com.ohacd.matchbox.game.hologram.HologramManager;
+import com.ohacd.matchbox.game.phase.PhaseManager;
+import com.ohacd.matchbox.game.phase.SwipePhaseHandler;
+import com.ohacd.matchbox.game.role.RoleAssigner;
+import com.ohacd.matchbox.game.state.GameState;
 import com.ohacd.matchbox.game.utils.GamePhase;
+import com.ohacd.matchbox.game.utils.MessageUtils;
+import com.ohacd.matchbox.game.utils.NameTagManager;
 import com.ohacd.matchbox.game.utils.Role;
-import net.kyori.adventure.text.Component;
+import com.ohacd.matchbox.game.win.WinConditionChecker;
+import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
 
-import static org.bukkit.Bukkit.broadcast;
-
+/**
+ * Main game manager that coordinates all game systems.
+ */
 public class GameManager {
     private final Plugin plugin;
     private final HologramManager hologramManager;
 
-    private GamePhase phase = GamePhase.WAITING;
-    private BukkitRunnable swipeTask = null;
-    private final int DEFAULT_SWIPE_SECONDS = 30;
+    // Core systems
+    private final GameState gameState;
+    public final PhaseManager phaseManager;
+    private final MessageUtils messageUtils;
+    private final RoleAssigner roleAssigner;
+    private final WinConditionChecker winConditionChecker;
+    private final SwipePhaseHandler swipePhaseHandler;
 
-
-    // Per round state
-    private final Map<UUID, Role> roles = new HashMap<>(); // Holds player UUIDs and roles
-    private final Set<UUID> players = new HashSet<>(); // Holds all players
-    private final Set<UUID> swipedThisRound = new HashSet<>(); // Holds players that swiped other players this round (cleaned every round)
-    private final Set<UUID> curedThisRound = new HashSet<>(); // Holds players that cured other players this round (cleaned every round)
+    // Current round data
+    private Location currentDiscussionLocation;
 
     public GameManager(Plugin plugin, HologramManager hologramManager) {
         this.plugin = plugin;
         this.hologramManager = hologramManager;
+
+        // Initialize systems
+        this.gameState = new GameState();
+        this.phaseManager = new PhaseManager(plugin);
+        this.messageUtils = new MessageUtils(plugin);
+        this.roleAssigner = new RoleAssigner(gameState);
+        this.winConditionChecker = new WinConditionChecker(gameState);
+        this.swipePhaseHandler = new SwipePhaseHandler(plugin, messageUtils);
     }
 
+    /**
+     * Starts a new round with the given players.
+     */
     public void startRound(Collection<Player> players) {
-        players.clear();
-        roles.clear();
-        swipedThisRound.clear();
-        curedThisRound.clear();
-        // Assign roles (randomly choose one spark, one medic and rest innocent)
-        List<Player> list = new ArrayList<>(players);
-        Collections.shuffle(list);
-        if (!list.isEmpty()) {
-            roles.put(list.get(0).getUniqueId(), Role.SPARK);
-            // TODO: Find a way to keep track of players
-        }
-        if (list.size() > 1) {
-            roles.put(list.get(1).getUniqueId(), Role.MEDIC);
-        }
-        for (int i = 2; i < list.size(); i++) {
-            roles.put(list.get(i).getUniqueId(), Role.INNOCENT);
-        }
-        // TODO:Give items, set role paper to the top right slot in the inventory.
-
-        // Starts the swipe phase
-        startSwipePhase(DEFAULT_SWIPE_SECONDS);
+        startRound(players, null);
     }
 
-    public void startSwipePhase(int seconds) {
-        cancelSwipeTask();
+    /**
+     * Starts a new round with the given players and spawn locations.
+     * Players will be teleported to random spawn locations.
+     */
+    public void startRound(Collection<Player> players, List<Location> spawnLocations) {
+        startRound(players, spawnLocations, null);
+    }
 
-        this.phase = GamePhase.SWIPE;
-        plugin.getServer().sendPlainMessage("Swipe phase started! You have " + seconds + " seconds to swipe.");
-        AtomicInteger remaining = new AtomicInteger(seconds);
+    /**
+     * Starts a new round with the given players, spawn locations, and discussion location.
+     * Players will be teleported to random spawn locations.
+     */
+    public void startRound(Collection<Player> players, List<Location> spawnLocations, Location discussionLocation) {
+        startRound(players, spawnLocations, discussionLocation, null);
+    }
 
-        swipeTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                int secs = remaining.getAndDecrement();
-                if (secs <= 0) {
-                    cancel();
-                    swipeTask = null;
-                    endSwipePhase();
-                    return;
-                }
-                // Updates actionbar for all alive players
-                for (Player player : getAlivePlayerObjects()) {
-                    sendActionBar(player, "Swipe: " + secs + "s");
-                }
-                // Broadcast at specific times
-                if (secs == 10 || secs == 5 || secs <= 3) {
-                    plugin.getServer().sendPlainMessage("Swipe phase ends in " + secs + " seconds!");
+    /**
+     * Starts a new round with the given players, spawn locations, discussion location, and session name.
+     * Players will be teleported to random spawn locations.
+     */
+    public void startRound(Collection<Player> players, List<Location> spawnLocations, Location discussionLocation, String sessionName) {
+        this.currentDiscussionLocation = discussionLocation;
+        // Clear previous round state
+        gameState.clearRoundState();
+        // Resets the phase to waiting phase
+        phaseManager.reset();
+
+        // Store session name
+        gameState.setActiveSessionName(sessionName);
+
+        // Add players to alive set
+        gameState.addAlivePlayers(players);
+
+        // Teleport players to spawn locations if provided
+        if (spawnLocations != null && !spawnLocations.isEmpty()) {
+            List<org.bukkit.Location> shuffledSpawns = new ArrayList<>(spawnLocations);
+            java.util.Collections.shuffle(shuffledSpawns);
+
+            int spawnIndex = 0;
+            for (Player player : players) {
+                if (spawnIndex < shuffledSpawns.size()) {
+                    player.teleport(shuffledSpawns.get(spawnIndex));
+                    spawnIndex++;
+                } else {
+                    // If more players than spawns, cycle through spawns
+                    player.teleport(shuffledSpawns.get(spawnIndex % shuffledSpawns.size()));
+                    spawnIndex++;
                 }
             }
-        };
-        swipeTask.runTaskTimer(plugin, 0L, 20L);
-    }
-
-    public void cancelSwipeTask() {
-        if (swipeTask != null) {
-            try {
-                swipeTask.cancel();
-            } catch (IllegalStateException ignored) {}
-            swipeTask = null;
         }
+
+        // Assign roles
+        List<Player> playerList = new ArrayList<>(players);
+        roleAssigner.assignRoles(playerList);
+        // TODO: Give items, set role paper to the top right slot in the inventory.
+
+        // Start swipe phase
+        startSwipePhase();
     }
 
+    /**
+     * Starts the swipe phase.
+     */
+    public void startSwipePhase() {
+        phaseManager.setPhase(GamePhase.SWIPE);
+        // Hide the name tag for all participating players on phase start
+        for (Player player : swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds())) {
+            NameTagManager.hideNameTag(player);
+        }
+
+        swipePhaseHandler.startSwipePhase(
+                gameState.getAlivePlayerIds(),
+                this::endSwipePhase
+        );
+    }
+
+    /**
+     * Ends the swipe phase and transitions to discussion.
+     */
     public void endSwipePhase() {
-        this.phase = GamePhase.DISCUSSION;
-        plugin.getServer().sendPlainMessage("Swipe phase ended!");
-        startDiscussionPhase(); // TODO: Death happens hear
-    }
+        phaseManager.setPhase(GamePhase.DISCUSSION);
+        messageUtils.sendPlainMessage("Swipe phase ended!");
 
-    public void sendActionBar(Player player, String message) {
-        try {
-            player.sendActionBar(Component.text(message));
-        } catch (NoSuchMethodError | NoClassDefFoundError error) {
-            player.sendActionBar(message);
+        // Teleport players to discussion location if set
+        if (currentDiscussionLocation != null) {
+            for (UUID playerId : gameState.getAlivePlayerIds()) {
+                org.bukkit.entity.Player player = org.bukkit.Bukkit.getPlayer(playerId);
+                if (player != null && player.isOnline()) {
+                    player.teleport(currentDiscussionLocation);
+                }
+            }
         }
+
+        startDiscussionPhase(); // TODO: Death happens here
     }
 
-    public void broadcast(String message) {
-        plugin.getServer().broadcastMessage(message);
+    /**
+     * Starts the discussion phase.
+     */
+    private void startDiscussionPhase() {
+        // TODO: Implement discussion phase logic
+        messageUtils.sendPlainMessage("Discussion phase started!");
     }
 
+    /**
+     * Handles a swipe action from a player.
+     */
     public void handleSwipe(Player shooter, Player target) {
-        // verify phases
-        if (phase != GamePhase.SWIPE) {
+        // Verify phase
+        if (!phaseManager.isPhase(GamePhase.SWIPE)) {
             shooter.sendMessage("You cannot swipe right now");
             return;
         }
-        UUID shooterid = shooter.getUniqueId();
-        if (roles.get(shooterid) == Role.SPARK) {
+
+        UUID shooterId = shooter.getUniqueId();
+        if (gameState.getRole(shooterId) == Role.SPARK) {
             // Spark can only swipe once per round
-            if (swipedThisRound.contains(shooterid)) return;
-            swipedThisRound.add(shooterid);
+            if (gameState.hasSwipedThisRound(shooterId)) {
+                return;
+            }
+            gameState.markSwiped(shooterId);
         }
+    }
+
+    /**
+     * Eliminates a player from the game.
+     */
+    public void eliminatePlayer(Player player) {
+        gameState.removeAlivePlayer(player.getUniqueId());
+        // when a player gets eliminated they show their name tag
+        NameTagManager.showNameTag(player);
+        player.sendMessage("You have been eliminated!");
+
+        // Set spectator mode
+        player.setGameMode(GameMode.SPECTATOR);
+
+        // Check win conditions
+        checkForWin();
+    }
+
+    /**
+     * Checks if a win condition has been met and handles it.
+     */
+    private void checkForWin() {
+        WinConditionChecker.WinResult result = winConditionChecker.checkWinConditions();
+
+        if (result != null) {
+            messageUtils.broadcast(result.getMessage());
+            endGame();
+        }
+    }
+
+    /**
+     * Ends the game and resets all state.
+     * This method is now PUBLIC so it can be called from commands.
+     */
+    public void endGame() {
+        messageUtils.broadcast("§eGame ended!");
+
+        // Restore all participating players' nametags and game modes
+        for (UUID playerId : gameState.getAllParticipatingPlayerIds()) {
+            Player player = org.bukkit.Bukkit.getPlayer(playerId);
+            if (player != null && player.isOnline()) {
+                // Show nametag
+                NameTagManager.showNameTag(player);
+
+                // Reset to survival mode
+                player.setGameMode(GameMode.SURVIVAL);
+
+                // Clear inventory (TODO: Store and restore original inventories later)
+                player.getInventory().clear();
+
+                // Send feedback
+                player.sendMessage("§aYou have been returned to normal state.");
+            }
+        }
+
+        // Cancel any running timers
+        swipePhaseHandler.cancelSwipeTask();
+
+        // Clear holograms
+        hologramManager.clearAll();
+
+        // Reset phase and game state
+        phaseManager.reset();
+        gameState.clearRoundState();
+    }
+
+    // Getters for external access
+    public GameState getGameState() {
+        return gameState;
+    }
+
+    public PhaseManager getPhaseManager() {
+        return phaseManager;
+    }
+
+    public MessageUtils getMessageUtils() {
+        return messageUtils;
     }
 }
