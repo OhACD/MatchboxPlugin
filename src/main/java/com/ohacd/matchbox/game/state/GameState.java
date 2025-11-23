@@ -13,6 +13,8 @@ public class GameState {
     private final Set<UUID> alivePlayers = new HashSet<>();
     private final Set<UUID> swipedThisRound = new HashSet<>();
     private final Set<UUID> curedThisRound = new HashSet<>();
+    private final Set<UUID> usedHealingSightThisRound = new HashSet<>();
+    private final Set<UUID> usedHunterVisionThisRound = new HashSet<>();
 
     // NEW: track infected (swiped successfully) this round (before pending death application)
     private final Set<UUID> infectedThisRound = new HashSet<>();
@@ -39,6 +41,8 @@ public class GameState {
         swipedThisRound.clear();
         curedThisRound.clear();
         infectedThisRound.clear();
+        usedHealingSightThisRound.clear();
+        usedHunterVisionThisRound.clear();
         pendingDeathTime.clear();
         allParticipatingPlayers.clear();
         activeSessionName = null;
@@ -54,6 +58,8 @@ public class GameState {
         swipedThisRound.clear();
         curedThisRound.clear();
         infectedThisRound.clear();
+        usedHealingSightThisRound.clear();
+        usedHunterVisionThisRound.clear();
         // Note: do NOT clear pendingDeathTime here — pending deaths may span rounds.
     }
 
@@ -184,6 +190,34 @@ public class GameState {
      */
     public void clearInfectedThisRound() {
         infectedThisRound.clear();
+    }
+
+    /**
+     * Marks that a player has used healing sight this round.
+     */
+    public void markUsedHealingSight(UUID playerId) {
+        usedHealingSightThisRound.add(playerId);
+    }
+
+    /**
+     * Checks if a player has used healing sight this round.
+     */
+    public boolean hasUsedHealingSightThisRound(UUID playerId) {
+        return usedHealingSightThisRound.contains(playerId);
+    }
+
+    /**
+     * Marks that a player has used hunter vision this round.
+     */
+    public void markUsedHunterVision(UUID playerId) {
+        usedHunterVisionThisRound.add(playerId);
+    }
+
+    /**
+     * Checks if a player has used hunter vision this round.
+     */
+    public boolean hasUsedHunterVisionThisRound(UUID playerId) {
+        return usedHunterVisionThisRound.contains(playerId);
     }
 
     /**

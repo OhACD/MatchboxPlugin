@@ -23,10 +23,15 @@ public class ChatListener implements Listener {
     public void onChat(AsyncChatEvent event) {
         // Check using isAsynchronous() player triggers run asynchronously
         if (!event.isAsynchronous()) return;
-        // if we are not in swipe phase chat functions normally
-        if (gameManager.phaseManager.getCurrentPhase() != GamePhase.SWIPE) return;
+        
+        // Only use holograms during SWIPE phase
+        // In DISCUSSION, VOTING, and other phases, use normal chat
+        if (gameManager.phaseManager.getCurrentPhase() != GamePhase.SWIPE) {
+            // Normal chat - don't cancel, let it work normally
+            return;
+        }
 
-        // Cancel normal chat
+        // During SWIPE phase: Cancel normal chat and show hologram instead
         event.setCancelled(true);
         // Render the message over the player for 100 ticks or 5 seconds
         String msg = PlainTextComponentSerializer.plainText().serialize(event.message());

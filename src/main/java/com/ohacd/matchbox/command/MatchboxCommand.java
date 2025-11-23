@@ -22,12 +22,10 @@ import java.util.stream.Collectors;
  * Handles all matchbox commands.
  */
 public class MatchboxCommand implements CommandExecutor, TabCompleter {
-    private final Matchbox plugin;
     private final SessionManager sessionManager;
     private final GameManager gameManager;
 
     public MatchboxCommand(Matchbox plugin, SessionManager sessionManager, GameManager gameManager) {
-        this.plugin = plugin;
         this.sessionManager = sessionManager;
         this.gameManager = gameManager;
     }
