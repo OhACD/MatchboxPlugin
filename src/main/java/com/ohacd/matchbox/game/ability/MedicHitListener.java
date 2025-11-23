@@ -24,8 +24,19 @@ public class MedicHitListener implements Listener {
         Player medic = event.getPlayer();
         Player target = (Player) event.getRightClicked();
 
+        // Get session context for this player
+        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(medic.getUniqueId());
+        if (context == null) {
+            return; // Player not in any active game
+        }
+        
+        // Game must be active
+        if (!context.getGameState().isGameActive()) {
+            return;
+        }
+
         // Only allow during swipe phase
-        if (!gameManager.getPhaseManager().isPhase(GamePhase.SWIPE)) return;
+        if (!context.getPhaseManager().isPhase(GamePhase.SWIPE)) return;
 
         // Only process if medic has an active cure window
         if (!gameManager.isCureWindowActive(medic.getUniqueId())) return;

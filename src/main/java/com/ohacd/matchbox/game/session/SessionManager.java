@@ -49,10 +49,16 @@ public class SessionManager {
     }
 
     /**
-     * Gets all session names.
+     * Gets all session names (case-preserved, not lowercase keys).
      */
     public Set<String> getAllSessionNames() {
-        return new HashSet<>(sessions.keySet());
+        Set<String> names = new HashSet<>();
+        for (GameSession session : sessions.values()) {
+            if (session != null) {
+                names.add(session.getName());
+            }
+        }
+        return names;
     }
 
     /**

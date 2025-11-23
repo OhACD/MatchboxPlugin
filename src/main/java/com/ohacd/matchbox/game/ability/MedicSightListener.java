@@ -8,10 +8,14 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
 
 /**
  * Activates Healing Sight when a Medic clicks a PAPER in slot 28 (above hotbar slot 1).
+ * Supports right-click and left-click in inventory, and right-click when held in main hand.
  * Shows red particles on all infected players for 15 seconds (only visible to medic).
  * Silent by design (no messages/holograms).
  */
@@ -28,7 +32,18 @@ public class MedicSightListener implements Listener {
         
         Player player = (Player) event.getWhoClicked();
         
-        // Check if right-clicking the sight paper slot
+        // Get session context for this player
+        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        if (context == null) {
+            return; // Player not in any active game
+        }
+        
+        // Game must be active
+        if (!context.getGameState().isGameActive()) {
+            return;
+        }
+        
+        // Check if clicking the sight paper slot
         int slot = event.getSlot();
         int rawSlot = event.getRawSlot();
         
@@ -41,17 +56,20 @@ public class MedicSightListener implements Listener {
         if (event.getSlotType() == null) return;
 
         // Only allow activation with PAPER in that slot, and only during active game swipe phase
-        if (event.getCurrentItem() == null || event.getCurrentItem().getType() != Material.PAPER) return;
-        if (!gameManager.getPhaseManager().isPhase(GamePhase.SWIPE)) return;
-        if (gameManager.getGameState().getRole(player.getUniqueId()) != Role.MEDIC) return;
+        ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || clicked.getType() != Material.PAPER) return;
+        if (!context.getPhaseManager().isPhase(GamePhase.SWIPE)) return;
+        if (context.getGameState().getRole(player.getUniqueId()) != Role.MEDIC) return;
 
         // Check if medic already used healing sight this round
-        if (gameManager.getGameState().hasUsedHealingSightThisRound(player.getUniqueId())) {
+        if (context.getGameState().hasUsedHealingSightThisRound(player.getUniqueId())) {
             return; // Silent - already used this round
         }
 
-        // Only allow right-click for activation
-        if (!event.getClick().isRightClick()) {
+        // Allow both left-click and right-click for activation
+        boolean isRightClick = event.getClick().isRightClick();
+        boolean isLeftClick = event.getClick().isLeftClick();
+        if (!isRightClick && !isLeftClick) {
             event.setCancelled(true);
             return;
         }
@@ -61,6 +79,67 @@ public class MedicSightListener implements Listener {
 
         // Activate healing sight (shows particles on infected players for 15 seconds)
         gameManager.activateHealingSight(player);
+        
+        // Replace paper with gray dye indicator
+        ItemStack usedIndicator = InventoryManager.createUsedIndicator(clicked);
+        player.getInventory().setItem(slot, usedIndicator);
+        player.updateInventory();
+    }
+    
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        // Only handle right-click with item in hand (not block interactions)
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        
+        Player player = event.getPlayer();
+        ItemStack heldItem = player.getInventory().getItemInMainHand();
+        
+        // Check if holding paper in main hand
+        if (heldItem == null || heldItem.getType() != Material.PAPER) {
+            return;
+        }
+        
+        // Get session context for this player
+        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        if (context == null) {
+            return; // Player not in any active game
+        }
+        
+        // Game must be active
+        if (!context.getGameState().isGameActive()) {
+            return;
+        }
+        
+        // Check if it's the sight paper by checking slot 28
+        ItemStack slot28Item = player.getInventory().getItem(InventoryManager.getVisionSightPaperSlot());
+        if (slot28Item == null || slot28Item.getType() != Material.PAPER || !slot28Item.equals(heldItem)) {
+            return;
+        }
+        
+        if (!context.getPhaseManager().isPhase(GamePhase.SWIPE)) {
+            return;
+        }
+        if (context.getGameState().getRole(player.getUniqueId()) != Role.MEDIC) {
+            return;
+        }
+        
+        // Check if medic already used healing sight this round
+        if (context.getGameState().hasUsedHealingSightThisRound(player.getUniqueId())) {
+            return; // Silent - already used this round
+        }
+        
+        // Prevent interaction
+        event.setCancelled(true);
+        
+        // Activate healing sight (shows particles on infected players for 15 seconds)
+        gameManager.activateHealingSight(player);
+        
+        // Replace paper with gray dye indicator in slot 28
+        ItemStack usedIndicator = InventoryManager.createUsedIndicator(heldItem);
+        player.getInventory().setItem(InventoryManager.getVisionSightPaperSlot(), usedIndicator);
+        player.updateInventory();
     }
 }
 

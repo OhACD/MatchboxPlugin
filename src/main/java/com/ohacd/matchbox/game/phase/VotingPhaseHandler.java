@@ -58,7 +58,7 @@ public class VotingPhaseHandler {
         plugin.getLogger().info("Starting voting phase for " + alivePlayerIds.size() + " players (" + seconds + "s)");
         messageUtils.sendPlainMessage("§c§lVOTING PHASE! Vote for who you think is the Spark!");
 
-        // Show title to all alive players at the start
+        // Show title and instructions to all alive players at the start
         Collection<Player> alivePlayers = getAlivePlayerObjects(alivePlayerIds);
         messageUtils.sendTitle(
                 alivePlayers,
@@ -68,6 +68,16 @@ public class VotingPhaseHandler {
                 40, // stay (2s)
                 10  // fadeOut (0.5s)
         );
+        
+        // Send voting instructions to all players
+        for (Player player : alivePlayers) {
+            if (player != null && player.isOnline()) {
+                player.sendMessage("§e§lHow to Vote:");
+                player.sendMessage("§7- Right-click a voting paper in your inventory");
+                player.sendMessage("§7- Left-click a voting paper in your inventory");
+                player.sendMessage("§7- Right-click a player while holding their voting paper");
+            }
+        }
 
         AtomicInteger remaining = new AtomicInteger(seconds);
         final String sessionKey = sessionName;

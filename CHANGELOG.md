@@ -5,6 +5,73 @@ All notable changes to the Matchbox plugin will be documented in this file.
 
 ## [0.8.6-beta] - Latest
 
+### Fixed
+- **Double Round Messages**: Fixed issue where players received two round messages (round 1 and round 2) when starting a game
+  - Removed duplicate `startNewRound()` call in `GameManager.startRound()`
+  - Round counter now correctly starts at 1 instead of jumping to 2
+- **Session Cleanup & Termination**: Fixed multiple session management issues
+  - Sessions are now fully removed from SessionManager when game ends (complete termination)
+  - Sessions properly terminated on game end - marked inactive and removed from SessionManager
+  - Fixed memory leak where valid waiting sessions were being deleted by list command
+  - Sessions are now only removed if they have 0 players (truly empty)
+  - Inactive sessions with players are now correctly shown as "[Waiting]" in list command
+- **Session List Command**: Fixed critical bug where valid sessions were being removed from the list
+  - Sessions created with `/matchbox start` now properly appear in the list
+  - Sessions persist until they're terminated or become empty
+  - Fixed session name display - now shows case-preserved names correctly
+  - `getAllSessionNames()` now returns case-preserved session names instead of lowercase keys
+- **Inventory Protection**: Fixed issue where inventory protection was active for all players, even when not in a game
+  - Inventory protection now only activates when player is in an active game session
+  - Players can now freely move items when not in a game
+  - Added `isPlayerInActiveGame()` check to all protection event handlers
+  - `GameItemProtectionListener` now requires `GameManager` to check player game state
+- **Spark Name Announcement**: Fixed win message to include the Spark's player name
+  - Win messages now show: `"[PlayerName] (Spark) wins!"` instead of just "Spark wins!"
+  - Applies to all Spark win conditions
+  - Spark name is retrieved from UUID and displayed in all win scenarios
+- **Voting Paper Activation**: Enhanced voting paper interaction support
+  - Added left-click support in inventory (previously only right-click)
+  - Right-click in inventory still works
+  - Right-click when held in main hand still works (via VoteItemListener)
+  - Players can now vote using any of these methods
+- **VoteManager Logic**: Fixed redundant vote count update logic
+  - Removed unreachable code that checked for previous vote targets
+  - Simplified vote registration logic for better performance
+- **NullPointerException in Listeners**: Fixed critical bug where listeners crashed when no active sessions exist
+  - `VotePaperListener` now uses session-specific context instead of deprecated `getPhaseManager()`
+  - `VoteItemListener` now uses session-specific context instead of deprecated methods
+  - `HitRevealListener` now uses session-specific context instead of deprecated methods
+  - All listeners now properly check if player is in an active game before processing events
+  - Prevents crashes when players interact with items outside of active games
+- **Voting & Ability Activation**: Enhanced activation methods for all papers
+  - Voting papers can now be activated via: right-click in inventory, left-click in inventory, or right-click when held in main hand
+  - Ability papers (Swipe, Cure, Hunter Vision, Healing Sight) can now be activated via: right-click in inventory, left-click in inventory, or right-click when held in main hand
+  - Fixed right-click on main hand for voting papers - now properly works when holding paper
+  - All activation methods now work consistently across all papers
+- **Visual Ability Indicators**: Added visual feedback for used abilities and votes
+  - Used papers are now replaced with gray dye items showing "[USED]" status
+  - Gray dye maintains the same display name and lore as the original paper
+  - Provides clear visual indication that an ability/vote has been used this round
+  - Integrated seamlessly into existing logic without breaking functionality
+- **Game State Safety Checks**: Enhanced all event listeners with comprehensive game state validation
+  - All action handlers now verify game is active before processing any game logic
+  - All ability listeners check `isGameActive()` before allowing ability activation
+  - All voting listeners check `isGameActive()` before processing votes
+  - All hit listeners check `isGameActive()` before processing player interactions
+  - Prevents game logic from executing when players are not in active games
+  - Prevents phase-specific logic from executing in wrong phases
+  - Ensures robust separation between active games and inactive players
+
+### Changed
+- **Session Termination**: Sessions are now fully removed when game ends, not just marked inactive
+  - Ensures complete cleanup and prevents memory leaks
+  - Sessions automatically removed from SessionManager on game end
+  - No need to use `stop` command for full session termination
+- **Voting Phase Instructions**: Added helpful voting instructions during voting phase
+  - Players now receive clear instructions on how to vote when voting phase begins
+  - Instructions explain: right-click paper in inventory, left-click paper in inventory, or right-click player while holding their paper
+  - Helps players understand voting mechanics, especially useful with custom skins where names might not be visible
+
 ### Code Quality & Documentation
 - **Code Cleanup**: Comprehensive codebase cleanup and refactoring
   - Removed non-essential comments ("NEW:", "Note:", "Edge case:", etc.)
@@ -17,32 +84,10 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - Improved class-level documentation (SessionGameContext, etc.)
   - Added proper @Deprecated annotations with migration guidance
   - Enhanced field documentation with clear descriptions
-- **Bug Fixes**: Fixed logic issues and potential bugs
-  - Fixed redundant vote count update logic in VoteManager (removed unreachable code)
+- **Code Quality**: Improved code clarity and maintainability
   - Removed dead code branches that could never execute
-  - Improved code clarity and maintainability
-
-### Fixed
-- **Double Round Messages**: Fixed issue where players received two round messages (round 1 and round 2) when starting a game
-  - Removed duplicate `startNewRound()` call in `GameManager.startRound()`
-  - Round counter now correctly starts at 1 instead of jumping to 2
-- **Session Cleanup**: Fixed issue where sessions remained in the list after game ended
-  - Sessions are now fully removed from SessionManager when game ends (complete termination)
-  - Updated `list` command to filter out inactive sessions
-  - No need to use `stop` command for full session termination
-- **Spark Name Announcement**: Fixed win message to include the Spark's player name
-  - Win messages now show: `"[PlayerName] (Spark) wins!"` instead of just "Spark wins!"
-  - Applies to all Spark win conditions
-- **Voting Paper Activation**: Enhanced voting paper interaction support
-  - Added left-click support in inventory (previously only right-click)
-  - Right-click in inventory still works
-  - Right-click when held in main hand still works (via VoteItemListener)
-  - Players can now vote using any of these methods
-
-### Changed
-- **Session Termination**: Sessions are now fully removed when game ends, not just marked inactive
-  - Ensures complete cleanup and prevents memory leaks
-  - Sessions automatically removed from SessionManager on game end
+  - Better organized event listener registration
+  - Improved error handling and logging
 
 ---
 
