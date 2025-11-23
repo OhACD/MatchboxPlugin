@@ -30,8 +30,10 @@ public class VotePaperListener implements Listener {
             return;
         }
         
-        // Only allow right-click for voting
-        if (!event.getClick().isRightClick()) {
+        // Allow both left-click and right-click for voting in inventory
+        boolean isRightClick = event.getClick().isRightClick();
+        boolean isLeftClick = event.getClick().isLeftClick();
+        if (!isRightClick && !isLeftClick) {
             return;
         }
         

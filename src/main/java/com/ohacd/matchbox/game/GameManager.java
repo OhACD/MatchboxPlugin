@@ -123,10 +123,8 @@ public class GameManager {
         for (SessionGameContext context : activeSessions.values()) {
             if (context != null && context.getGameState().getAllParticipatingPlayerIds().contains(playerId)) {
                 if (found != null) {
-                    // Edge case: Player found in multiple sessions (shouldn't happen, but handle it)
                     plugin.getLogger().warning("Player " + playerId + " found in multiple sessions! Sessions: " + 
                         found.getSessionName() + " and " + context.getSessionName());
-                    // Return the first one found, but log the issue
                 } else {
                     found = context;
                 }
@@ -268,7 +266,6 @@ public class GameManager {
             return;
         }
 
-        // Edge case: Check if any player is already in another game
         for (Player player : players) {
             if (player == null || !player.isOnline()) {
                 plugin.getLogger().warning("Skipping null or offline player during backup");
@@ -277,7 +274,6 @@ public class GameManager {
             
             UUID playerId = player.getUniqueId();
             
-            // Edge case: Player already in another active game
             if (!canPlayerJoinSession(playerId, sessionName)) {
                 SessionGameContext existingContext = getContextForPlayer(playerId);
                 plugin.getLogger().warning("Player " + player.getName() + " is already in session '" + 
@@ -300,7 +296,7 @@ public class GameManager {
         // Use lifecycle manager to start the game
         lifecycleManager.startGame(context, players, spawnLocations, discussionLocation, sessionName);
         
-        // Start first round
+        // Start first round (teleport players and begin swipe phase)
         startNewRound(sessionName);
     }
 
@@ -1179,9 +1175,6 @@ public class GameManager {
             plugin.getLogger().warning("Failed to set spectator mode for " + player.getName() + ": " + e.getMessage());
         }
 
-        // TODO: Teleport eliminated player to spectator area (if discussion location is set)
-        // For now, they stay where they are
-
         // Log elimination
         plugin.getLogger().info("Player " + player.getName() + " eliminated in session '" + sessionName + "'. Remaining alive: " + gameState.getAlivePlayerCount());
 
@@ -1475,7 +1468,7 @@ public class GameManager {
         // Clean up context
         removeContext(sessionName);
         
-        // Mark session as inactive and ensure it stays terminated
+        // Fully terminate session - remove it from SessionManager when game ends
         try {
             // Access SessionManager via plugin instance
             com.ohacd.matchbox.Matchbox matchboxPlugin = (com.ohacd.matchbox.Matchbox) plugin;
@@ -1483,50 +1476,58 @@ public class GameManager {
             if (sessionManager != null) {
                 com.ohacd.matchbox.game.session.GameSession session = sessionManager.getSession(sessionName);
                 if (session != null) {
+                    // Mark as inactive first
                     session.setActive(false);
-                    // Also check if session has no players and remove it
-                    if (session.getPlayerCount() == 0) {
-                        sessionManager.removeSession(sessionName);
-                        plugin.getLogger().info("Removed empty session '" + sessionName + "' after game end");
-                    } else {
-                        plugin.getLogger().info("Marked session '" + sessionName + "' as inactive after game end");
-                    }
+                    // Fully remove the session from SessionManager for complete termination
+                    sessionManager.removeSession(sessionName);
+                    plugin.getLogger().info("Fully terminated and removed session '" + sessionName + "' after game end");
                 } else {
-                    plugin.getLogger().warning("Session '" + sessionName + "' not found when trying to mark inactive");
+                    plugin.getLogger().warning("Session '" + sessionName + "' not found when trying to remove after game end");
                 }
             } else {
-                plugin.getLogger().warning("SessionManager is null when trying to mark session inactive");
+                plugin.getLogger().warning("SessionManager is null when trying to remove session after game end");
             }
         } catch (Exception e) {
-            plugin.getLogger().severe("Failed to mark session as inactive: " + e.getMessage());
+            plugin.getLogger().severe("Failed to remove session after game end: " + e.getMessage());
             e.printStackTrace();
         }
 
         plugin.getLogger().info("Game ended successfully for session: " + sessionName);
     }
 
-    // Getters for external access (for backward compatibility - returns first active session or null)
+    /**
+     * Gets the game state for backward compatibility.
+     * @deprecated Use getContextForPlayer() or getContext() for parallel session support
+     * @return First active session's game state, or null if no active sessions
+     */
+    @Deprecated
     public GameState getGameState() {
-        // Return first active session's game state for backward compatibility
-        // Note: This is deprecated for parallel sessions - use getContextForPlayer or getContext instead
         if (activeSessions.isEmpty()) {
             return null;
         }
         return activeSessions.values().iterator().next().getGameState();
     }
 
+    /**
+     * Gets the phase manager for backward compatibility.
+     * @deprecated Use getContextForPlayer() or getContext() for parallel session support
+     * @return First active session's phase manager, or null if no active sessions
+     */
+    @Deprecated
     public PhaseManager getPhaseManager() {
-        // Return first active session's phase manager for backward compatibility
-        // Note: This is deprecated for parallel sessions - use getContextForPlayer or getContext instead
         if (activeSessions.isEmpty()) {
             return null;
         }
         return activeSessions.values().iterator().next().getPhaseManager();
     }
     
+    /**
+     * Gets the vote manager for backward compatibility.
+     * @deprecated Use getContextForPlayer() or getContext() for parallel session support
+     * @return First active session's vote manager, or null if no active sessions
+     */
+    @Deprecated
     public VoteManager getVoteManager() {
-        // Return first active session's vote manager for backward compatibility
-        // Note: This is deprecated for parallel sessions - use getContextForPlayer or getContext instead
         if (activeSessions.isEmpty()) {
             return null;
         }

@@ -55,12 +55,7 @@ public class VoteManager {
         }
         
         // Register the vote
-        UUID previousTarget = votes.put(voterId, targetId);
-        
-        // Update vote counts
-        if (previousTarget != null) {
-            voteCounts.put(previousTarget, voteCounts.getOrDefault(previousTarget, 1) - 1);
-        }
+        votes.put(voterId, targetId);
         voteCounts.put(targetId, voteCounts.getOrDefault(targetId, 0) + 1);
         
         return true;

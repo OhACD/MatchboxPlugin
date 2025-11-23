@@ -1,6 +1,8 @@
 package com.ohacd.matchbox.game.win;
 
 import com.ohacd.matchbox.game.state.GameState;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 /**
  * Checks win conditions for the game.
@@ -10,6 +12,21 @@ public class WinConditionChecker {
 
     public WinConditionChecker(GameState gameState) {
         this.gameState = gameState;
+    }
+
+    /**
+     * Gets the spark's player name from UUID.
+     */
+    private String getSparkName(java.util.UUID sparkUUID) {
+        if (sparkUUID == null) {
+            return "Unknown";
+        }
+        Player sparkPlayer = Bukkit.getPlayer(sparkUUID);
+        if (sparkPlayer != null && sparkPlayer.isOnline()) {
+            return sparkPlayer.getName();
+        }
+        // Fallback: try to get name from offline player or return UUID string
+        return sparkUUID.toString();
     }
 
     /**
@@ -23,23 +40,24 @@ public class WinConditionChecker {
             return null; // No spark assigned, game not ready
         }
 
+        String sparkName = getSparkName(sparkUUID);
         boolean sparkAlive = gameState.isAlive(sparkUUID);
         long aliveInnocents = gameState.countAliveInnocents();
         int aliveCount = gameState.getAlivePlayerCount();
 
         // Condition 1: Spark is dead → Innocents win
         if (!sparkAlive) {
-            return new WinResult(Winner.INNOCENTS, "§aInnocents win! The Spark has been eliminated.");
+            return new WinResult(Winner.INNOCENTS, "§aInnocents win! The Spark (" + sparkName + ") has been eliminated.");
         }
 
         // Condition 2: No innocents alive → Spark wins
         if (aliveInnocents == 0) {
-            return new WinResult(Winner.SPARK, "§cSpark wins! All innocents have been eliminated.");
+            return new WinResult(Winner.SPARK, "§c" + sparkName + " (Spark) wins! All innocents have been eliminated.");
         }
 
         // Condition 3: Spark is alone with 1 other player → Spark wins
         if (aliveCount == 2) {
-            return new WinResult(Winner.SPARK, "§cSpark wins! Only one other player remains.");
+            return new WinResult(Winner.SPARK, "§c" + sparkName + " (Spark) wins! Only one other player remains.");
         }
 
         return null; // No win condition met

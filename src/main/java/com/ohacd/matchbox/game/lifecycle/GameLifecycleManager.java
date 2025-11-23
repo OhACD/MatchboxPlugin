@@ -105,9 +105,6 @@ public class GameLifecycleManager {
                     return (p != null ? p.getName() : id.toString()) + "=" + (role != null ? role : "null");
                 })
                 .collect(java.util.stream.Collectors.joining(", ")));
-        
-        // Start first round
-        startNewRound(context, sessionName);
     }
     
     /**

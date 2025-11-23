@@ -203,7 +203,6 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         if (session.isActive()) {
             sender.sendMessage("§eEnding active game for session '" + sessionName + "'...");
             gameManager.endGame(sessionName);
-            // Note: endGame() already marks session as inactive
         }
 
         // Remove the session
@@ -319,8 +318,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Note: Parallel sessions are now supported, so we don't check for other active games
-        // Each session can run independently
+        // Parallel sessions are supported - each session can run independently
 
         List<Player> players = session.getPlayers();
         if (players.size() < 2) {
@@ -388,7 +386,6 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Edge case: Check if session is already active (game started)
         if (session.isActive()) {
             com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContext(sessionName);
             if (context != null && context.getGameState().isGameActive()) {
@@ -398,7 +395,6 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        // Edge case: Check if player is already in another active game
         if (!gameManager.canPlayerJoinSession(player.getUniqueId(), sessionName)) {
             com.ohacd.matchbox.game.SessionGameContext existingContext = gameManager.getContextForPlayer(player.getUniqueId());
             if (existingContext != null) {
@@ -563,7 +559,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
     private boolean handleList(CommandSender sender) {
         Set<String> sessionNames = sessionManager.getAllSessionNames();
         
-        // Filter out empty sessions and clean them up
+        // Filter out empty sessions and inactive sessions, clean them up
         List<String> activeSessions = new ArrayList<>();
         for (String name : sessionNames) {
             GameSession session = sessionManager.getSession(name);
@@ -573,7 +569,14 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                     sessionManager.removeSession(name);
                     continue;
                 }
-                // Only show non-empty sessions
+                // Only show non-empty, non-inactive sessions (sessions should be removed when game ends)
+                // But if somehow an inactive session exists, filter it out
+                if (!session.isActive() && gameManager.getContext(name) == null) {
+                    // Session is inactive and has no active game context - remove it
+                    sessionManager.removeSession(name);
+                    continue;
+                }
+                // Only show sessions that are either active or have players waiting
                 activeSessions.add(name);
             }
         }

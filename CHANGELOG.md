@@ -3,7 +3,50 @@
 All notable changes to the Matchbox plugin will be documented in this file.
 
 
-## [0.8.5-beta] - 2024-12-19 
+## [0.8.6-beta] - Latest
+
+### Code Quality & Documentation
+- **Code Cleanup**: Comprehensive codebase cleanup and refactoring
+  - Removed non-essential comments ("NEW:", "Note:", "Edge case:", etc.)
+  - Removed obsolete TODO comments
+  - Cleaned up verbose inline comments that didn't add value
+  - Removed redundant code and dead branches
+- **Documentation Improvements**: Enhanced code documentation
+  - Added comprehensive JavaDoc to main plugin class (Matchbox)
+  - Added detailed JavaDoc to enums (GamePhase, Role)
+  - Improved class-level documentation (SessionGameContext, etc.)
+  - Added proper @Deprecated annotations with migration guidance
+  - Enhanced field documentation with clear descriptions
+- **Bug Fixes**: Fixed logic issues and potential bugs
+  - Fixed redundant vote count update logic in VoteManager (removed unreachable code)
+  - Removed dead code branches that could never execute
+  - Improved code clarity and maintainability
+
+### Fixed
+- **Double Round Messages**: Fixed issue where players received two round messages (round 1 and round 2) when starting a game
+  - Removed duplicate `startNewRound()` call in `GameManager.startRound()`
+  - Round counter now correctly starts at 1 instead of jumping to 2
+- **Session Cleanup**: Fixed issue where sessions remained in the list after game ended
+  - Sessions are now fully removed from SessionManager when game ends (complete termination)
+  - Updated `list` command to filter out inactive sessions
+  - No need to use `stop` command for full session termination
+- **Spark Name Announcement**: Fixed win message to include the Spark's player name
+  - Win messages now show: `"[PlayerName] (Spark) wins!"` instead of just "Spark wins!"
+  - Applies to all Spark win conditions
+- **Voting Paper Activation**: Enhanced voting paper interaction support
+  - Added left-click support in inventory (previously only right-click)
+  - Right-click in inventory still works
+  - Right-click when held in main hand still works (via VoteItemListener)
+  - Players can now vote using any of these methods
+
+### Changed
+- **Session Termination**: Sessions are now fully removed when game ends, not just marked inactive
+  - Ensures complete cleanup and prevents memory leaks
+  - Sessions automatically removed from SessionManager on game end
+
+---
+
+## [0.8.5-beta]  
 
 ### Added
 - **Parallel Game Sessions**: Multiple games can now run simultaneously without interfering with each other

@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Contains all game state and managers for a single active game session.
  * This allows multiple games to run in parallel without interfering with each other.
+ * Each session maintains its own game state, phase manager, vote manager, and ability windows.
  */
 public class SessionGameContext {
     private final String sessionName;
@@ -25,12 +26,16 @@ public class SessionGameContext {
     private final WinConditionChecker winConditionChecker;
     private final VoteManager voteManager;
     
-    // Per-session player data
+    /** Maps player UUID to expiry timestamp for active swipe windows */
     private final Map<UUID, Long> activeSwipeWindow = new ConcurrentHashMap<>();
+    
+    /** Maps player UUID to expiry timestamp for active cure windows */
     private final Map<UUID, Long> activeCureWindow = new ConcurrentHashMap<>();
     
-    // Current round data for this session
+    /** Discussion location for the current round */
     private Location currentDiscussionLocation;
+    
+    /** Spawn locations for the current round */
     private List<Location> currentSpawnLocations;
     
     public SessionGameContext(Plugin plugin, String sessionName) {
