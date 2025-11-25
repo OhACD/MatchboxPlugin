@@ -7,6 +7,12 @@ import com.ohacd.matchbox.game.hologram.HologramManager;
 import com.ohacd.matchbox.game.session.SessionManager;
 import com.ohacd.matchbox.game.utils.GameItemProtectionListener;
 import com.ohacd.matchbox.game.utils.HitRevealListener;
+import com.ohacd.matchbox.game.ability.SwipeActivationListener;
+import com.ohacd.matchbox.game.ability.SparkVisionListener;
+import com.ohacd.matchbox.game.ability.SwipeHitListener;
+import com.ohacd.matchbox.game.ability.MedicAbilityListener;
+import com.ohacd.matchbox.game.ability.MedicHitListener;
+import com.ohacd.matchbox.game.ability.MedicSightListener;
 import com.ohacd.matchbox.game.utils.NameTagManager;
 import com.ohacd.matchbox.game.utils.PlayerQuitListener;
 import com.ohacd.matchbox.game.utils.VoteItemListener;
@@ -34,22 +40,23 @@ public final class Matchbox extends JavaPlugin {
 
         // Register event listeners
         getServer().getPluginManager().registerEvents(new ChatListener(hologramManager, gameManager), this);
-        getServer().getPluginManager().registerEvents(new HitRevealListener(gameManager, hologramManager, gameManager.getInventoryManager()), this);
+        getServer().getPluginManager().registerEvents(
+                new HitRevealListener(gameManager, hologramManager, gameManager.getInventoryManager()), this);
         getServer().getPluginManager().registerEvents(new GameItemProtectionListener(gameManager), this);
-        
+
         // Register ability listeners
-        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.SwipeActivationListener(gameManager, this), this);
-        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.SwipeHitListener(gameManager), this);
-        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.SparkVisionListener(gameManager), this);
-        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.MedicAbilityListener(gameManager, this), this);
-        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.MedicHitListener(gameManager), this);
-        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.ability.MedicSightListener(gameManager), this);
-        
+        getServer().getPluginManager().registerEvents(new SwipeActivationListener(gameManager, this), this);
+        getServer().getPluginManager().registerEvents(new SwipeHitListener(gameManager), this);
+        getServer().getPluginManager().registerEvents(new SparkVisionListener(gameManager), this);
+        getServer().getPluginManager().registerEvents(new MedicAbilityListener(gameManager, this), this);
+        getServer().getPluginManager().registerEvents(new MedicHitListener(gameManager), this);
+        getServer().getPluginManager().registerEvents(new MedicSightListener(gameManager), this);
+
         // Register voting listeners
         getServer().getPluginManager().registerEvents(new VoteItemListener(gameManager), this);
         getServer().getPluginManager().registerEvents(new VotePaperListener(gameManager), this);
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(gameManager), this);
-        
+
         // Register command handler
         MatchboxCommand commandHandler = new MatchboxCommand(this, sessionManager, gameManager);
         getCommand("matchbox").setExecutor(commandHandler);
@@ -61,7 +68,7 @@ public final class Matchbox extends JavaPlugin {
     @Override
     public void onDisable() {
         getLogger().info("Disabling Matchbox plugin...");
-        
+
         // End all active games first (this cancels all tasks)
         if (gameManager != null) {
             try {
@@ -74,20 +81,23 @@ public final class Matchbox extends JavaPlugin {
                         getLogger().warning("Error ending session " + sessionName + ": " + e.getMessage());
                     }
                 }
-                
+
                 gameManager.emergencyCleanup();
             } catch (Exception e) {
                 getLogger().severe("Error during plugin shutdown cleanup: " + e.getMessage());
                 e.printStackTrace();
             }
         }
-        
+
         if (hologramManager != null) {
             hologramManager.clearAll();
         }
 
         getLogger().info("Restoring all nametags...");
         NameTagManager.restoreAllNameTags();
+
+        // Ensure no outstanding tasks continue after disable.
+        getServer().getScheduler().cancelTasks(this);
 
         getLogger().info("Matchbox disabled");
     }

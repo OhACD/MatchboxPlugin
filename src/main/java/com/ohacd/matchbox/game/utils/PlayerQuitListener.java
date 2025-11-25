@@ -1,6 +1,11 @@
 package com.ohacd.matchbox.game.utils;
 
+import com.ohacd.matchbox.Matchbox;
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
+import com.ohacd.matchbox.game.session.GameSession;
+import com.ohacd.matchbox.game.session.SessionManager;
+import com.ohacd.matchbox.game.state.GameState;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -23,49 +28,45 @@ public class PlayerQuitListener implements Listener {
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
 
-        // Find which session the player is in (if any)
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(playerId);
+        SessionGameContext context = gameManager.getContextForPlayer(playerId);
         if (context == null) {
             return; // Player not in any active game
         }
-        
+
         String sessionName = context.getSessionName();
-        com.ohacd.matchbox.game.state.GameState gameState = context.getGameState();
+        GameState gameState = context.getGameState();
 
-        // Restore their nametag
         NameTagManager.showNameTag(player);
+        gameManager.getSkinManager().restoreOriginalSkin(player);
+        gameManager.getHunterVisionAdapter().stopVision(playerId);
 
-        // Remove pending death if they had one
         if (gameState.hasPendingDeath(playerId)) {
             gameState.removePendingDeath(playerId);
         }
-
-        // Remove them from the game state (this also cleans up infected/swiped flags)
         gameState.removeAlivePlayer(playerId);
 
-        // Check for win condition after player leaves (only if game is active)
-        if (gameState.isGameActive()) {
-            gameManager.checkForWin(sessionName);
-            
-            // Also check if session should be ended (no players left)
-            try {
-                com.ohacd.matchbox.Matchbox matchboxPlugin = com.ohacd.matchbox.Matchbox.getInstance();
-                if (matchboxPlugin != null) {
-                    com.ohacd.matchbox.game.session.SessionManager sessionManager = matchboxPlugin.getSessionManager();
-                    if (sessionManager != null) {
-                        com.ohacd.matchbox.game.session.GameSession session = sessionManager.getSession(sessionName);
-                        if (session != null) {
-                            // Check if session has no players left
-                            if (session.getPlayerCount() == 0) {
-                                session.setActive(false);
-                                matchboxPlugin.getLogger().info("Session '" + sessionName + "' ended - no players left");
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                // Ignore errors in cleanup
+        if (!gameState.isGameActive()) {
+            return;
+        }
+
+        gameManager.checkForWin(sessionName);
+
+        try {
+            Matchbox matchboxPlugin = Matchbox.getInstance();
+            if (matchboxPlugin == null) {
+                return;
             }
+            SessionManager sessionManager = matchboxPlugin.getSessionManager();
+            if (sessionManager == null) {
+                return;
+            }
+            GameSession session = sessionManager.getSession(sessionName);
+            if (session != null && session.getPlayerCount() == 0) {
+                session.setActive(false);
+                matchboxPlugin.getLogger().info("Session '" + sessionName + "' ended - no players left");
+            }
+        } catch (Exception ignored) {
+            // Suppress cleanup issues on quit to avoid disconnect spam.
         }
     }
 }

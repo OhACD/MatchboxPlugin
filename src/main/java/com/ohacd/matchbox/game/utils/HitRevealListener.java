@@ -1,6 +1,7 @@
 package com.ohacd.matchbox.game.utils;
 
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.hologram.HologramManager;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
@@ -33,7 +34,7 @@ public class HitRevealListener implements Listener {
         Player target = (Player) event.getEntity();
         
         // Get session context for this player
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(shooter.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(shooter.getUniqueId());
         if (context == null) {
             return; // Player not in any active game
         }

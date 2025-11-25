@@ -3,6 +3,7 @@ package com.ohacd.matchbox.game.role;
 import com.ohacd.matchbox.game.state.GameState;
 import com.ohacd.matchbox.game.utils.Role;
 import org.bukkit.entity.Player;
+import java.util.concurrent.ThreadLocalRandom;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,7 +41,7 @@ public class RoleAssigner {
         }
         
         List<Player> shuffled = new ArrayList<>(validPlayers);
-        Collections.shuffle(shuffled);
+        Collections.shuffle(shuffled, ThreadLocalRandom.current());
 
         // Assign Spark to first player (if exists)
         if (!shuffled.isEmpty()) {

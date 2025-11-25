@@ -3,7 +3,26 @@
 All notable changes to the Matchbox plugin will be documented in this file.
 
 
-## [0.8.6-beta] - Latest
+## [0.8.7-beta] - Latest
+
+### Added
+- **ProtocolLib Hunter Vision**: Sparks now get a live 35-block glow of players through walls. Automatically falls back to particle indicators (with a startup log) when ProtocolLib is missing.
+- **Temporary Random Skins**: Players in an active game receive a curated random skin for the entire match and are restored afterwards.
+- **Cured Player Feedback**: Players cured by the Medic are notified via title + log at the start of discussion.
+
+### Fixed
+- **Ability Paper Loss**: Swipe/Cure papers are restored when the activation window expires unused.
+- **Phase Visibility**: Nametags are now visible during discussion/voting phases while remaining hidden during swipe.
+- **Plugin Disable Runnable**: All scheduled tasks are cancelled during plugin shutdown to prevent asynchronous errors.
+- **Import Hygiene**: Replaced fully qualified references with imports and tightened null/phase guards across listeners.
+
+### Changed
+- **Hunter Vision API**: Introduced `HunterVisionAdapter` abstraction, enabling clean separation between ProtocolLib and fallback implementations.
+- **Defensive Programming Sweep**: Added null/phase checks and clearer logging when sessions or dependencies are missing.
+
+---
+
+## [0.8.6-beta]
 
 ### Fixed
 - **Double Round Messages**: Fixed issue where players received two round messages (round 1 and round 2) when starting a game

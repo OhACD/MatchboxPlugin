@@ -1,14 +1,14 @@
 package com.ohacd.matchbox.game.chat;
 
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.hologram.HologramManager;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-
-import java.util.logging.Logger;
 
 public class ChatListener implements Listener {
     private final HologramManager hologramManager;
@@ -24,11 +24,11 @@ public class ChatListener implements Listener {
         // Check using isAsynchronous() player triggers run asynchronously
         if (!event.isAsynchronous()) return;
         
-        org.bukkit.entity.Player player = event.getPlayer();
+        Player player = event.getPlayer();
         if (player == null) return;
         
         // Find which session the player is in (if any)
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
         if (context == null) {
             // Player not in any active game - use normal chat
             return;
@@ -45,7 +45,6 @@ public class ChatListener implements Listener {
         event.setCancelled(true);
         // Render the message over the player for 100 ticks or 5 seconds
         String msg = PlainTextComponentSerializer.plainText().serialize(event.message());
-        Logger.getLogger(msg);
         hologramManager.showTextAbove(player, msg, 100);
     }
 }

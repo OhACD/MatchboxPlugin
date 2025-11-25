@@ -1,6 +1,7 @@
 package com.ohacd.matchbox.game.action;
 
 import com.ohacd.matchbox.game.SessionGameContext;
+import com.ohacd.matchbox.game.phase.PhaseManager;
 import com.ohacd.matchbox.game.state.GameState;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.ParticleUtils;
@@ -99,7 +100,7 @@ public class PlayerActionHandler {
             return;
         }
         
-        com.ohacd.matchbox.game.phase.PhaseManager phaseManager = context.getPhaseManager();
+        PhaseManager phaseManager = context.getPhaseManager();
         Map<UUID, Long> activeCureWindow = context.getActiveCureWindow();
         
         // Phase and permission checks
@@ -127,6 +128,8 @@ public class PlayerActionHandler {
         // Mark as cured
         gameState.markCured(medicId);
         gameState.removePendingDeath(targetId);
+        // NEW: 0.8.7 - mark the target as been cured
+        gameState.markBeenCured(targetId);
         
         // Show subtle blue particles
         ParticleUtils.showColoredParticlesToEveryone(

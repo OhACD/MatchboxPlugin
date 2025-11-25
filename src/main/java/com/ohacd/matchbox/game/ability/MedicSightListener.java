@@ -1,6 +1,7 @@
 package com.ohacd.matchbox.game.ability;
 
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.InventoryManager;
@@ -33,7 +34,7 @@ public class MedicSightListener implements Listener {
         Player player = (Player) event.getWhoClicked();
         
         // Get session context for this player
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
         if (context == null) {
             return; // Player not in any active game
         }
@@ -102,7 +103,7 @@ public class MedicSightListener implements Listener {
         }
         
         // Get session context for this player
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
         if (context == null) {
             return; // Player not in any active game
         }

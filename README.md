@@ -209,6 +209,7 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 - ✅ Ability papers automatically placed (Swipe/Cure above hotbar slot 0, Vision/Sight above hotbar slot 1)
 - ✅ Fixed crossbow and arrow in hotbar (unmovable, one arrow per round)
 - ✅ Nametag hiding during gameplay (properly restored after game)
+- ✅ Temporary randomized skins applied to active players (restored when game ends)
 - ✅ Hologram-based chat bubbles during swipe phase (no chat log)
 - ✅ Normal chat during discussion and voting phases
 - ✅ Swipe phase with 3-minute timer (configurable in code)
@@ -216,26 +217,26 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 - ✅ Voting phase with right-click voting (15 seconds, configurable)
 - ✅ Paper-based ability system (right-click to activate)
 - ✅ Spark Swipe ability (infect players via paper, 8-second activation window)
-- ✅ Spark Hunter Vision (particles on all players, 15 seconds, once per round, no nametag visibility)
+- ✅ Spark Hunter Vision (per-player glow when ProtocolLib is installed, automatic particle fallback otherwise)
 - ✅ Medic Healing Touch (cure infected players, 8-second activation window)
 - ✅ Medic Healing Sight (see infected players via particles, 15 seconds, once per round)
 - ✅ Arrow system for nametag revelation (one per round, separate from swipe)
 - ✅ Infection system with delayed death (applied at discussion start)
 - ✅ Win condition detection (Spark wins, Innocents win)
 - ✅ Player elimination and spectator mode
-- ✅ Player state backup and restore (inventory, location, health, etc.)
+- ✅ Player state backup/restoration (inventory, location, health, skins, etc.)
 - ✅ Session cleanup on game end (prevents new rounds after game ends)
 - ✅ Comprehensive defensive programming and error handling
 - ✅ Edge case handling (offline players, 1-2 player games, parallel sessions, etc.)
 - ✅ Memory leak prevention (automatic session termination, proper cleanup)
 
-**Recent Bug Fixes (v0.8.5-beta):**
-- ✅ Fixed: Timer reset bug - timers now properly cancel when phases are force-skipped
-- ✅ Fixed: Memory leak - sessions now properly terminate when game ends or all players leave
-- ✅ Fixed: Chat listener now works correctly with parallel sessions
-- ✅ Fixed: Players can no longer join multiple sessions simultaneously
-- ✅ Fixed: Sessions properly validate before context creation
-- ✅ Fixed: Emergency cleanup on plugin disable prevents orphaned contexts
+**Recent Changes (v0.8.7-beta):**
+- ✅ **Medic & Spark QoL**: Ability papers now reappear if the 8s activation window expires unused, preventing accidental consumption.
+- ✅ **Cured Player Feedback**: Players saved by the Medic receive an immediate discussion-phase title + log. Multiple cures per round are supported.
+- ✅ **Dynamic Hunter Vision**: Spark sees a live 35-block glow using ProtocolLib packets; automatically falls back to particle indicators when ProtocolLib is absent (and logs the downgrade).
+- ✅ **Randomized Skins**: Active players are assigned temporary curated skins for the full game and restored afterwards.
+- ✅ **Phase Visibility**: Nametags automatically show during discussion/voting while remaining hidden in swipe phase.
+- ✅ **Shutdown Safety**: All scheduled tasks are cancelled during plugin disable to prevent stray runnable errors.
 
 ### Planned for Full Release (v1.0)
 
@@ -282,7 +283,7 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 
 - **Configuration**: Phase durations are hardcoded (180s swipe, 30s discussion, 15s voting). Config.yml support planned for v1.0
 - **Spectator Teleport**: Eliminated players enter spectator mode but aren't teleported to a spectator area yet (planned for v1.0)
-- **Hunter Vision**: Uses particles for visibility (works perfectly, but ProtocolLib integration would enable true single-player glow effect - optional enhancement)
+- **Hunter Vision**: ProtocolLib delivers per-player glow. Without it, the plugin automatically uses particle indicators (logged at startup).
 
 ## Parallel Sessions
 
@@ -312,7 +313,7 @@ This project is under the MIT license.
 ## Credits
 
 Developer: OhACD  
-Version: 0.8.5-beta  
+Version: 0.8.7-beta  
 Minecraft API: 1.21
 
 ---

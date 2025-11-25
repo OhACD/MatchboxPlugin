@@ -1,6 +1,7 @@
 package com.ohacd.matchbox.game.ability;
 
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -25,7 +26,7 @@ public class MedicHitListener implements Listener {
         Player target = (Player) event.getRightClicked();
 
         // Get session context for this player
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(medic.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(medic.getUniqueId());
         if (context == null) {
             return; // Player not in any active game
         }
