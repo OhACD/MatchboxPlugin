@@ -3,7 +3,25 @@
 All notable changes to the Matchbox plugin will be documented in this file.
 
 
-## [0.8.7-beta] - Latest
+## [0.9.0] - Latest
+
+### Added
+- **Global Swipe/Cure Indicators**: The subtle particle cues for Spark swipes and Medic cures now broadcast to every nearby player, keeping spectators and recordings informed without exposing roles.
+- **Player-Focused Cure Notice**: Cured players receive a direct chat message so the announcement no longer conflicts with the discussion-phase titles.
+- **Hunter Vision Resilience**: ProtocolLib Hunter Vision now uses the modern `DataValue` pipeline, automatically falling back to the particle adapter whenever packet delivery fails.
+
+### Fixed
+- **Spark Disconnects**: Resolved `clientbound/minecraft:set_entity_data` crashes that kicked Sparks whenever glow packets used the legacy `DataItem`.
+- **Random Skin Preload**: The curated skin pool now resolves Mojang UUIDs before requesting textures, eliminating the “Failed to fetch skin” spam and guaranteeing usable skins even on offline-mode servers.
+
+### Changed
+- **Terminology Refresh**: All references to “red particles” now describe neutral highlight markers to match the actual visuals.
+- **Import Hygiene**: Replaced inline `java.util.*` usages with conventional imports to keep compilation warnings noise-free.
+- **Version Jump**: Skipped the remaining 0.8.x line to mark these stability upgrades as the start of the 0.9 series. Config support remains the final blocker for 1.0.
+
+---
+
+## [0.8.7-beta]
 
 ### Added
 - **ProtocolLib Hunter Vision**: Sparks now get a live 35-block glow of players through walls. Automatically falls back to particle indicators (with a startup log) when ProtocolLib is missing.

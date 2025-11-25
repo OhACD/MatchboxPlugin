@@ -196,7 +196,7 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 - Hologram Chat: Chat appears as holograms during swipe phase (no chat log)
 - Visual Effects: All effects are recording-safe and don't reveal roles
 
-### Current Features (v0.8.5-beta)
+### Current Features (v0.9.0)
 
 **Status: Beta Testing Stage** - All core features are implemented and tested. Parallel sessions now supported!
 
@@ -230,13 +230,12 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 - ✅ Edge case handling (offline players, 1-2 player games, parallel sessions, etc.)
 - ✅ Memory leak prevention (automatic session termination, proper cleanup)
 
-**Recent Changes (v0.8.7-beta):**
-- ✅ **Medic & Spark QoL**: Ability papers now reappear if the 8s activation window expires unused, preventing accidental consumption.
-- ✅ **Cured Player Feedback**: Players saved by the Medic receive an immediate discussion-phase title + log. Multiple cures per round are supported.
-- ✅ **Dynamic Hunter Vision**: Spark sees a live 35-block glow using ProtocolLib packets; automatically falls back to particle indicators when ProtocolLib is absent (and logs the downgrade).
-- ✅ **Randomized Skins**: Active players are assigned temporary curated skins for the full game and restored afterwards.
-- ✅ **Phase Visibility**: Nametags automatically show during discussion/voting while remaining hidden in swipe phase.
-- ✅ **Shutdown Safety**: All scheduled tasks are cancelled during plugin disable to prevent stray runnable errors.
+**Recent Changes (v0.9.0):**
+- ✅ **Universal Swipe/Cure Indicators**: Subtle particle bursts from Spark swipes and Medic cures are now broadcast to every player, keeping recordings/streams informative without revealing roles.
+- ✅ **Reliable Medic Notifications**: Players who get cured receive a dedicated chat message instead of a title (which previously clashed with phase announcements).
+- ✅ **ProtocolLib Hunter Vision Fix**: Glow packets now use the modern `DataValue` pipeline, preventing client kicks and automatically falling back to particles when packet delivery fails.
+- ✅ **Skin Service Resilience**: Random skin preloading now hits Mojang's public API for proper UUID resolution, eliminating the previous "failed to fetch skin" spam.
+- ✅ **Codebase Polish**: Imports are normalized, documentation updated, and highlight terminology replaces the old “red particles” copy to better match the in-game visuals.
 
 ### Planned for Full Release (v1.0)
 
@@ -305,7 +304,7 @@ This project is under the MIT license.
 ## Credits
 
 Developer: OhACD  
-Version: 0.8.7-beta  
+Version: 0.9.0  
 Minecraft API: 1.21
 
 ---

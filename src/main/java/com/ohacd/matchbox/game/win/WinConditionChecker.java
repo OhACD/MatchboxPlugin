@@ -4,6 +4,8 @@ import com.ohacd.matchbox.game.state.GameState;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
+import java.util.UUID;
+
 /**
  * Checks win conditions for the game.
  */
@@ -17,7 +19,7 @@ public class WinConditionChecker {
     /**
      * Gets the spark's player name from UUID.
      */
-    private String getSparkName(java.util.UUID sparkUUID) {
+    private String getSparkName(UUID sparkUUID) {
         if (sparkUUID == null) {
             return "Unknown";
         }
@@ -34,7 +36,7 @@ public class WinConditionChecker {
      * @return WinResult containing the winner type, or null if no win condition met
      */
     public WinResult checkWinConditions() {
-        java.util.UUID sparkUUID = gameState.getSparkUUID();
+        UUID sparkUUID = gameState.getSparkUUID();
 
         if (sparkUUID == null) {
             return null; // No spark assigned, game not ready

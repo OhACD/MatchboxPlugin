@@ -546,7 +546,7 @@ public class InventoryManager {
         meta.setDisplayName("§aHealing Sight");
         List<String> lore = new ArrayList<>();
         lore.add("§7Right-click to see infected players.");
-        lore.add("§7Shows red particles on infected players.");
+        lore.add("§7Shows subtle highlight particles on infected players.");
         lore.add("§7Lasts for 15 seconds.");
         lore.add("§7Once per round.");
         

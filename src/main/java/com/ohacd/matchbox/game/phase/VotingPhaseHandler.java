@@ -7,6 +7,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -160,7 +161,7 @@ public class VotingPhaseHandler {
      * Cancels all voting phase tasks (for cleanup).
      */
     public void cancelAllVotingTasks() {
-        for (String sessionName : new java.util.HashSet<>(votingTasks.keySet())) {
+        for (String sessionName : new HashSet<>(votingTasks.keySet())) {
             cancelVotingTask(sessionName);
         }
     }

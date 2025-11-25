@@ -40,7 +40,7 @@ public class FallbackHunterVisionAdapter implements HunterVisionAdapter {
         }
 
         for (Player target : targets) {
-            ParticleUtils.showRedParticlesOnPlayer(spark, target, 15, plugin);
+            ParticleUtils.showMarkerParticlesOnPlayer(spark, target, 15, plugin);
         }
         plugin.getLogger().info("Fallback Hunter Vision activated for spark " + spark.getName() + " (particles only).");
     }

@@ -544,7 +544,7 @@ public class GameManager {
 
     /**
      * Activates Healing Sight for the medic.
-     * Shows red particles on all infected players for 15 seconds (only visible to medic).
+     * Shows highlight particles on all infected players for 15 seconds (only visible to medic).
      * This is separate from the cure ability.
      * Can only be used once per round.
      */
@@ -604,7 +604,7 @@ public class GameManager {
     }
 
     /**
-     * Shows red particles on all players with pending deaths, visible only to the medic.
+     * Shows highlight particles on all players with pending deaths, visible only to the medic.
      * Particles last for 15 seconds.
      */
     private void showInfectedPlayersToMedic(Player medic, SessionGameContext context) {
@@ -632,9 +632,9 @@ public class GameManager {
             return;
         }
 
-        // Show red particles on all infected players for 15 seconds
+        // Show highlight particles on all infected players for 15 seconds
         // Only the medic can see these particles (recording-safe)
-        ParticleUtils.showRedParticlesOnPlayers(medic, infectedPlayers, 15, plugin);
+        ParticleUtils.showMarkerParticlesOnPlayers(medic, infectedPlayers, 15, plugin);
 
         plugin.getLogger().info("Showing " + infectedPlayers.size() + " infected player(s) to medic " + medic.getName());
     }
@@ -742,8 +742,7 @@ public class GameManager {
                 if (curedPlayer == null || !curedPlayer.isOnline()) {
                     continue;
                 }
-                // Inform only the cured player.
-                messageUtils.sendTitle(curedPlayer, "§9Cured", "§fYou have been cured by the Medic!", 10, 50, 10);
+                messageUtils.sendPlayerMessage(curedPlayer, "§9You feel the Medic's cure take hold. You're safe this round!");
                 plugin.getLogger().info("Player " + curedPlayer.getName() + " has been cured this round and will not be eliminated.");
             }
         }

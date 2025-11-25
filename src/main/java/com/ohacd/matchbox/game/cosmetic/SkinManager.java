@@ -6,7 +6,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
-import java.nio.charset.StandardCharsets;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -18,6 +22,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Applies temporary random skins to players while a game is active.
@@ -39,6 +45,11 @@ public class SkinManager {
         "Sausage",
         "MumboJumbo"
     );
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(5))
+        .build();
+    private static final Duration PROFILE_TIMEOUT = Duration.ofSeconds(5);
+    private static final Pattern PROFILE_ID_PATTERN = Pattern.compile("\"id\"\\s*:\\s*\"([0-9a-fA-F]{32})\"");
 
     private final Plugin plugin;
     private final List<SkinData> cachedSkins = new CopyOnWriteArrayList<>();
@@ -200,9 +211,14 @@ public class SkinManager {
 
     private Optional<SkinData> fetchSkinByName(String skinName) {
         try {
-            UUID uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + skinName.toLowerCase(Locale.ROOT)).getBytes(StandardCharsets.UTF_8));
-            PlayerProfile profile = Bukkit.createProfile(uuid, skinName);
+            Optional<UUID> onlineUuid = resolveOnlineUuid(skinName);
+            if (onlineUuid.isEmpty()) {
+                plugin.getLogger().warning("[SkinManager] Unable to resolve UUID for '" + skinName + "'. Skipping.");
+                return Optional.empty();
+            }
+            PlayerProfile profile = Bukkit.createProfile(onlineUuid.get(), skinName);
             if (!profile.complete(true)) {
+                plugin.getLogger().warning("[SkinManager] Mojang session server rejected skin '" + skinName + "'.");
                 return Optional.empty();
             }
             for (ProfileProperty property : profile.getProperties()) {
@@ -210,10 +226,44 @@ public class SkinManager {
                     return Optional.of(new SkinData(property.getValue(), property.getSignature()));
                 }
             }
+            plugin.getLogger().warning("[SkinManager] No texture properties returned for '" + skinName + "'.");
         } catch (Exception e) {
             plugin.getLogger().warning("[SkinManager] Failed to fetch skin '" + skinName + "': " + e.getMessage());
         }
         return Optional.empty();
+    }
+
+    private Optional<UUID> resolveOnlineUuid(String skinName) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.mojang.com/users/profiles/minecraft/" + skinName))
+                .timeout(PROFILE_TIMEOUT)
+                .GET()
+                .build();
+            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200 || response.body() == null || response.body().isBlank()) {
+                return Optional.empty();
+            }
+            Matcher matcher = PROFILE_ID_PATTERN.matcher(response.body());
+            if (matcher.find()) {
+                String rawId = matcher.group(1);
+                return Optional.of(UUID.fromString(formatUuid(rawId)));
+            }
+        } catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            plugin.getLogger().warning("[SkinManager] Failed to resolve UUID for '" + skinName + "': " + e.getMessage());
+        }
+        return Optional.empty();
+    }
+
+    private static String formatUuid(String raw) {
+        String normalized = raw.replace("-", "").toLowerCase(Locale.ROOT);
+        return normalized.replaceFirst(
+            "(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{12})",
+            "$1-$2-$3-$4-$5"
+        );
     }
 
     private record SkinData(String value, String signature) {}

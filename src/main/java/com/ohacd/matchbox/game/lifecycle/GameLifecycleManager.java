@@ -12,7 +12,13 @@ import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.bukkit.Bukkit.getPlayer;
 
@@ -104,7 +110,7 @@ public class GameLifecycleManager {
                     Player p = getPlayer(id);
                     return (p != null ? p.getName() : id.toString()) + "=" + (role != null ? role : "null");
                 })
-                .collect(java.util.stream.Collectors.joining(", ")));
+                .collect(Collectors.joining(", ")));
     }
     
     /**
