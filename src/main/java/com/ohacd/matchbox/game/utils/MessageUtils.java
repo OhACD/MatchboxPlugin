@@ -75,4 +75,18 @@ public class MessageUtils {
     public void sendPlainMessage(String message) {
         plugin.getServer().sendPlainMessage(message);
     }
+
+    /**
+     * Sends a plain chat message to a single player, falling back gracefully if the API call fails.
+     */
+    public void sendPlayerMessage(Player player, String message) {
+        if (player == null || message == null) {
+            return;
+        }
+        try {
+            player.sendMessage(message);
+        } catch (Exception ignored) {
+            // swallow – message delivery isn't critical enough to interrupt gameplay
+        }
+    }
 }

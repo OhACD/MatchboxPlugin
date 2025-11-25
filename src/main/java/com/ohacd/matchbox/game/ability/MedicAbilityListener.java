@@ -1,6 +1,7 @@
 package com.ohacd.matchbox.game.ability;
 
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.InventoryManager;
@@ -36,7 +37,7 @@ public class MedicAbilityListener implements Listener {
         Player player = (Player) event.getWhoClicked();
         
         // Get session context for this player
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
         if (context == null) {
             return; // Player not in any active game
         }
@@ -81,18 +82,32 @@ public class MedicAbilityListener implements Listener {
         event.setCancelled(true);
 
         // Start the 8 second cure window silently
-        gameManager.startCureWindow(player, 8);
+        Long windowExpiry = gameManager.startCureWindow(player, 8);
+        if (windowExpiry == null) {
+            return;
+        }
         
         // Replace paper with gray dye indicator
         ItemStack usedIndicator = InventoryManager.createUsedIndicator(clicked);
         player.getInventory().setItem(slot, usedIndicator);
         player.updateInventory();
 
-        // schedule explicit removal to be safe (gameManager maintains removal internally but keep a cleanup)
+        // schedule cleanup that restores the paper if unused
         new BukkitRunnable() {
             @Override
             public void run() {
-                gameManager.endCureWindow(player.getUniqueId());
+                if (!player.isOnline()) {
+                    return;
+                }
+                SessionGameContext ctx = gameManager.getContextForPlayer(player.getUniqueId());
+                if (ctx == null) {
+                    return;
+                }
+                Long currentExpiry = ctx.getActiveCureWindow().get(player.getUniqueId());
+                if (currentExpiry != null && currentExpiry.equals(windowExpiry)) {
+                    gameManager.endCureWindow(player.getUniqueId());
+                    gameManager.restoreAbilityPaper(player);
+                }
             }
         }.runTaskLater(plugin, 8L * 20L);
     }
@@ -113,7 +128,7 @@ public class MedicAbilityListener implements Listener {
         }
         
         // Get session context for this player
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
         if (context == null) {
             return; // Player not in any active game
         }
@@ -145,18 +160,32 @@ public class MedicAbilityListener implements Listener {
         event.setCancelled(true);
         
         // Start the 8 second cure window silently
-        gameManager.startCureWindow(player, 8);
+        Long windowExpiry = gameManager.startCureWindow(player, 8);
+        if (windowExpiry == null) {
+            return;
+        }
         
         // Replace paper with gray dye indicator in slot 27
         ItemStack usedIndicator = InventoryManager.createUsedIndicator(heldItem);
         player.getInventory().setItem(InventoryManager.getSwipeCurePaperSlot(), usedIndicator);
         player.updateInventory();
 
-        // schedule explicit removal to be safe
+        // schedule cleanup that restores the paper if unused
         new BukkitRunnable() {
             @Override
             public void run() {
-                gameManager.endCureWindow(player.getUniqueId());
+                if (!player.isOnline()) {
+                    return;
+                }
+                SessionGameContext ctx = gameManager.getContextForPlayer(player.getUniqueId());
+                if (ctx == null) {
+                    return;
+                }
+                Long currentExpiry = ctx.getActiveCureWindow().get(player.getUniqueId());
+                if (currentExpiry != null && currentExpiry.equals(windowExpiry)) {
+                    gameManager.endCureWindow(player.getUniqueId());
+                    gameManager.restoreAbilityPaper(player);
+                }
             }
         }.runTaskLater(plugin, 8L * 20L);
     }

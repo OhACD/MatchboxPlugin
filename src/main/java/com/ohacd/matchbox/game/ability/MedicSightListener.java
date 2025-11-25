@@ -1,6 +1,7 @@
 package com.ohacd.matchbox.game.ability;
 
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.InventoryManager;
@@ -16,7 +17,7 @@ import org.bukkit.inventory.ItemStack;
 /**
  * Activates Healing Sight when a Medic clicks a PAPER in slot 28 (above hotbar slot 1).
  * Supports right-click and left-click in inventory, and right-click when held in main hand.
- * Shows red particles on all infected players for 15 seconds (only visible to medic).
+ * Shows subtle highlight particles on all infected players for 15 seconds (only visible to medic).
  * Silent by design (no messages/holograms).
  */
 public class MedicSightListener implements Listener {
@@ -33,7 +34,7 @@ public class MedicSightListener implements Listener {
         Player player = (Player) event.getWhoClicked();
         
         // Get session context for this player
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
         if (context == null) {
             return; // Player not in any active game
         }
@@ -102,7 +103,7 @@ public class MedicSightListener implements Listener {
         }
         
         // Get session context for this player
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
         if (context == null) {
             return; // Player not in any active game
         }

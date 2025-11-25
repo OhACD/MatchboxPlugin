@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.ohacd'
-version = '0.8.6-beta'
+version = '0.9.0'
 
 repositories {
     mavenCentral()
@@ -16,6 +16,7 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT")
+    compileOnly ("net.dmulloy2:ProtocolLib:5.4.0")
 }
 
 tasks {
@@ -23,7 +24,7 @@ tasks {
         // Configure the Minecraft version for our task.
         // This is the only required configuration besides applying the plugin.
         // Your plugin's jar (or shadowJar if present) will be used automatically.
-        minecraftVersion("1.21")
+        minecraftVersion("1.21.10")
     }
 }
 

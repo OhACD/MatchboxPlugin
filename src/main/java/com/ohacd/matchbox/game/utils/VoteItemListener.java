@@ -1,6 +1,7 @@
 package com.ohacd.matchbox.game.utils;
 
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -29,7 +30,7 @@ public class VoteItemListener implements Listener {
         Player target = (Player) event.getRightClicked();
 
         // Get session context for this player
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(voter.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(voter.getUniqueId());
         if (context == null) {
             return; // Player not in any active game
         }
@@ -97,7 +98,7 @@ public class VoteItemListener implements Listener {
         }
         
         // Get session context for this player
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(voter.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(voter.getUniqueId());
         if (context == null) {
             return; // Player not in any active game
         }

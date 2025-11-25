@@ -8,6 +8,7 @@ import com.ohacd.matchbox.game.win.WinConditionChecker;
 import org.bukkit.Location;
 import org.bukkit.plugin.Plugin;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -95,7 +96,7 @@ public class SessionGameContext {
     }
     
     public void setCurrentSpawnLocations(List<Location> locations) {
-        this.currentSpawnLocations = locations != null ? new java.util.ArrayList<>(locations) : null;
+        this.currentSpawnLocations = locations != null ? new ArrayList<>(locations) : null;
     }
     
     /**

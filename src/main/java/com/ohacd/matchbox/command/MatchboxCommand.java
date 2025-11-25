@@ -2,6 +2,7 @@ package com.ohacd.matchbox.command;
 
 import com.ohacd.matchbox.Matchbox;
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.session.GameSession;
 import com.ohacd.matchbox.game.session.SessionManager;
 import com.ohacd.matchbox.game.utils.GamePhase;
@@ -91,7 +92,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         Player player = (Player) sender;
         
         // Find which session the player is in
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
         if (context == null) {
             sender.sendMessage("§cYou are not in an active game.");
             return true;
@@ -136,7 +137,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§eActive Game Sessions: " + activeSessionNames.size());
         
         for (String sessionName : activeSessionNames) {
-            com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContext(sessionName);
+            SessionGameContext context = gameManager.getContext(sessionName);
             if (context != null) {
                 sender.sendMessage("  §7- " + sessionName + ":");
                 sender.sendMessage("    §7Game State: " + context.getGameState().getDebugInfo());
@@ -387,7 +388,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         }
 
         if (session.isActive()) {
-            com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContext(sessionName);
+            SessionGameContext context = gameManager.getContext(sessionName);
             if (context != null && context.getGameState().isGameActive()) {
                 sender.sendMessage("§cThis session's game has already started! You cannot join an active game.");
                 sender.sendMessage("§7Wait for the game to end or join a different session.");
@@ -396,7 +397,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!gameManager.canPlayerJoinSession(player.getUniqueId(), sessionName)) {
-            com.ohacd.matchbox.game.SessionGameContext existingContext = gameManager.getContextForPlayer(player.getUniqueId());
+            SessionGameContext existingContext = gameManager.getContextForPlayer(player.getUniqueId());
             if (existingContext != null) {
                 sender.sendMessage("§cYou are already in an active game in session '" + existingContext.getSessionName() + "'!");
                 sender.sendMessage("§7Leave that game first using /matchbox leave");
@@ -432,7 +433,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         Player player = (Player) sender;
         
         // Check if player is in an active game
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
         if (context != null && context.getGameState().isGameActive()) {
             // Player is in an active game - remove them from the game
             boolean removed = gameManager.removePlayerFromGame(player);

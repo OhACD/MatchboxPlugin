@@ -1,7 +1,7 @@
 package com.ohacd.matchbox.game.utils;
 
-import com.ohacd.matchbox.Matchbox;
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -32,7 +32,7 @@ public class GameItemProtectionListener implements Listener {
         if (player == null || !player.isOnline()) {
             return false;
         }
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
         if (context == null) {
             return false;
         }

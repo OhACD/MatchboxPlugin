@@ -1,5 +1,9 @@
 package com.ohacd.matchbox.game.utils;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.entity.Player;
@@ -12,20 +16,20 @@ import org.bukkit.scheduler.BukkitRunnable;
 public class ParticleUtils {
     
     /**
-     * Shows red particles on a target player for a specific viewer for a duration.
+     * Shows subtle marker particles on a target player for a specific viewer for a duration.
      * Only the viewer can see the particles (recording-safe).
-     * 
+     *
      * @param viewer The player who will see the particles
      * @param target The player to show particles on
      * @param durationSeconds How long to show particles (in seconds)
      * @param plugin Plugin instance for scheduling
      */
-    public static void showRedParticlesOnPlayer(Player viewer, Player target, int durationSeconds, Plugin plugin) {
+    public static void showMarkerParticlesOnPlayer(Player viewer, Player target, int durationSeconds, Plugin plugin) {
         if (viewer == null || target == null || !viewer.isOnline() || !target.isOnline()) {
             return;
         }
 
-        // Determine particle type (DUST for colored particles, fallback to LAVA)
+        // Determine particle type (prefer dust for color support, fallback to LAVA)
         Particle particleType;
         boolean useDustOptions = false;
         try {
@@ -38,7 +42,7 @@ public class ParticleUtils {
                 particleType = Particle.valueOf("REDSTONE");
                 useDustOptions = true;
             } catch (IllegalArgumentException e2) {
-                // Last resort: use a visible red particle
+                // Last resort: use a visible fallback particle
                 particleType = Particle.LAVA;
                 useDustOptions = false;
             }
@@ -65,7 +69,7 @@ public class ParticleUtils {
                 // Show particles around the target player
                 Location loc = target.getLocation();
                 
-                // Spawn red particles around the player (slightly above ground level)
+                // Spawn marker particles around the player (slightly above ground level)
                 // Show particles in a circle around the player
                 for (int i = 0; i < 8; i++) {
                     double angle = (2 * Math.PI * i) / 8;
@@ -81,7 +85,7 @@ public class ParticleUtils {
                     try {
                         if (useDust) {
                             org.bukkit.Particle.DustOptions dustOptions = new org.bukkit.Particle.DustOptions(
-                                org.bukkit.Color.fromRGB(255, 0, 0), // Red color
+                            org.bukkit.Color.fromRGB(255, 0, 0),
                                 1.0f // Size
                             );
                             viewer.spawnParticle(particle, particleLoc, 1, 0, 0, 0, 0, dustOptions);
@@ -101,17 +105,17 @@ public class ParticleUtils {
     }
 
     /**
-     * Shows red particles on multiple target players for a specific viewer.
-     * 
+     * Shows subtle marker particles on multiple target players for a specific viewer.
+     *
      * @param viewer The player who will see the particles
      * @param targets The players to show particles on
      * @param durationSeconds How long to show particles (in seconds)
      * @param plugin Plugin instance for scheduling
      */
-    public static void showRedParticlesOnPlayers(Player viewer, java.util.Collection<Player> targets, int durationSeconds, Plugin plugin) {
+    public static void showMarkerParticlesOnPlayers(Player viewer, Collection<Player> targets, int durationSeconds, Plugin plugin) {
         for (Player target : targets) {
             if (target != null && target.isOnline()) {
-                showRedParticlesOnPlayer(viewer, target, durationSeconds, plugin);
+                showMarkerParticlesOnPlayer(viewer, target, durationSeconds, plugin);
             }
         }
     }
@@ -127,6 +131,17 @@ public class ParticleUtils {
      */
     public static void showColoredParticlesToEveryone(Player target, org.bukkit.Color color, int durationTicks, Plugin plugin) {
         if (target == null || !target.isOnline() || target.getWorld() == null) {
+            return;
+        }
+
+        // Snapshot of viewers so we can safely iterate even if players join/leave mid-effect
+        List<Player> viewers = new ArrayList<>();
+        for (Player viewer : target.getWorld().getPlayers()) {
+            if (viewer != null && viewer.isOnline()) {
+                viewers.add(viewer);
+            }
+        }
+        if (viewers.isEmpty()) {
             return;
         }
         
@@ -177,20 +192,24 @@ public class ParticleUtils {
                     
                     Location particleLoc = new Location(loc.getWorld(), x, y, z);
                     
-                    // Spawn particle visible to everyone in the world
-                    try {
-                        if (useDust) {
-                            org.bukkit.Particle.DustOptions dustOptions = new org.bukkit.Particle.DustOptions(
-                                finalColor,
-                                0.5f // Small size for subtlety
-                            );
-                            target.getWorld().spawnParticle(particle, particleLoc, 1, 0, 0, 0, 0, dustOptions);
-                        } else {
-                            target.getWorld().spawnParticle(particle, particleLoc, 1);
+                    // Spawn the particle for every viewer individually so the cue is guaranteed
+                    for (Player viewer : viewers) {
+                        if (viewer.getWorld() != loc.getWorld()) {
+                            continue;
                         }
-                    } catch (Exception e) {
-                        // Fallback
-                        target.getWorld().spawnParticle(particle, particleLoc, 1);
+                        try {
+                            if (useDust) {
+                                org.bukkit.Particle.DustOptions dustOptions = new org.bukkit.Particle.DustOptions(
+                                    finalColor,
+                                    0.5f // Small size for subtlety
+                                );
+                                viewer.spawnParticle(particle, particleLoc, 1, 0, 0, 0, 0, dustOptions);
+                            } else {
+                                viewer.spawnParticle(particle, particleLoc, 1);
+                            }
+                        } catch (Exception e) {
+                            viewer.spawnParticle(particle, particleLoc, 1);
+                        }
                     }
                 }
                 

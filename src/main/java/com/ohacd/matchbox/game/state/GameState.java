@@ -13,6 +13,8 @@ public class GameState {
     private final Set<UUID> alivePlayers = new HashSet<>();
     private final Set<UUID> swipedThisRound = new HashSet<>();
     private final Set<UUID> curedThisRound = new HashSet<>();
+    // NEW: 0.8.7 - Tracks players who have been cured this round, but not yet removed from alive players list
+    private final Set<UUID> beenCuredThisRound = new HashSet<>();
     private final Set<UUID> usedHealingSightThisRound = new HashSet<>();
     private final Set<UUID> usedHunterVisionThisRound = new HashSet<>();
     private final Set<UUID> infectedThisRound = new HashSet<>();
@@ -30,6 +32,7 @@ public class GameState {
         alivePlayers.clear();
         swipedThisRound.clear();
         curedThisRound.clear();
+        beenCuredThisRound.clear();
         infectedThisRound.clear();
         usedHealingSightThisRound.clear();
         usedHunterVisionThisRound.clear();
@@ -47,6 +50,7 @@ public class GameState {
     public void clearRoundState() {
         swipedThisRound.clear();
         curedThisRound.clear();
+        beenCuredThisRound.clear();
         infectedThisRound.clear();
         usedHealingSightThisRound.clear();
         usedHunterVisionThisRound.clear();
@@ -108,6 +112,7 @@ public class GameState {
         pendingDeathTime.remove(playerId);
         swipedThisRound.remove(playerId);
         curedThisRound.remove(playerId);
+        beenCuredThisRound.remove(playerId);
     }
 
     /**
@@ -180,6 +185,17 @@ public class GameState {
     }
 
     /**
+     * NEW: 0.8.7 - Marks that a player has been cured this round, but not yet removed from an alive players list.
+     */
+    public void markBeenCured(UUID playerId) {
+        beenCuredThisRound.add(playerId);
+    }
+    /**
+     * NEW: 0.8.7 - Checks if a player has been cured this round.
+     */
+    public boolean hasBeenCuredThisRound(UUID playerId) { return beenCuredThisRound.contains(playerId); }
+
+    /**
      * Marks that a player was infected (swiped successfully) this round.
      */
     public void markInfected(UUID playerId) {
@@ -242,6 +258,11 @@ public class GameState {
     public void removePendingDeath(UUID playerId) {
         pendingDeathTime.remove(playerId);
     }
+
+    /**
+     * Removes a player from the beenCuredThisRound list
+     */
+    public void removeBeenCuredThisRound(UUID victimId) { beenCuredThisRound.remove(victimId);}
 
     /**
      * Checks if a player currently has a pending death scheduled.
@@ -361,7 +382,7 @@ public class GameState {
      */
     public String getDebugInfo() {
         return String.format(
-                "GameState[Round=%d, Session=%s, Participating=%d, Alive=%d, Roles=%d, Swiped=%d, Cured=%d, Infected=%d, Pending=%d]",
+                "GameState[Round=%d, Session=%s, Participating=%d, Alive=%d, Roles=%d, Swiped=%d, Cured=%d, Infected=%d, Pending=%d, beenCured=%d]",
                 currentRound,
                 activeSessionName != null ? activeSessionName : "none",
                 allParticipatingPlayers.size(),
@@ -370,7 +391,8 @@ public class GameState {
                 swipedThisRound.size(),
                 curedThisRound.size(),
                 infectedThisRound.size(),
-                pendingDeathTime.size()
+                pendingDeathTime.size(),
+                beenCuredThisRound.size()
         );
     }
 }

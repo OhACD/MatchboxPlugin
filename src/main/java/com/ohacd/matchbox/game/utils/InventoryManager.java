@@ -107,6 +107,39 @@ public class InventoryManager {
             e.printStackTrace();
         }
     }
+
+    /**
+     * Restores the primary ability paper (slot 27) based on the player's role.
+     * Used when an activation window expires without being used.
+     */
+    public void refreshAbilityPaper(Player player, Role role) {
+        if (player == null || role == null) {
+            return;
+        }
+
+        try {
+            PlayerInventory inv = player.getInventory();
+            if (inv == null) {
+                return;
+            }
+
+            ItemStack paper = null;
+            if (role == Role.SPARK) {
+                paper = createSwipePaper();
+            } else if (role == Role.MEDIC) {
+                paper = createHealingTouchPaper();
+            }
+
+            if (paper == null) {
+                return;
+            }
+
+            inv.setItem(SWIPE_CURE_PAPER_SLOT, paper);
+            player.updateInventory();
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to refresh ability paper for " + player.getName() + ": " + e.getMessage());
+        }
+    }
     
     /**
      * Sets up inventories for all players in a collection.
@@ -513,7 +546,7 @@ public class InventoryManager {
         meta.setDisplayName("§aHealing Sight");
         List<String> lore = new ArrayList<>();
         lore.add("§7Right-click to see infected players.");
-        lore.add("§7Shows red particles on infected players.");
+        lore.add("§7Shows subtle highlight particles on infected players.");
         lore.add("§7Lasts for 15 seconds.");
         lore.add("§7Once per round.");
         

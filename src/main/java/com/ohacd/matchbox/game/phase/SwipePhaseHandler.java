@@ -7,6 +7,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -139,7 +140,7 @@ public class SwipePhaseHandler {
      * Cancels all swipe phase tasks (for cleanup).
      */
     public void cancelAllSwipeTasks() {
-        for (String sessionName : new java.util.HashSet<>(swipeTasks.keySet())) {
+        for (String sessionName : new HashSet<>(swipeTasks.keySet())) {
             cancelSwipeTask(sessionName);
         }
     }

@@ -196,7 +196,7 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 - Hologram Chat: Chat appears as holograms during swipe phase (no chat log)
 - Visual Effects: All effects are recording-safe and don't reveal roles
 
-### Current Features (v0.8.5-beta)
+### Current Features (v0.9.0)
 
 **Status: Beta Testing Stage** - All core features are implemented and tested. Parallel sessions now supported!
 
@@ -209,6 +209,7 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 - ✅ Ability papers automatically placed (Swipe/Cure above hotbar slot 0, Vision/Sight above hotbar slot 1)
 - ✅ Fixed crossbow and arrow in hotbar (unmovable, one arrow per round)
 - ✅ Nametag hiding during gameplay (properly restored after game)
+- ✅ Temporary randomized skins applied to active players (restored when game ends)
 - ✅ Hologram-based chat bubbles during swipe phase (no chat log)
 - ✅ Normal chat during discussion and voting phases
 - ✅ Swipe phase with 3-minute timer (configurable in code)
@@ -216,33 +217,31 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 - ✅ Voting phase with right-click voting (15 seconds, configurable)
 - ✅ Paper-based ability system (right-click to activate)
 - ✅ Spark Swipe ability (infect players via paper, 8-second activation window)
-- ✅ Spark Hunter Vision (particles on all players, 15 seconds, once per round, no nametag visibility)
+- ✅ Spark Hunter Vision (per-player glow when ProtocolLib is installed, automatic particle fallback otherwise)
 - ✅ Medic Healing Touch (cure infected players, 8-second activation window)
 - ✅ Medic Healing Sight (see infected players via particles, 15 seconds, once per round)
 - ✅ Arrow system for nametag revelation (one per round, separate from swipe)
 - ✅ Infection system with delayed death (applied at discussion start)
 - ✅ Win condition detection (Spark wins, Innocents win)
 - ✅ Player elimination and spectator mode
-- ✅ Player state backup and restore (inventory, location, health, etc.)
+- ✅ Player state backup/restoration (inventory, location, health, skins, etc.)
 - ✅ Session cleanup on game end (prevents new rounds after game ends)
 - ✅ Comprehensive defensive programming and error handling
 - ✅ Edge case handling (offline players, 1-2 player games, parallel sessions, etc.)
 - ✅ Memory leak prevention (automatic session termination, proper cleanup)
 
-**Recent Bug Fixes (v0.8.5-beta):**
-- ✅ Fixed: Timer reset bug - timers now properly cancel when phases are force-skipped
-- ✅ Fixed: Memory leak - sessions now properly terminate when game ends or all players leave
-- ✅ Fixed: Chat listener now works correctly with parallel sessions
-- ✅ Fixed: Players can no longer join multiple sessions simultaneously
-- ✅ Fixed: Sessions properly validate before context creation
-- ✅ Fixed: Emergency cleanup on plugin disable prevents orphaned contexts
+**Recent Changes (v0.9.0):**
+- ✅ **Universal Swipe/Cure Indicators**: Subtle particle bursts from Spark swipes and Medic cures are now broadcast to every player, keeping recordings/streams informative without revealing roles.
+- ✅ **Reliable Medic Notifications**: Players who get cured receive a dedicated chat message instead of a title (which previously clashed with phase announcements).
+- ✅ **ProtocolLib Hunter Vision Fix**: Glow packets now use the modern `DataValue` pipeline, preventing client kicks and automatically falling back to particles when packet delivery fails.
+- ✅ **Skin Service Resilience**: Random skin preloading now hits Mojang's public API for proper UUID resolution, eliminating the previous "failed to fetch skin" spam.
+- ✅ **Codebase Polish**: Imports are normalized, documentation updated, and highlight terminology replaces the old “red particles” copy to better match the in-game visuals.
 
 ### Planned for Full Release (v1.0)
 
 **Required:**
 - ⏳ **Configurable Settings**: Customize phase durations and game settings via config.yml
   - Allow server admins to adjust swipe phase (default: 180s), discussion phase (default: 30s), and voting phase (default: 15s) durations
-
 
 ---
 
@@ -275,7 +274,7 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 
 - **Configuration**: Phase durations are hardcoded (180s swipe, 30s discussion, 15s voting). Config.yml support planned for v1.0
 - **Spectator Teleport**: Eliminated players enter spectator mode but aren't teleported to a spectator area yet (planned for v1.0)
-- **Hunter Vision**: Uses particles for visibility (works perfectly, but ProtocolLib integration would enable true single-player glow effect - optional enhancement)
+- **Hunter Vision**: ProtocolLib delivers per-player glow. Without it, the plugin automatically uses particle indicators (logged at startup).
 
 ## Parallel Sessions
 
@@ -305,7 +304,7 @@ This project is under the MIT license.
 ## Credits
 
 Developer: OhACD  
-Version: 0.8.5-beta  
+Version: 0.9.0  
 Minecraft API: 1.21
 
 ---
