@@ -181,33 +181,64 @@ public class ProtocolLibHunterVisionAdapter implements HunterVisionAdapter {
             PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
             packet.getIntegers().write(0, target.getEntityId());
 
-            WrappedDataWatcher watcher = WrappedDataWatcher.getEntityWatcher(target).deepClone();
+            /*
+             * >>> CRASH FIX <<<
+             *
+             * Previously we cloned the target's full WrappedDataWatcher:
+             *   WrappedDataWatcher watcher = WrappedDataWatcher.getEntityWatcher(target).deepClone();
+             * and then wrote watcher.getWatchableObjects() into the packet. That produced a list of
+             * ProtocolLib "DataItem" objects which Paper 1.21.x attempted to cast to Mojang's
+             * "DataValue" type when serializing the packet, causing the ClassCastException.
+             *
+             * Fix approach:
+             * - Create a NEW, minimal WrappedDataWatcher that only contains metadata index 0 (entity flags).
+             * - Attempt to read the current flags safely; if that fails, fallback to target.isGlowing().
+             * - Toggle the 0x40 glow bit and write only that single metadata entry into the packet.
+             */
+
+            // Safe read of current flags (best-effort; do not clone watcher objects)
             byte mask = 0;
             try {
-                Object currentValue = watcher.getObject(GLOW_FLAGS);
-                if (currentValue instanceof Byte current) {
-                    mask = current;
+                WrappedDataWatcher currentWatcher = WrappedDataWatcher.getEntityWatcher(target);
+                Object current = null;
+                try {
+                    current = currentWatcher.getObject(GLOW_FLAGS);
+                } catch (Exception ignored) {
+                    // getObject may throw or return unexpected types in some server/protocol combinations
+                }
+                if (current instanceof Byte b) {
+                    mask = b;
+                } else if (current instanceof Number n) {
+                    mask = n.byteValue();
+                } else {
+                    // Fallback: use Spigot's visible glowing state (not ideal but safe)
+                    mask = (byte) (target.isGlowing() ? 0x40 : 0x00);
                 }
             } catch (Exception ignored) {
-                // fallback to zero mask when watcher has no base flags cached
+                // Last-resort fallback
+                mask = (byte) (target.isGlowing() ? 0x40 : 0x00);
             }
+
             if (glow) {
                 mask |= 0x40;
             } else {
                 mask &= ~0x40;
             }
-            watcher.setObject(GLOW_FLAGS, mask);
-            packet.getWatchableCollectionModifier().write(0, watcher.getWatchableObjects());
+
+            // Build a new watcher containing only the single index we want to change
+            WrappedDataWatcher watcherToSend = new WrappedDataWatcher();
+            watcherToSend.setObject(GLOW_FLAGS, mask);
+
+            // Write only the minimal watchable objects — avoids DataItem/DataValue mismatch
+            packet.getWatchableCollectionModifier().write(0, watcherToSend.getWatchableObjects());
             protocolManager.sendServerPacket(viewer, packet);
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to send glow packet: " + e.getMessage());
         }
     }
 
-    @SuppressWarnings("deprecation")
     private static WrappedDataWatcher.WrappedDataWatcherObject createGlowWatcher() {
         WrappedDataWatcher.Serializer serializer = WrappedDataWatcher.Registry.get(Byte.class);
         return new WrappedDataWatcher.WrappedDataWatcherObject(0, serializer);
     }
 }
-

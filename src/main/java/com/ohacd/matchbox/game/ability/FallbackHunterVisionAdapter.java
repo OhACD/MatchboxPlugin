@@ -74,4 +74,3 @@ public class FallbackHunterVisionAdapter implements HunterVisionAdapter {
         return false;
     }
 }
-

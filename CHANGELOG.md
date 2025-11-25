@@ -18,7 +18,6 @@ All notable changes to the Matchbox plugin will be documented in this file.
 
 ### Changed
 - **Hunter Vision API**: Introduced `HunterVisionAdapter` abstraction, enabling clean separation between ProtocolLib and fallback implementations.
-- **Defensive Programming Sweep**: Added null/phase checks and clearer logging when sessions or dependencies are missing.
 
 ---
 
