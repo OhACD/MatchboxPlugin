@@ -31,4 +31,3 @@ public interface HunterVisionAdapter {
      */
     boolean isAdvanced();
 }
-

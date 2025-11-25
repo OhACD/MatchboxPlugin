@@ -24,33 +24,19 @@ public class FallbackHunterVisionAdapter implements HunterVisionAdapter {
 
     @Override
     public void startVision(Player spark, SessionGameContext context) {
-        if (spark == null || !spark.isOnline() || context == null) {
-            return;
-        }
+        if (spark == null || !spark.isOnline() || context == null) return;
         GameState gameState = context.getGameState();
-        if (gameState == null) {
-            return;
-        }
+        if (gameState == null) return;
 
         Set<UUID> alive = gameState.getAlivePlayerIds();
-        if (alive == null || alive.isEmpty()) {
-            return;
-        }
+        if (alive == null || alive.isEmpty()) return;
 
         Set<Player> targets = new HashSet<>();
         UUID sparkId = spark.getUniqueId();
         for (UUID uuid : alive) {
-            if (uuid == null || uuid.equals(sparkId)) {
-                continue;
-            }
+            if (uuid == null || uuid.equals(sparkId)) continue;
             Player candidate = spark.getServer().getPlayer(uuid);
-            if (candidate != null && candidate.isOnline()) {
-                targets.add(candidate);
-            }
-        }
-
-        if (targets.isEmpty()) {
-            return;
+            if (candidate != null && candidate.isOnline()) targets.add(candidate);
         }
 
         for (Player target : targets) {
@@ -60,14 +46,10 @@ public class FallbackHunterVisionAdapter implements HunterVisionAdapter {
     }
 
     @Override
-    public void stopVision(UUID sparkId) {
-        // Nothing to clean up for the fallback implementation.
-    }
+    public void stopVision(UUID sparkId) { }
 
     @Override
-    public void stopVisionForPlayers(Collection<UUID> sparkIds) {
-        // Nothing to clean up for the fallback implementation.
-    }
+    public void stopVisionForPlayers(Collection<UUID> sparkIds) { }
 
     @Override
     public boolean isAdvanced() {

@@ -11,15 +11,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * ProtocolLib-powered Hunter Vision implementation that sends per-viewer glow packets.
+ * ProtocolLib-powered Hunter Vision implementation with dynamic red glow.
+ * Only visible to the spark.
  */
 public class ProtocolLibHunterVisionAdapter implements HunterVisionAdapter {
     private static final double RADIUS_SQUARED = 35 * 35;
@@ -38,9 +35,7 @@ public class ProtocolLibHunterVisionAdapter implements HunterVisionAdapter {
 
     @Override
     public void startVision(Player spark, SessionGameContext context) {
-        if (spark == null || context == null) {
-            return;
-        }
+        if (spark == null || context == null) return;
         stopVision(spark.getUniqueId());
         VisionTask task = new VisionTask(spark, context);
         activeSessions.put(spark.getUniqueId(), task);
@@ -49,29 +44,19 @@ public class ProtocolLibHunterVisionAdapter implements HunterVisionAdapter {
 
     @Override
     public void stopVision(UUID sparkId) {
-        if (sparkId == null) {
-            return;
-        }
+        if (sparkId == null) return;
         VisionTask task = activeSessions.remove(sparkId);
-        if (task != null) {
-            task.stop();
-        }
+        if (task != null) task.stop();
     }
 
     @Override
     public void stopVisionForPlayers(Collection<UUID> sparkIds) {
-        if (sparkIds == null) {
-            return;
-        }
-        for (UUID id : sparkIds) {
-            stopVision(id);
-        }
+        if (sparkIds == null) return;
+        for (UUID id : sparkIds) stopVision(id);
     }
 
     @Override
-    public boolean isAdvanced() {
-        return true;
-    }
+    public boolean isAdvanced() { return true; }
 
     private class VisionTask implements Runnable {
         private final Player spark;
@@ -91,19 +76,19 @@ public class ProtocolLibHunterVisionAdapter implements HunterVisionAdapter {
         }
 
         private void stop() {
-            if (bukkitTask != null) {
-                bukkitTask.cancel();
-            }
+            if (bukkitTask != null) bukkitTask.cancel();
             updateGlow(new HashSet<>(glowingTargets), false);
             glowingTargets.clear();
         }
 
         @Override
         public void run() {
-            if (!spark.isOnline() || System.currentTimeMillis() >= endTime || context.getGameState() == null || !context.getGameState().isGameActive()) {
+            if (!spark.isOnline() || System.currentTimeMillis() >= endTime || context.getGameState() == null
+                    || !context.getGameState().isGameActive()) {
                 stopVision(spark.getUniqueId());
                 return;
             }
+
             Set<UUID> currentTargets = computeTargets();
 
             // Activate glow for new entries
@@ -122,115 +107,52 @@ public class ProtocolLibHunterVisionAdapter implements HunterVisionAdapter {
             for (UUID uuid : glowingTargets) {
                 if (!currentTargets.contains(uuid)) {
                     Player target = Bukkit.getPlayer(uuid);
-                    if (target != null && target.isOnline()) {
-                        sendGlowPacket(spark, target, false);
-                    }
+                    if (target != null && target.isOnline()) sendGlowPacket(spark, target, false);
                     toRemove.add(uuid);
                 }
             }
             glowingTargets.removeAll(toRemove);
 
             // End session if timer elapsed
-            if (System.currentTimeMillis() >= endTime) {
-                stopVision(spark.getUniqueId());
-            }
+            if (System.currentTimeMillis() >= endTime) stopVision(spark.getUniqueId());
         }
 
         private Set<UUID> computeTargets() {
             Set<UUID> result = new HashSet<>();
             Set<UUID> aliveIds = context.getGameState().getAlivePlayerIds();
-            if (aliveIds == null) {
-                return result;
-            }
+            if (aliveIds == null) return result;
             for (UUID uuid : aliveIds) {
-                if (uuid == null || uuid.equals(spark.getUniqueId())) {
-                    continue;
-                }
+                if (uuid == null || uuid.equals(spark.getUniqueId())) continue;
                 Player target = Bukkit.getPlayer(uuid);
-                if (target == null || !target.isOnline()) {
-                    continue;
-                }
-                if (!target.getWorld().equals(spark.getWorld())) {
-                    continue;
-                }
-                if (target.getLocation().distanceSquared(spark.getLocation()) <= RADIUS_SQUARED) {
-                    result.add(uuid);
-                }
+                if (target == null || !target.isOnline()) continue;
+                if (!target.getWorld().equals(spark.getWorld())) continue;
+                if (target.getLocation().distanceSquared(spark.getLocation()) <= RADIUS_SQUARED) result.add(uuid);
             }
             return result;
         }
 
         private void updateGlow(Collection<UUID> uuids, boolean glow) {
-            if (uuids == null || uuids.isEmpty()) {
-                return;
-            }
+            if (uuids == null || uuids.isEmpty()) return;
             for (UUID uuid : uuids) {
                 Player target = Bukkit.getPlayer(uuid);
-                if (target != null && target.isOnline()) {
-                    sendGlowPacket(spark, target, glow);
-                }
+                if (target != null && target.isOnline()) sendGlowPacket(spark, target, glow);
             }
         }
     }
 
     private void sendGlowPacket(Player viewer, Player target, boolean glow) {
-        if (viewer == null || target == null || !viewer.isOnline()) {
-            return;
-        }
+        if (viewer == null || target == null || !viewer.isOnline()) return;
         try {
             PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.ENTITY_METADATA);
             packet.getIntegers().write(0, target.getEntityId());
 
-            /*
-             * >>> CRASH FIX <<<
-             *
-             * Previously we cloned the target's full WrappedDataWatcher:
-             *   WrappedDataWatcher watcher = WrappedDataWatcher.getEntityWatcher(target).deepClone();
-             * and then wrote watcher.getWatchableObjects() into the packet. That produced a list of
-             * ProtocolLib "DataItem" objects which Paper 1.21.x attempted to cast to Mojang's
-             * "DataValue" type when serializing the packet, causing the ClassCastException.
-             *
-             * Fix approach:
-             * - Create a NEW, minimal WrappedDataWatcher that only contains metadata index 0 (entity flags).
-             * - Attempt to read the current flags safely; if that fails, fallback to target.isGlowing().
-             * - Toggle the 0x40 glow bit and write only that single metadata entry into the packet.
-             */
+            // Safely read current entity flags
+            byte mask = (byte) (target.isGlowing() ? 0x40 : 0x00);
+            WrappedDataWatcher watcher = new WrappedDataWatcher();
+            watcher.setObject(GLOW_FLAGS, glow ? (byte)(mask | 0x40) : (byte)(mask & ~0x40));
 
-            // Safe read of current flags (best-effort; do not clone watcher objects)
-            byte mask = 0;
-            try {
-                WrappedDataWatcher currentWatcher = WrappedDataWatcher.getEntityWatcher(target);
-                Object current = null;
-                try {
-                    current = currentWatcher.getObject(GLOW_FLAGS);
-                } catch (Exception ignored) {
-                    // getObject may throw or return unexpected types in some server/protocol combinations
-                }
-                if (current instanceof Byte b) {
-                    mask = b;
-                } else if (current instanceof Number n) {
-                    mask = n.byteValue();
-                } else {
-                    // Fallback: use Spigot's visible glowing state (not ideal but safe)
-                    mask = (byte) (target.isGlowing() ? 0x40 : 0x00);
-                }
-            } catch (Exception ignored) {
-                // Last-resort fallback
-                mask = (byte) (target.isGlowing() ? 0x40 : 0x00);
-            }
-
-            if (glow) {
-                mask |= 0x40;
-            } else {
-                mask &= ~0x40;
-            }
-
-            // Build a new watcher containing only the single index we want to change
-            WrappedDataWatcher watcherToSend = new WrappedDataWatcher();
-            watcherToSend.setObject(GLOW_FLAGS, mask);
-
-            // Write only the minimal watchable objects — avoids DataItem/DataValue mismatch
-            packet.getWatchableCollectionModifier().write(0, watcherToSend.getWatchableObjects());
+            // Write minimal watcher (only index 0)
+            packet.getWatchableCollectionModifier().write(0, watcher.getWatchableObjects());
             protocolManager.sendServerPacket(viewer, packet);
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to send glow packet: " + e.getMessage());
