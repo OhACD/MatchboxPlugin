@@ -244,14 +244,6 @@ Aliases: `/mb` or `/mbox` work instead of `/matchbox`
 - ⏳ **Configurable Settings**: Customize phase durations and game settings via config.yml
   - Allow server admins to adjust swipe phase (default: 180s), discussion phase (default: 30s), and voting phase (default: 15s) durations
 
-**Recommended:**
-- ⏳ **Enhanced Spectator Mode**: Teleport eliminated players to spectator area
-  - Add `/matchbox setspectator <session>` command
-  - Automatically teleport eliminated players away from active game
-
-**Optional (Post-v1.0):**
-- ⏳ ProtocolLib Integration: True single-player glow visibility for Hunter Vision (current particle system works perfectly)
-
 ---
 
 ## Tips & Strategies
