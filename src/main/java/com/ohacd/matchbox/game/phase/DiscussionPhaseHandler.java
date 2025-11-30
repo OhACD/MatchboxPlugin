@@ -1,16 +1,15 @@
 package com.ohacd.matchbox.game.phase;
 
+import com.ohacd.matchbox.game.config.ConfigManager;
 import com.ohacd.matchbox.game.utils.MessageUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.Collection;
-import java.util.HashSet;
+import java.util.*;
 import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -22,19 +21,29 @@ import java.util.stream.Collectors;
 public class DiscussionPhaseHandler {
     private final Plugin plugin;
     private final MessageUtils messageUtils;
+    private final ConfigManager configManager;
     private final Map<String, BukkitRunnable> discussionTasks = new ConcurrentHashMap<>();
     private final Map<String, Collection<UUID>> currentPlayerIds = new ConcurrentHashMap<>();
     private final int DEFAULT_DISCUSSION_SECONDS = 30; // 30 seconds discussion
 
-    public DiscussionPhaseHandler(Plugin plugin, MessageUtils messageUtils) {
+    public DiscussionPhaseHandler(Plugin plugin, MessageUtils messageUtils, ConfigManager configManager) {
         this.plugin = plugin;
         this.messageUtils = messageUtils;
+        this.configManager = configManager;
     }
 
     /**
      * Starts the discussion phase with a countdown timer for a specific session.
      */
     public void startDiscussionPhase(String sessionName, int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
+        startDiscussionPhase(sessionName, seconds, alivePlayerIds, onPhaseEnd, null);
+    }
+
+    /**
+     * Starts the discussion phase with a countdown timer for a specific session.
+     * @param seatLocations Map of seat numbers to locations for teleporting players
+     */
+    public void startDiscussionPhase(String sessionName, int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd, Map<Integer, Location> seatLocations) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
             plugin.getLogger().warning("Cannot start discussion phase with null or empty session name");
             return;
@@ -69,6 +78,11 @@ public class DiscussionPhaseHandler {
                 40, // stay (2s)
                 10  // fadeOut (0.5s)
         );
+
+        // Teleport players to seat locations if available
+        if (seatLocations != null && !seatLocations.isEmpty()) {
+            teleportPlayersToSeats(alivePlayers, seatLocations);
+        }
 
         AtomicInteger remaining = new AtomicInteger(seconds);
         final String sessionKey = sessionName;
@@ -126,7 +140,7 @@ public class DiscussionPhaseHandler {
      * Starts the discussion phase with default duration for a specific session.
      */
     public void startDiscussionPhase(String sessionName, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
-        startDiscussionPhase(sessionName, DEFAULT_DISCUSSION_SECONDS, alivePlayerIds, onPhaseEnd);
+        startDiscussionPhase(sessionName, DEFAULT_DISCUSSION_SECONDS, alivePlayerIds, onPhaseEnd, null);
     }
 
     /**
@@ -189,5 +203,61 @@ public class DiscussionPhaseHandler {
                 .map(Bukkit::getPlayer)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Teleports players to seat locations based on config seat spawns.
+     */
+    private void teleportPlayersToSeats(Collection<Player> players, Map<Integer, Location> seatLocations) {
+        if (players == null || players.isEmpty() || seatLocations == null || seatLocations.isEmpty()) {
+            return;
+        }
+
+        List<Player> playerList = new ArrayList<>(players);
+        List<Integer> validSeats = configManager.getDiscussionSeatSpawns();
+        
+        if (validSeats.isEmpty()) {
+            plugin.getLogger().warning("No valid seat spawns configured, skipping seat teleportation");
+            return;
+        }
+
+        // Filter valid seats to only those that have locations set
+        List<Integer> availableSeats = new ArrayList<>();
+        for (Integer seatNum : validSeats) {
+            Location seatLoc = seatLocations.get(seatNum);
+            if (seatLoc != null && seatLoc.getWorld() != null) {
+                availableSeats.add(seatNum);
+            }
+        }
+
+        if (availableSeats.isEmpty()) {
+            plugin.getLogger().warning("No seat locations set for configured seats, skipping seat teleportation");
+            return;
+        }
+
+        // Shuffle players and seats for randomness
+        Collections.shuffle(playerList);
+        Collections.shuffle(availableSeats);
+
+        // Teleport players to seats, looping over available seats if there are more players than seats
+        for (int i = 0; i < playerList.size(); i++) {
+            Player player = playerList.get(i);
+            if (player == null || !player.isOnline()) {
+                continue;
+            }
+            
+            int seatIndex = i % availableSeats.size();
+            int seatNumber = availableSeats.get(seatIndex);
+            Location seatLoc = seatLocations.get(seatNumber);
+            
+            if (seatLoc != null && seatLoc.getWorld() != null) {
+                try {
+                    player.teleport(seatLoc);
+                    plugin.getLogger().info("Teleported " + player.getName() + " to seat " + seatNumber);
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Failed to teleport " + player.getName() + " to seat " + seatNumber + ": " + e.getMessage());
+                }
+            }
+        }
     }
 }

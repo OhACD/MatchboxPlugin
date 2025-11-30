@@ -43,6 +43,8 @@ public final class Matchbox extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new HitRevealListener(gameManager, hologramManager, gameManager.getInventoryManager()), this);
         getServer().getPluginManager().registerEvents(new GameItemProtectionListener(gameManager), this);
+        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.utils.DamageProtectionListener(gameManager), this);
+        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.utils.BlockInteractionProtectionListener(gameManager), this);
 
         // Register ability listeners
         getServer().getPluginManager().registerEvents(new SwipeActivationListener(gameManager, this), this);

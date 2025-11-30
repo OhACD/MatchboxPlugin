@@ -154,6 +154,48 @@ public class SkinManager {
         }
     }
 
+    /**
+     * Temporarily restores original skins for players during discussion phase.
+     * Does NOT remove assigned skins, so they can be restored later.
+     */
+    public void restoreOriginalSkinsForDiscussion(Collection<Player> players) {
+        if (players == null || players.isEmpty()) {
+            return;
+        }
+        for (Player player : players) {
+            if (player == null || !player.isOnline()) {
+                continue;
+            }
+            UUID playerId = player.getUniqueId();
+            SkinData original = originalSkins.get(playerId);
+            if (original != null) {
+                setSkin(player, original);
+                refreshAppearance(player);
+            }
+        }
+    }
+
+    /**
+     * Restores assigned skins for players after discussion phase ends.
+     * Uses the assigned skins that were stored when skins were first applied.
+     */
+    public void restoreAssignedSkinsAfterDiscussion(Collection<Player> players) {
+        if (players == null || players.isEmpty()) {
+            return;
+        }
+        for (Player player : players) {
+            if (player == null || !player.isOnline()) {
+                continue;
+            }
+            UUID playerId = player.getUniqueId();
+            SkinData assigned = assignedSkins.get(playerId);
+            if (assigned != null) {
+                setSkin(player, assigned);
+                refreshAppearance(player);
+            }
+        }
+    }
+
     private SkinData pickRandomSkin(UUID playerId) {
         if (cachedSkins.isEmpty()) {
             return null;

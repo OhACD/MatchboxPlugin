@@ -7,6 +7,7 @@ import com.ohacd.matchbox.game.session.GameSession;
 import com.ohacd.matchbox.game.session.SessionManager;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.NameTagManager;
+import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -62,6 +64,16 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 return handleSetDiscussion(sender, args);
             case "setspawn":
                 return handleSetSpawn(sender, args);
+            case "setseat":
+                return handleSetSeat(sender, args);
+            case "listseatspawns":
+                return handleListSeatSpawns(sender);
+            case "listspawns":
+                return handleListSpawns(sender);
+            case "removeseat":
+                return handleRemoveSeat(sender, args);
+            case "removespawn":
+                return handleRemoveSpawn(sender, args);
             case "list":
                 return handleList(sender);
             case "remove":
@@ -322,20 +334,53 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         // Parallel sessions are supported - each session can run independently
 
         List<Player> players = session.getPlayers();
-        if (players.size() < 2) {
-            sender.sendMessage("§cYou need at least 2 players to start a game!");
+        
+        // Get config values
+        com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
+        int minPlayers = configManager.getMinPlayers();
+        int maxPlayers = configManager.getMaxPlayers();
+        int minSpawnLocations = configManager.getMinSpawnLocations();
+        
+        if (players.size() < minPlayers) {
+            sender.sendMessage("§cYou need at least " + minPlayers + " players to start a game!");
             return true;
         }
         
-        // Check if session has too many players (max 7)
-        if (players.size() > 7) {
-            sender.sendMessage("§cThis session has too many players! Maximum 7 players allowed.");
+        // Check if session has too many players
+        if (players.size() > maxPlayers) {
+            sender.sendMessage("§cThis session has too many players! Maximum " + maxPlayers + " players allowed.");
             return true;
         }
 
-        if (!session.hasSpawnLocations()) {
-            sender.sendMessage("§cNo spawn locations set! Use /matchbox setspawn " + sessionName + " to add spawn locations.");
+        if (session.getSpawnLocations().size() < minSpawnLocations) {
+            sender.sendMessage("§cNot enough spawn locations set! You need at least " + minSpawnLocations + " spawn location(s).");
+            sender.sendMessage("§7Use /matchbox setspawn " + sessionName + " to add spawn locations.");
             return true;
+        }
+
+        // Load locations from config if session doesn't have them
+        com.ohacd.matchbox.game.config.ConfigManager configMgr = gameManager.getConfigManager();
+        
+        // Load spawn locations from config if session has none
+        if (session.getSpawnLocations().isEmpty()) {
+            List<Location> configSpawns = configMgr.loadSpawnLocations();
+            for (Location loc : configSpawns) {
+                session.addSpawnLocation(loc);
+            }
+            if (!configSpawns.isEmpty()) {
+                sender.sendMessage("§7Loaded " + configSpawns.size() + " spawn location(s) from config.");
+            }
+        }
+        
+        // Load seat locations from config if session has none
+        Map<Integer, Location> configSeats = configMgr.loadSeatLocations();
+        for (Map.Entry<Integer, Location> entry : configSeats.entrySet()) {
+            if (!session.hasSeatLocation(entry.getKey())) {
+                session.setSeatLocation(entry.getKey(), entry.getValue());
+            }
+        }
+        if (!configSeats.isEmpty()) {
+            sender.sendMessage("§7Loaded " + configSeats.size() + " seat location(s) from config.");
         }
 
         // Mark session as active
@@ -441,7 +486,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage("§aYou have been removed from the active game.");
                 
                 // Also remove from session if they're in one
-                String activeSession = gameManager.getGameState().getActiveSessionName();
+                String activeSession = context.getSessionName();
                 if (activeSession != null) {
                     GameSession session = sessionManager.getSession(activeSession);
                     if (session != null && session.hasPlayer(player)) {
@@ -522,7 +567,11 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        session.setDiscussionLocation(player.getLocation());
+        Location location = player.getLocation();
+        session.setDiscussionLocation(location);
+        
+        // Note: Discussion location is session-specific, so we don't save it globally to config
+        
         sender.sendMessage("§aDiscussion location set for session '" + sessionName + "'!");
         return true;
     }
@@ -552,8 +601,188 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        session.addSpawnLocation(player.getLocation());
+        Location location = player.getLocation();
+        session.addSpawnLocation(location);
+        
+        // Save to config
+        gameManager.getConfigManager().addSpawnLocation(location);
+        
         sender.sendMessage("§aSpawn location added for session '" + sessionName + "'! (Total: " + session.getSpawnLocations().size() + ")");
+        sender.sendMessage("§7Location saved to config.");
+        return true;
+    }
+
+    private boolean handleSetSeat(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+        
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cThis command can only be used by players.");
+            return true;
+        }
+
+        if (args.length < 3) {
+            sender.sendMessage("§cUsage: /matchbox setseat <name> <seat-number>");
+            sender.sendMessage("§7Example: /matchbox setseat game1 1");
+            return true;
+        }
+
+        Player player = (Player) sender;
+        String sessionName = args[1];
+        
+        int seatNumber;
+        try {
+            seatNumber = Integer.parseInt(args[2]);
+            if (seatNumber < 1) {
+                sender.sendMessage("§cSeat number must be 1 or greater!");
+                return true;
+            }
+        } catch (NumberFormatException e) {
+            sender.sendMessage("§cInvalid seat number: " + args[2]);
+            return true;
+        }
+
+        GameSession session = sessionManager.getSession(sessionName);
+        if (session == null) {
+            sender.sendMessage("§cSession '" + sessionName + "' does not exist!");
+            return true;
+        }
+
+        Location location = player.getLocation();
+        session.setSeatLocation(seatNumber, location);
+        
+        // Save to config
+        com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
+        configManager.saveSeatLocation(seatNumber, location);
+        
+        sender.sendMessage("§aSeat " + seatNumber + " location set for session '" + sessionName + "'!");
+        sender.sendMessage("§7Location saved to config.");
+        return true;
+    }
+
+    private boolean handleListSeatSpawns(CommandSender sender) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+
+        com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
+        List<String> display = configManager.getSeatLocationsDisplay();
+        
+        sender.sendMessage("§6=== Seat Spawns (Config) ===");
+        for (String line : display) {
+            sender.sendMessage(line);
+        }
+        
+        // Also show valid seat spawn numbers
+        List<Integer> validSeats = configManager.getDiscussionSeatSpawns();
+        if (!validSeats.isEmpty()) {
+            sender.sendMessage("§6Valid Seat Numbers: §e" + validSeats.toString());
+        }
+        
+        return true;
+    }
+
+    private boolean handleListSpawns(CommandSender sender) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+
+        com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
+        List<String> display = configManager.getSpawnLocationsDisplay();
+        
+        sender.sendMessage("§6=== Spawn Locations (Config) ===");
+        for (String line : display) {
+            sender.sendMessage(line);
+        }
+        
+        return true;
+    }
+
+    private boolean handleRemoveSeat(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage("§cUsage: /matchbox removeseat <seat-number>");
+            sender.sendMessage("§7Example: /matchbox removeseat 1");
+            return true;
+        }
+
+        int seatNumber;
+        try {
+            seatNumber = Integer.parseInt(args[1]);
+            if (seatNumber < 1) {
+                sender.sendMessage("§cSeat number must be 1 or greater!");
+                return true;
+            }
+        } catch (NumberFormatException e) {
+            sender.sendMessage("§cInvalid seat number: " + args[1]);
+            return true;
+        }
+
+        com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
+        Map<Integer, Location> existingSeats = configManager.loadSeatLocations();
+        
+        if (!existingSeats.containsKey(seatNumber)) {
+            sender.sendMessage("§cSeat " + seatNumber + " is not configured in config.");
+            return true;
+        }
+
+        configManager.removeSeatLocation(seatNumber);
+        sender.sendMessage("§aSeat " + seatNumber + " removed from config.");
+        return true;
+    }
+
+    private boolean handleRemoveSpawn(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use this command.");
+            return true;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage("§cUsage: /matchbox removespawn <index>");
+            sender.sendMessage("§7Example: /matchbox removespawn 1");
+            sender.sendMessage("§7Use /matchbox listspawns to see available spawns.");
+            return true;
+        }
+
+        int index;
+        try {
+            index = Integer.parseInt(args[1]);
+            if (index < 1) {
+                sender.sendMessage("§cIndex must be 1 or greater!");
+                return true;
+            }
+        } catch (NumberFormatException e) {
+            sender.sendMessage("§cInvalid index: " + args[1]);
+            return true;
+        }
+
+        com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
+        List<Location> existingSpawns = configManager.loadSpawnLocations();
+        
+        if (index > existingSpawns.size()) {
+            sender.sendMessage("§cIndex " + index + " is out of range. There are only " + existingSpawns.size() + " spawn location(s).");
+            sender.sendMessage("§7Use /matchbox listspawns to see available spawns.");
+            return true;
+        }
+
+        // Convert to 0-based index
+        int actualIndex = index - 1;
+        boolean removed = configManager.removeSpawnLocation(actualIndex);
+        
+        if (removed) {
+            sender.sendMessage("§aSpawn location #" + index + " removed from config.");
+        } else {
+            sender.sendMessage("§cFailed to remove spawn location.");
+        }
+        
         return true;
     }
 
@@ -602,6 +831,11 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/matchbox leave <name> §7- Leave a game session");
         sender.sendMessage("§e/matchbox setdiscussion <name> §7- Set discussion location");
         sender.sendMessage("§e/matchbox setspawn <name> §7- Add a spawn location");
+        sender.sendMessage("§e/matchbox setseat <name> <seat> §7- Set a seat location");
+        sender.sendMessage("§e/matchbox listspawns §7- List spawn locations (config)");
+        sender.sendMessage("§e/matchbox listseatspawns §7- List seat locations (config)");
+        sender.sendMessage("§e/matchbox removespawn <index> §7- Remove spawn location (config)");
+        sender.sendMessage("§e/matchbox removeseat <seat> §7- Remove seat location (config)");
         sender.sendMessage("§e/matchbox list §7- List all sessions");
         sender.sendMessage("§e/matchbox cleanup §7- Emergency nametag restore (admin only)");
         sender.sendMessage("§e/matchbox debug §7- Show debug info (admin only)");
@@ -611,7 +845,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            List<String> subCommands = Arrays.asList("start", "begin", "stop", "join", "leave", "setdiscussion", "setspawn", "list", "remove", "cleanup", "debug", "skip");
+            List<String> subCommands = Arrays.asList("start", "begin", "stop", "join", "leave", "setdiscussion", "setspawn", "setseat", "list", "listspawns", "listseatspawns", "removespawn", "removeseat", "remove", "cleanup", "debug", "skip");
             return subCommands.stream()
                     .filter(cmd -> cmd.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
@@ -621,7 +855,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             String subCommand = args[0].toLowerCase();
             if (subCommand.equals("begin") || subCommand.equals("stop") || subCommand.equals("join") ||
                     subCommand.equals("leave") || subCommand.equals("setdiscussion") ||
-                    subCommand.equals("setspawn") || subCommand.equals("remove")) {
+                    subCommand.equals("setspawn") || subCommand.equals("setseat") || subCommand.equals("remove")) {
                 return sessionManager.getAllSessionNames().stream()
                         .filter(name -> name.startsWith(args[1].toLowerCase()))
                         .collect(Collectors.toList());
