@@ -12,6 +12,7 @@ public class GameSession {
     private final String name;
     private final Set<UUID> players = new HashSet<>();
     private final List<Location> spawnLocations = new ArrayList<>();
+    private final Map<Integer, Location> seatLocations = new HashMap<>();
     private Location discussionLocation;
     private boolean active = false;
 
@@ -192,5 +193,43 @@ public class GameSession {
      */
     public void clearPlayers() {
         players.clear();
+    }
+
+    /**
+     * Sets a seat location for a specific seat number.
+     */
+    public void setSeatLocation(int seatNumber, Location location) {
+        if (location == null || location.getWorld() == null) {
+            seatLocations.remove(seatNumber);
+            return;
+        }
+        seatLocations.put(seatNumber, location.clone());
+    }
+
+    /**
+     * Gets the seat location for a specific seat number.
+     */
+    public Location getSeatLocation(int seatNumber) {
+        Location loc = seatLocations.get(seatNumber);
+        return loc != null ? loc.clone() : null;
+    }
+
+    /**
+     * Gets all seat locations.
+     */
+    public Map<Integer, Location> getSeatLocations() {
+        Map<Integer, Location> result = new HashMap<>();
+        for (Map.Entry<Integer, Location> entry : seatLocations.entrySet()) {
+            result.put(entry.getKey(), entry.getValue().clone());
+        }
+        return result;
+    }
+
+    /**
+     * Checks if a seat location is set for the given seat number.
+     */
+    public boolean hasSeatLocation(int seatNumber) {
+        Location loc = seatLocations.get(seatNumber);
+        return loc != null && loc.getWorld() != null;
     }
 }

@@ -1,0 +1,79 @@
+# Matchbox Plugin Configuration
+
+# Game Session Settings
+session:
+  # Minimum number of players required to start a game
+  min-players: 2
+  
+  # Maximum number of players allowed per session
+  max-players: 7
+  
+  # Minimum number of spawn locations required before starting a game
+  min-spawn-locations: 1
+  
+  # Game spawn locations (coordinates where players spawn at round start)
+  # Can be set via /matchbox setspawn <name> or configured here
+  # Format: world, x, y, z, yaw, pitch
+  spawn-locations: []
+    # Example:
+    # - world: world
+    #   x: 0.5
+    #   y: 64.0
+    #   z: 0.5
+    #   yaw: 0.0
+    #   pitch: 0.0
+
+# Swipe Phase Settings
+swipe:
+  # Swipe phase duration in seconds (default: 180 = 3 minutes)
+  duration: 180
+
+# Discussion Phase Settings
+discussion:
+  # Array of valid seat numbers for discussion phase spawns (1-indexed)
+  # Players will be teleported to these seat locations when discussion starts
+  # Example: [1, 2, 3, 4, 5, 6, 7] means seats 1-7 are valid
+  seat-spawns:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+  
+  # Seat locations (coordinates for each seat)
+  # Can be set via /matchbox setseat <name> <seat-number> or configured here
+  # Format: seat number, then world, x, y, z, yaw, pitch
+  seat-locations: {}
+    # Example:
+    # 1:
+    #   world: world
+    #   x: 10.5
+    #   y: 64.0
+    #   z: 10.5
+    #   yaw: 90.0
+    #   pitch: 0.0
+    # 2:
+    #   world: world
+    #   x: 20.5
+    #   y: 64.0
+    #   z: 20.5
+    #   yaw: 180.0
+    #   pitch: 0.0
+  
+  # Discussion phase duration in seconds
+  duration: 30
+
+# Voting Phase Settings
+voting:
+  # Voting phase duration in seconds
+  duration: 15
+
+# Cosmetic Settings
+cosmetics:
+  # Enable/disable random skin assignment for players during games
+  # When enabled, players will receive random skins at game start
+  # When disabled, players will keep their original skins
+  random-skins-enabled: true
+

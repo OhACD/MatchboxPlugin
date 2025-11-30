@@ -5,6 +5,7 @@ import com.ohacd.matchbox.game.ability.FallbackHunterVisionAdapter;
 import com.ohacd.matchbox.game.ability.HunterVisionAdapter;
 import com.ohacd.matchbox.game.ability.ProtocolLibHunterVisionAdapter;
 import com.ohacd.matchbox.game.action.PlayerActionHandler;
+import com.ohacd.matchbox.game.config.ConfigManager;
 import com.ohacd.matchbox.game.cosmetic.SkinManager;
 import com.ohacd.matchbox.game.hologram.HologramManager;
 import com.ohacd.matchbox.game.lifecycle.GameLifecycleManager;
@@ -49,6 +50,7 @@ public class GameManager {
     private final DiscussionPhaseHandler discussionPhaseHandler;
     private final VotingPhaseHandler votingPhaseHandler;
     private final InventoryManager inventoryManager;
+    private final ConfigManager configManager;
 
     // Helper classes for code organization
     private final GameLifecycleManager lifecycleManager;
@@ -74,9 +76,10 @@ public class GameManager {
         this.hologramManager = hologramManager;
 
         // Initialize shared systems
+        this.configManager = new ConfigManager(plugin);
         this.messageUtils = new MessageUtils(plugin);
         this.swipePhaseHandler = new SwipePhaseHandler(plugin, messageUtils);
-        this.discussionPhaseHandler = new DiscussionPhaseHandler(plugin, messageUtils);
+        this.discussionPhaseHandler = new DiscussionPhaseHandler(plugin, messageUtils, configManager);
         this.votingPhaseHandler = new VotingPhaseHandler(plugin, messageUtils);
         this.inventoryManager = new InventoryManager(plugin);
         this.skinManager = new SkinManager(plugin);
@@ -322,7 +325,11 @@ public class GameManager {
 
         // Use lifecycle manager to start the game
         lifecycleManager.startGame(context, players, spawnLocations, discussionLocation, sessionName);
-        skinManager.applyRandomSkins(players);
+        
+        // Apply random skins if enabled in config
+        if (configManager.isRandomSkinsEnabled()) {
+            skinManager.applyRandomSkins(players);
+        }
 
         // Start first round (teleport players and begin swipe phase)
         startNewRound(sessionName);
@@ -438,8 +445,11 @@ public class GameManager {
             }
         }
 
+        // Get swipe duration from config
+        int swipeDuration = configManager.getSwipeDuration();
         swipePhaseHandler.startSwipePhase(
                 sessionName,
+                swipeDuration,
                 gameState.getAlivePlayerIds(),
                 () -> endSwipePhase(sessionName)
         );
@@ -774,6 +784,7 @@ public class GameManager {
         }
 
         // Ensure nametags are visible during discussion
+        Collection<Player> alivePlayersForDiscussion = new ArrayList<>();
         if (alivePlayerIds != null) {
             for (UUID playerId : alivePlayerIds) {
                 if (playerId == null) continue;
@@ -781,11 +792,17 @@ public class GameManager {
                 if (player != null && player.isOnline()) {
                     try {
                         NameTagManager.showNameTag(player);
+                        alivePlayersForDiscussion.add(player);
                     } catch (Exception e) {
                         plugin.getLogger().warning("Failed to show nametag for " + player.getName() + ": " + e.getMessage());
                     }
                 }
             }
+        }
+
+        // Restore original skins during discussion
+        if (!alivePlayersForDiscussion.isEmpty()) {
+            skinManager.restoreOriginalSkinsForDiscussion(alivePlayersForDiscussion);
         }
 
         // Clear infected flags for the round
@@ -809,28 +826,52 @@ public class GameManager {
             }
         }
 
-        // Teleport alive players to discussion location
+        // Get seat locations from session if available
+        Map<Integer, Location> seatLocations = null;
+        try {
+            Matchbox matchboxPlugin = (Matchbox) plugin;
+            SessionManager sessionManager = matchboxPlugin.getSessionManager();
+            if (sessionManager != null) {
+                GameSession session = sessionManager.getSession(sessionName);
+                if (session != null) {
+                    seatLocations = session.getSeatLocations();
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to get seat locations: " + e.getMessage());
+        }
+
+        // Teleport alive players to discussion location (fallback if no seat locations)
+        // If seat locations exist, DiscussionPhaseHandler will teleport players to seats
+        // If no seat locations, use the discussion location as fallback
         Location discussionLocation = context.getCurrentDiscussionLocation();
-        if (discussionLocation != null && discussionLocation.getWorld() != null) {
-            if (alivePlayerIds != null) {
-                for (UUID playerId : alivePlayerIds) {
-                    if (playerId == null) continue;
-                    Player player = getPlayer(playerId);
-                    if (player != null && player.isOnline()) {
-                        try {
-                            player.teleport(discussionLocation);
-                        } catch (Exception e) {
-                            plugin.getLogger().warning("Failed to teleport player " + player.getName() + " to discussion: " + e.getMessage());
+        if (seatLocations == null || seatLocations.isEmpty()) {
+            // No seat locations - use discussion location as fallback
+            if (discussionLocation != null && discussionLocation.getWorld() != null) {
+                if (alivePlayerIds != null) {
+                    for (UUID playerId : alivePlayerIds) {
+                        if (playerId == null) continue;
+                        Player player = getPlayer(playerId);
+                        if (player != null && player.isOnline()) {
+                            try {
+                                player.teleport(discussionLocation);
+                            } catch (Exception e) {
+                                plugin.getLogger().warning("Failed to teleport player " + player.getName() + " to discussion: " + e.getMessage());
+                            }
                         }
                     }
                 }
+            } else {
+                plugin.getLogger().warning("Cannot teleport to discussion: no seat locations or discussion location set for session: " + sessionName);
             }
-        } else {
-            plugin.getLogger().warning("Cannot teleport to discussion: location is null or world is null for session: " + sessionName);
         }
+        // If seat locations exist, DiscussionPhaseHandler will handle teleportation
+
+        // Get discussion duration from config
+        int discussionDuration = configManager.getDiscussionDuration();
 
         // Start the discussion timer and supply callback to endDiscussionPhase
-        discussionPhaseHandler.startDiscussionPhase(sessionName, gameState.getAlivePlayerIds(), () -> endDiscussionPhase(sessionName));
+        discussionPhaseHandler.startDiscussionPhase(sessionName, discussionDuration, gameState.getAlivePlayerIds(), () -> endDiscussionPhase(sessionName), seatLocations);
     }
 
     /**
@@ -860,6 +901,11 @@ public class GameManager {
                     p.sendMessage("§e§l>> DISCUSSION PHASE ENDED <<");
                 }
             }
+        }
+
+        // Restore assigned skins after discussion ends
+        if (sessionPlayers != null && !sessionPlayers.isEmpty()) {
+            skinManager.restoreAssignedSkinsAfterDiscussion(sessionPlayers);
         }
 
         // Clear any previous votes
@@ -916,8 +962,10 @@ public class GameManager {
             }
         }
 
+        // Get voting duration from config
+        int votingDuration = configManager.getVotingDuration();
         // Start the voting timer and supply callback to endVotingPhase
-        votingPhaseHandler.startVotingPhase(sessionName, gameState.getAlivePlayerIds(), () -> endVotingPhase(sessionName));
+        votingPhaseHandler.startVotingPhase(sessionName, votingDuration, gameState.getAlivePlayerIds(), () -> endVotingPhase(sessionName));
     }
 
     /**
@@ -1604,5 +1652,9 @@ public class GameManager {
 
     public InventoryManager getInventoryManager() {
         return inventoryManager;
+    }
+
+    public ConfigManager getConfigManager() {
+        return configManager;
     }
 }
