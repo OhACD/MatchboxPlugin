@@ -1,10 +1,12 @@
 package com.ohacd.matchbox.game.utils;
 
 import com.ohacd.matchbox.game.GameManager;
+import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
@@ -21,7 +23,8 @@ public class DamageProtectionListener implements Listener {
     }
 
     /**
-     * Prevents all damage to players during active games.
+     * Prevents all damage to players during active games, except arrow damage.
+     * Arrow damage is allowed for nametag revelation.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityDamage(EntityDamageEvent event) {
@@ -36,7 +39,17 @@ public class DamageProtectionListener implements Listener {
             return;
         }
 
-        // Cancel all damage during active games
+        // Allow arrow damage (for nametag revelation)
+        if (event instanceof EntityDamageByEntityEvent) {
+            EntityDamageByEntityEvent entityEvent = (EntityDamageByEntityEvent) event;
+            if (entityEvent.getDamager() instanceof Arrow) {
+                // Allow arrow damage but set it to 0 (no actual damage)
+                event.setDamage(0);
+                return;
+            }
+        }
+
+        // Cancel all other damage during active games
         event.setCancelled(true);
         event.setDamage(0);
     }

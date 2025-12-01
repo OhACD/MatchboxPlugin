@@ -224,9 +224,22 @@ public class GameLifecycleManager {
         
         // Distribute players across spawns
         int spawnCount = shuffledSpawns.size();
+        if (spawnCount == 0) {
+            plugin.getLogger().warning("No valid spawn locations available for teleportation");
+            return;
+        }
+        
         for (int i = 0; i < alivePlayers.size(); i++) {
             Player player = alivePlayers.get(i);
+            if (player == null || !player.isOnline()) {
+                continue;
+            }
+            
             Location spawnLoc = shuffledSpawns.get(i % spawnCount);
+            if (spawnLoc == null) {
+                plugin.getLogger().warning("Null spawn location at index " + (i % spawnCount) + ", skipping player " + player.getName());
+                continue;
+            }
             
             Location teleportLoc = spawnLoc.clone();
             if (teleportLoc == null || teleportLoc.getWorld() == null) {
@@ -234,14 +247,15 @@ public class GameLifecycleManager {
                 continue;
             }
             
-            // Add small random offset if multiple players at same spawn
-            if (alivePlayers.size() > spawnCount) {
-                int playersAtThisSpawn = (i / spawnCount) + 1;
-                if (playersAtThisSpawn > 1) {
-                    double angle = (2 * Math.PI * i) / alivePlayers.size();
-                    double radius = 2.0;
-                    teleportLoc.add(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
-                }
+            // Add offset if multiple players share the same spawn location
+            // This handles both cases: multiple players at one spawn, or more players than spawns
+            int spawnIndex = i % spawnCount;
+            int playersAtThisSpawn = (i / spawnCount) + 1;
+            if (playersAtThisSpawn > 1 || (spawnCount == 1 && alivePlayers.size() > 1)) {
+                // Distribute players in a circle around the spawn point
+                double angle = (2 * Math.PI * i) / Math.max(alivePlayers.size(), 2);
+                double radius = 2.0 + (playersAtThisSpawn - 1) * 0.5; // Slightly larger radius for more players
+                teleportLoc.add(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
             }
             
             try {

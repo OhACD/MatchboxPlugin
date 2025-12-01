@@ -58,6 +58,9 @@ public final class Matchbox extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new VoteItemListener(gameManager), this);
         getServer().getPluginManager().registerEvents(new VotePaperListener(gameManager), this);
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(gameManager), this);
+        
+        // Register join listener for welcome messages
+        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.utils.PlayerJoinListener(this), this);
 
         // Register command handler
         MatchboxCommand commandHandler = new MatchboxCommand(this, sessionManager, gameManager);

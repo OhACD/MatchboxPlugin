@@ -211,13 +211,22 @@ public class SkinManager {
 
     private void setSkin(Player player, SkinData skinData) {
         try {
+            if (skinData == null || skinData.value() == null || skinData.value().isEmpty()) {
+                plugin.getLogger().warning("[SkinManager] Cannot apply invalid skin data to " + player.getName());
+                return;
+            }
             PlayerProfile profile = Bukkit.createProfile(player.getUniqueId(), player.getName());
+            if (profile == null) {
+                plugin.getLogger().warning("[SkinManager] Failed to create profile for " + player.getName());
+                return;
+            }
             Collection<ProfileProperty> properties = profile.getProperties();
             properties.clear();
-            profile.setProperty(new ProfileProperty("textures", skinData.value(), skinData.signature()));
+            String signature = skinData.signature() != null ? skinData.signature() : "";
+            profile.setProperty(new ProfileProperty("textures", skinData.value(), signature));
             player.setPlayerProfile(profile);
         } catch (Exception e) {
-            plugin.getLogger().warning("[SkinManager] Failed to apply skin to " + player.getName() + ": " + e.getMessage());
+            plugin.getLogger().warning("[SkinManager] Failed to apply skin to " + player.getName() + " (offline mode?): " + e.getMessage());
         }
     }
 
@@ -242,11 +251,22 @@ public class SkinManager {
     }
 
     private Optional<SkinData> captureCurrentSkin(Player player) {
-        PlayerProfile profile = player.getPlayerProfile();
-        for (ProfileProperty property : profile.getProperties()) {
-            if ("textures".equalsIgnoreCase(property.getName())) {
-                return Optional.of(new SkinData(property.getValue(), property.getSignature()));
+        try {
+            PlayerProfile profile = player.getPlayerProfile();
+            if (profile == null) {
+                return Optional.empty();
             }
+            for (ProfileProperty property : profile.getProperties()) {
+                if ("textures".equalsIgnoreCase(property.getName())) {
+                    String value = property.getValue();
+                    String signature = property.getSignature();
+                    if (value != null && !value.isEmpty()) {
+                        return Optional.of(new SkinData(value, signature != null ? signature : ""));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("[SkinManager] Failed to capture skin for " + player.getName() + " (offline mode?): " + e.getMessage());
         }
         return Optional.empty();
     }
