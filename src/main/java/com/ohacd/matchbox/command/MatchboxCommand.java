@@ -13,6 +13,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.Bukkit;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -307,6 +308,12 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         // Add creator to session
         session.addPlayer((Player) sender);
         sender.sendMessage("§aSession '" + sessionName + "' created! Use /matchbox join " + sessionName + " to join.");
+        
+        // Broadcast to all players that a new session was created
+        String creatorName = sender.getName();
+        Bukkit.broadcastMessage("§6§l[Matchbox] §e" + creatorName + " §7created a new game session: §a" + sessionName);
+        Bukkit.broadcastMessage("§7Join with: §e/matchbox join " + sessionName);
+        
         return true;
     }
 

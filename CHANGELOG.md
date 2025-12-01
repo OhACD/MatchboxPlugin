@@ -61,6 +61,9 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - Players set to Adventure mode when game starts
   - Original gamemode restored when game ends
   - Prevents block breaking and other survival interactions during gameplay
+- **Session Creation Broadcast**: Upon new session creation via `/matchbox start <name>`, a broadcast message is sent to all players
+  - Informs players about the new session and how to join
+  - Encourages player participation and awareness of new games
 
 ### Changed
 - **Location Management**: Locations can be set via commands or config file
