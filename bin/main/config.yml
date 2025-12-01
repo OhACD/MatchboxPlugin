@@ -199,4 +199,9 @@ cosmetics:
   # When enabled, players will receive random skins at game start
   # When disabled, players will keep their original skins
   random-skins-enabled: true
+  
+  # Use Steve (default) skins for all players during games
+  # When enabled, all players will have the default Steve skin regardless of random-skins-enabled setting
+  # When disabled, random skins or original skins will be used based on random-skins-enabled
+  use-steve-skins: false
 

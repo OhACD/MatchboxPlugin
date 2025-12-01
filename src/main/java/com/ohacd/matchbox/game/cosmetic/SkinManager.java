@@ -94,6 +94,49 @@ public class SkinManager {
     }
 
     /**
+     * Applies Steve (default) skin to every player in the supplied collection.
+     * This removes all custom skin properties, giving players the default Minecraft skin.
+     */
+    public void applySteveSkins(Collection<Player> players) {
+        if (players == null || players.isEmpty()) {
+            return;
+        }
+        for (Player player : players) {
+            applySteveSkin(player);
+        }
+    }
+
+    /**
+     * Applies Steve (default) skin to a single player.
+     * This removes all custom skin properties, giving the player the default Minecraft skin.
+     */
+    public void applySteveSkin(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        UUID playerId = player.getUniqueId();
+        if (!originalSkins.containsKey(playerId)) {
+            captureCurrentSkin(player).ifPresent(skin -> originalSkins.put(playerId, skin));
+        }
+        // Create a profile with no texture properties (default Steve skin)
+        try {
+            PlayerProfile profile = Bukkit.createProfile(player.getUniqueId(), player.getName());
+            if (profile == null) {
+                plugin.getLogger().warning("[SkinManager] Failed to create profile for " + player.getName());
+                return;
+            }
+            // Clear all properties to get default Steve skin
+            profile.getProperties().clear();
+            player.setPlayerProfile(profile);
+            // Store empty skin data as assigned skin
+            assignedSkins.put(playerId, new SkinData("", ""));
+            refreshAppearance(player);
+        } catch (Exception e) {
+            plugin.getLogger().warning("[SkinManager] Failed to apply Steve skin to " + player.getName() + ": " + e.getMessage());
+        }
+    }
+
+    /**
      * Applies a random skin to the provided player. No-op if no cached skins exist.
      */
     public void applyRandomSkin(Player player) {

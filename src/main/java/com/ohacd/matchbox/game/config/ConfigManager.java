@@ -96,6 +96,9 @@ public class ConfigManager {
         if (!config.contains("cosmetics.random-skins-enabled")) {
             config.set("cosmetics.random-skins-enabled", true);
         }
+        if (!config.contains("cosmetics.use-steve-skins")) {
+            config.set("cosmetics.use-steve-skins", false);
+        }
     }
 
     /**
@@ -272,6 +275,14 @@ public class ConfigManager {
      */
     public boolean isRandomSkinsEnabled() {
         return config.getBoolean("cosmetics.random-skins-enabled", true);
+    }
+
+    /**
+     * Gets whether Steve skins should be used for all players.
+     * When enabled, all players will have the default Steve skin regardless of random-skins-enabled setting.
+     */
+    public boolean isUseSteveSkins() {
+        return config.getBoolean("cosmetics.use-steve-skins", false);
     }
 
     /**

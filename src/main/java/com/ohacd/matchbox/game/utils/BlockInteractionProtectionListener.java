@@ -1,6 +1,8 @@
 package com.ohacd.matchbox.game.utils;
 
 import com.ohacd.matchbox.game.GameManager;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -40,6 +42,39 @@ public class BlockInteractionProtectionListener implements Listener {
 
         // Block all block interactions (right-click on blocks, left-click on blocks)
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK || event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            Block clickedBlock = event.getClickedBlock();
+            if (clickedBlock != null) {
+                // Specifically prevent flower pot interactions to avoid duplication bug
+                Material blockType = clickedBlock.getType();
+                if (blockType == Material.FLOWER_POT || 
+                    blockType == Material.POTTED_DANDELION ||
+                    blockType == Material.POTTED_POPPY ||
+                    blockType == Material.POTTED_BLUE_ORCHID ||
+                    blockType == Material.POTTED_ALLIUM ||
+                    blockType == Material.POTTED_AZURE_BLUET ||
+                    blockType == Material.POTTED_RED_TULIP ||
+                    blockType == Material.POTTED_ORANGE_TULIP ||
+                    blockType == Material.POTTED_WHITE_TULIP ||
+                    blockType == Material.POTTED_PINK_TULIP ||
+                    blockType == Material.POTTED_OXEYE_DAISY ||
+                    blockType == Material.POTTED_CORNFLOWER ||
+                    blockType == Material.POTTED_LILY_OF_THE_VALLEY ||
+                    blockType == Material.POTTED_WITHER_ROSE ||
+                    blockType == Material.POTTED_RED_MUSHROOM ||
+                    blockType == Material.POTTED_BROWN_MUSHROOM ||
+                    blockType == Material.POTTED_DEAD_BUSH ||
+                    blockType == Material.POTTED_CACTUS ||
+                    blockType == Material.POTTED_BAMBOO ||
+                    blockType == Material.POTTED_CRIMSON_FUNGUS ||
+                    blockType == Material.POTTED_WARPED_FUNGUS ||
+                    blockType == Material.POTTED_CRIMSON_ROOTS ||
+                    blockType == Material.POTTED_WARPED_ROOTS ||
+                    blockType == Material.POTTED_AZALEA_BUSH ||
+                    blockType == Material.POTTED_FLOWERING_AZALEA_BUSH) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
             event.setCancelled(true);
         }
     }
