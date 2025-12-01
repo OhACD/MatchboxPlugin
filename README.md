@@ -89,7 +89,8 @@ discussion:
 - Phase durations (swipe, discussion, voting)
 - Player limits (min/max)
 - Seat spawn numbers
-- Random skins toggle
+- Random skins toggle (`cosmetics.random-skins-enabled`)
+- Steve skins option (`cosmetics.use-steve-skins`) - Use default Steve skin for all players
 
 ---
 

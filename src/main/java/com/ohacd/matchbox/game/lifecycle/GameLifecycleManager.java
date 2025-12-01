@@ -80,6 +80,8 @@ public class GameLifecycleManager {
             }
             try {
                 playerBackups.put(player.getUniqueId(), new PlayerBackup(player));
+                // Set gamemode to adventure mode for gameplay
+                player.setGameMode(org.bukkit.GameMode.ADVENTURE);
             } catch (Exception e) {
                 plugin.getLogger().severe("Failed to backup player " + (player != null ? player.getName() : "null") + ": " + e.getMessage());
                 e.printStackTrace();
@@ -249,7 +251,6 @@ public class GameLifecycleManager {
             
             // Add offset if multiple players share the same spawn location
             // This handles both cases: multiple players at one spawn, or more players than spawns
-            int spawnIndex = i % spawnCount;
             int playersAtThisSpawn = (i / spawnCount) + 1;
             if (playersAtThisSpawn > 1 || (spawnCount == 1 && alivePlayers.size() > 1)) {
                 // Distribute players in a circle around the spawn point

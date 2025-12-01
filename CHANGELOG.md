@@ -53,6 +53,14 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - Title animation welcoming players to Matchbox
   - Information about the game, current version, and status
   - Discord link for bug reports and suggestions (https://discord.gg/BTDP3APfq8)
+- **Steve Skins Option**: Config option to use default Steve skins for all players
+  - `cosmetics.use-steve-skins` in config.yml
+  - When enabled, all players get Steve skin regardless of random-skins-enabled setting
+  - Works alongside existing random skins system
+- **Gamemode Management**: Players automatically set to Adventure mode during games
+  - Players set to Adventure mode when game starts
+  - Original gamemode restored when game ends
+  - Prevents block breaking and other survival interactions during gameplay
 
 ### Changed
 - **Location Management**: Locations can be set via commands or config file
@@ -86,6 +94,9 @@ All notable changes to the Matchbox plugin will be documented in this file.
 - Discussion/seat location teleportation logic
 - Player state restoration on game end
 - All commands have been added to tab with proper permission checks
+- **Flower Pot Duplication Bug**: Fixed exploit where players could duplicate flowers from flower pots
+  - All flower pot interactions (right-click) are now blocked during active games
+  - Prevents players from extracting and stacking flowers from flower pots
 
 ---
 

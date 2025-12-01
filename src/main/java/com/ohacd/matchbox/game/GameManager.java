@@ -326,8 +326,12 @@ public class GameManager {
         // Use lifecycle manager to start the game
         lifecycleManager.startGame(context, players, spawnLocations, discussionLocation, sessionName);
         
-        // Apply random skins if enabled in config
-        if (configManager.isRandomSkinsEnabled()) {
+        // Apply skins based on config settings
+        if (configManager.isUseSteveSkins()) {
+            // Use Steve skins for all players (overrides random skins setting)
+            skinManager.applySteveSkins(players);
+        } else if (configManager.isRandomSkinsEnabled()) {
+            // Apply random skins if enabled
             skinManager.applyRandomSkins(players);
         }
 
