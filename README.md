@@ -50,11 +50,11 @@ All settings in `plugins/Matchbox/config.yml` (auto-created on first run).
 ### Default Configuration
 
 **The plugin ships with a complete default configuration for the M4tchbox map:**
-- ✅ 11 pre-configured spawn locations
-- ✅ 8 pre-configured seat locations for discussion phase
-- ✅ Optimized phase durations (Swipe: 180s, Discussion: 30s, Voting: 15s)
-- ✅ Player limits set (Min: 2, Max: 7)
-- ✅ Random skins enabled by default
+-  11 pre-configured spawn locations
+-  8 pre-configured seat locations for discussion phase
+-  Optimized phase durations (Swipe: 180s, Discussion: 30s, Voting: 15s)
+-  Player limits set (Min: 2, Max: 7)
+-  Random skins enabled by default
 
 **You can start playing immediately without any setup!** The default config works out-of-the-box with the M4tchbox map.
 
