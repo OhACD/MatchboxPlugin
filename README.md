@@ -8,9 +8,11 @@ A 7-player social deduction game for Minecraft with recording-proof mechanics.
 
 1. Download `Matchbox.jar` and place it in your server's `plugins/` folder
 2. Restart your server
-3. Configure locations (see Configuration section)
+3. The plugin comes with a **default configuration** pre-configured for the **M4tchbox map**
+   - All spawn locations and seat positions are already set up
+   - You can start playing immediately or customize locations as needed
 
-**Requirements**: Paper/Spigot 1.21+, Java 21+, 2-7 players per game
+**Requirements**: Paper 1.21.10, Java 21+, 2-7 players per game
 
 ---
 
@@ -25,9 +27,15 @@ A 7-player social deduction game for Minecraft with recording-proof mechanics.
 
 ### Admin Commands
 - `/matchbox start <session>` - Create a new game session
-- `/matchbox setspawn <session>` - Add a spawn location
-- `/matchbox setseat <session> <number>` - Set a seat location
-- `/matchbox setdiscussion <session>` - Set discussion area location
+- `/matchbox setspawn` - Add a spawn location to config
+- `/matchbox setseat <number>` - Set a seat location to config
+- `/matchbox setdiscussion <session>` - Set discussion area location (session-specific)
+- `/matchbox listspawns` - List all spawn locations in config
+- `/matchbox listseatspawns` - List all seat locations in config
+- `/matchbox removespawn <index>` - Remove a spawn location from config
+- `/matchbox removeseat <number>` - Remove a seat location from config
+- `/matchbox clearspawns` - Clear all spawn locations (requires confirmation)
+- `/matchbox clearseats` - Clear all seat locations (requires confirmation)
 - `/matchbox begin <session>` - Start the game
 - `/matchbox stop <session>` - Stop and remove a session
 - `/matchbox skip` - Skip current phase
@@ -39,12 +47,25 @@ A 7-player social deduction game for Minecraft with recording-proof mechanics.
 
 All settings in `plugins/Matchbox/config.yml` (auto-created on first run).
 
-### Setting Up Locations
+### Default Configuration
+
+**The plugin ships with a complete default configuration for the M4tchbox map:**
+- ✅ 11 pre-configured spawn locations
+- ✅ 8 pre-configured seat locations for discussion phase
+- ✅ Optimized phase durations (Swipe: 180s, Discussion: 30s, Voting: 15s)
+- ✅ Player limits set (Min: 2, Max: 7)
+- ✅ Random skins enabled by default
+
+**You can start playing immediately without any setup!** The default config works out-of-the-box with the M4tchbox map.
+
+### Customizing Locations
 
 **In-Game (Recommended)**
-- Stand at location → `/matchbox setspawn <session>`
-- Stand at seat → `/matchbox setseat <session> <number>`
-- Locations automatically saved to config
+- Stand at location → `/matchbox setspawn`
+- Stand at seat → `/matchbox setseat <number>`
+- Locations automatically saved to config and persist across sessions
+- Use `/matchbox listspawns` or `/matchbox listseatspawns` to view configured locations
+- Use `/matchbox clearspawns` or `/matchbox clearseats` to reset (requires confirmation)
 
 **Config File**
 ```yaml
@@ -121,10 +142,20 @@ discussion:
 - Damage protection during games
 - Block interaction protection during games
 - Skin system with phase-based restoration
+- Welcome message system for new players
 
 ---
 
-**Version**: 1.0.0  
+## Support & Bug Reports
+
+Found a bug or have suggestions? Join our Discord server:
+**https://discord.gg/BTDP3APfq8**
+
+Players will also see a welcome message when joining the server with information about the plugin and Discord link.
+
+---
+
+**Version**: 0.9.1  
 **Minecraft API**: 1.21.10  
 **License**: MIT  
 **Developer**: OhACD

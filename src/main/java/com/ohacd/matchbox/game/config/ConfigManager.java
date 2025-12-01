@@ -403,12 +403,17 @@ public class ConfigManager {
             return false;
         }
         
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> spawnList = new ArrayList<>((List<Map<String, Object>>) rawList);
-        spawnList.remove(index);
-        config.set("session.spawn-locations", spawnList);
-        saveConfig();
-        return true;
+        try {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> spawnList = new ArrayList<>((List<Map<String, Object>>) rawList);
+            spawnList.remove(index);
+            config.set("session.spawn-locations", spawnList);
+            saveConfig();
+            return true;
+        } catch (ClassCastException e) {
+            plugin.getLogger().warning("Invalid spawn location format in config: " + e.getMessage());
+            return false;
+        }
     }
 
     /**
@@ -494,8 +499,13 @@ public class ConfigManager {
      * Helper method to load a location from a map.
      */
     private Location loadLocationFromMap(Map<String, Object> locMap) {
+        if (locMap == null) {
+            return null;
+        }
+        
         String worldName = (String) locMap.get("world");
         if (worldName == null) {
+            plugin.getLogger().warning("Location in config missing world name");
             return null;
         }
         
@@ -505,19 +515,46 @@ public class ConfigManager {
             return null;
         }
         
-        double x = ((Number) locMap.getOrDefault("x", 0.0)).doubleValue();
-        double y = ((Number) locMap.getOrDefault("y", 64.0)).doubleValue();
-        double z = ((Number) locMap.getOrDefault("z", 0.0)).doubleValue();
-        float yaw = ((Number) locMap.getOrDefault("yaw", 0.0)).floatValue();
-        float pitch = ((Number) locMap.getOrDefault("pitch", 0.0)).floatValue();
-        
-        return new Location(world, x, y, z, yaw, pitch);
+        try {
+            double x = getDoubleValue(locMap.get("x"), 0.0);
+            double y = getDoubleValue(locMap.get("y"), 64.0);
+            double z = getDoubleValue(locMap.get("z"), 0.0);
+            float yaw = (float) getDoubleValue(locMap.get("yaw"), 0.0);
+            float pitch = (float) getDoubleValue(locMap.get("pitch"), 0.0);
+            
+            return new Location(world, x, y, z, yaw, pitch);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to parse location from config: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Safely converts an object to a double value.
+     */
+    private double getDoubleValue(Object obj, double defaultValue) {
+        if (obj == null) {
+            return defaultValue;
+        }
+        if (obj instanceof Number) {
+            return ((Number) obj).doubleValue();
+        }
+        try {
+            return Double.parseDouble(obj.toString());
+        } catch (NumberFormatException e) {
+            plugin.getLogger().warning("Invalid number format in config: " + obj);
+            return defaultValue;
+        }
     }
 
     /**
      * Helper method to save a location to a configuration section path.
      */
     private void saveLocationToSection(String path, Location location) {
+        if (location == null || location.getWorld() == null) {
+            plugin.getLogger().warning("Cannot save null location or location with null world");
+            return;
+        }
         config.set(path + ".world", location.getWorld().getName());
         config.set(path + ".x", location.getX());
         config.set(path + ".y", location.getY());
