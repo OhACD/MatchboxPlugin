@@ -2,7 +2,18 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
-## [0.9.1] - Latest Release (Config and QOL update)
+
+## [0.9.2] - Latest Release (It's all about the base)
+
+### Added
+- **Cleaner version handling/project status handling**: Project status and versioning are now handled dynamically
+    - The player will get notified if a newer version is available for the plugin
+    - Under the hood cleanup for dynamic project status display and project versioning/version checking
+- **Broadcast eliminated player**: Eliminated players get broadcasted to alive players on discussion phase start
+    - Added a long overdue feature where players used to get eliminated silently
+    - Eliminated players now get broadcasted to alive players on discussion phase start
+
+## [0.9.1] - (Config and QOL update)
 
 ### Added
 - **Config File Support**: Full configuration system with `config.yml`

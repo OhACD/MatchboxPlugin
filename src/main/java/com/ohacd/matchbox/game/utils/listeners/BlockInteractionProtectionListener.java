@@ -1,4 +1,4 @@
-package com.ohacd.matchbox.game.utils;
+package com.ohacd.matchbox.game.utils.listeners;
 
 import com.ohacd.matchbox.game.GameManager;
 import org.bukkit.Material;

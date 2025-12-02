@@ -17,12 +17,12 @@ import com.ohacd.matchbox.game.session.GameSession;
 import com.ohacd.matchbox.game.session.SessionManager;
 import com.ohacd.matchbox.game.state.GameState;
 import com.ohacd.matchbox.game.utils.GamePhase;
-import com.ohacd.matchbox.game.utils.InventoryManager;
 import com.ohacd.matchbox.game.utils.MessageUtils;
-import com.ohacd.matchbox.game.utils.NameTagManager;
 import com.ohacd.matchbox.game.utils.ParticleUtils;
 import com.ohacd.matchbox.game.utils.PlayerBackup;
 import com.ohacd.matchbox.game.utils.Role;
+import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
+import com.ohacd.matchbox.game.utils.Managers.NameTagManager;
 import com.ohacd.matchbox.game.vote.VoteManager;
 import com.ohacd.matchbox.game.win.WinConditionChecker;
 import org.bukkit.Bukkit;
@@ -34,6 +34,7 @@ import org.bukkit.plugin.Plugin;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static org.bukkit.Bukkit.getLogger;
 import static org.bukkit.Bukkit.getPlayer;
 
 /**
@@ -760,7 +761,7 @@ public class GameManager {
                 plugin.getLogger().info("Player " + curedPlayer.getName() + " has been cured this round and will not be eliminated.");
             }
         }
-
+            Player eliminatedPlayer = null; // Bad practice but remember to add the relative defensive checks
         for (UUID victimId : allPendingDeaths) {
             if (victimId == null) continue;
 
@@ -769,6 +770,7 @@ public class GameManager {
                 continue;
             }
             Player victim = getPlayer(victimId);
+            eliminatedPlayer = victim;
             if (victim != null && victim.isOnline()) {
                 try {
                     eliminatePlayer(sessionName, victim); // ensure this removes them from alive and cleans state
@@ -785,6 +787,14 @@ public class GameManager {
             }
             // Ensure pending death is removed
             gameState.removePendingDeath(victimId);
+        }
+
+        // Notifies players about who has been Eliminated this round
+        for (UUID player : gameState.getAlivePlayerIds()) {
+            if (eliminatedPlayer == null) continue;
+            Player target = getPlayer(player);
+            if (target == null) getLogger().info("Faild to get target players; couldn't broadcast the player death");
+            messageUtils.sendTitle(target, eliminatedPlayer.getName(), "Has been eliminated", 10, 40, 10);
         }
 
         // Ensure nametags are visible during discussion

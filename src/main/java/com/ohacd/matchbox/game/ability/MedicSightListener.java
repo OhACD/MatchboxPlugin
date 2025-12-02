@@ -3,8 +3,9 @@ package com.ohacd.matchbox.game.ability;
 import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.Role;
+import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
 import com.ohacd.matchbox.game.utils.GamePhase;
-import com.ohacd.matchbox.game.utils.InventoryManager;
+
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;

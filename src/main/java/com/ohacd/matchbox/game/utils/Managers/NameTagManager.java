@@ -1,4 +1,4 @@
-package com.ohacd.matchbox.game.utils;
+package com.ohacd.matchbox.game.utils.Managers;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
