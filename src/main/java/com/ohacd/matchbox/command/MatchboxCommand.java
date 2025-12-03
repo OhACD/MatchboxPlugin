@@ -6,7 +6,8 @@ import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.session.GameSession;
 import com.ohacd.matchbox.game.session.SessionManager;
 import com.ohacd.matchbox.game.utils.GamePhase;
-import com.ohacd.matchbox.game.utils.NameTagManager;
+import com.ohacd.matchbox.game.utils.Managers.NameTagManager;
+
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;

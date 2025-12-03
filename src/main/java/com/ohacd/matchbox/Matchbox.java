@@ -5,18 +5,24 @@ import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.chat.ChatListener;
 import com.ohacd.matchbox.game.hologram.HologramManager;
 import com.ohacd.matchbox.game.session.SessionManager;
-import com.ohacd.matchbox.game.utils.GameItemProtectionListener;
-import com.ohacd.matchbox.game.utils.HitRevealListener;
 import com.ohacd.matchbox.game.ability.SwipeActivationListener;
 import com.ohacd.matchbox.game.ability.SparkVisionListener;
 import com.ohacd.matchbox.game.ability.SwipeHitListener;
 import com.ohacd.matchbox.game.ability.MedicAbilityListener;
 import com.ohacd.matchbox.game.ability.MedicHitListener;
 import com.ohacd.matchbox.game.ability.MedicSightListener;
-import com.ohacd.matchbox.game.utils.NameTagManager;
-import com.ohacd.matchbox.game.utils.PlayerQuitListener;
-import com.ohacd.matchbox.game.utils.VoteItemListener;
-import com.ohacd.matchbox.game.utils.VotePaperListener;
+import com.ohacd.matchbox.game.utils.CheckProjectVersion;
+import com.ohacd.matchbox.game.utils.Managers.NameTagManager;
+import com.ohacd.matchbox.game.utils.ProjectStatus;
+import com.ohacd.matchbox.game.utils.listeners.BlockInteractionProtectionListener;
+import com.ohacd.matchbox.game.utils.listeners.DamageProtectionListener;
+import com.ohacd.matchbox.game.utils.listeners.GameItemProtectionListener;
+import com.ohacd.matchbox.game.utils.listeners.HitRevealListener;
+import com.ohacd.matchbox.game.utils.listeners.PlayerJoinListener;
+import com.ohacd.matchbox.game.utils.listeners.PlayerQuitListener;
+import com.ohacd.matchbox.game.utils.listeners.VoteItemListener;
+import com.ohacd.matchbox.game.utils.listeners.VotePaperListener;
+
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Set;
@@ -26,6 +32,12 @@ import java.util.Set;
  * Supports parallel game sessions with up to 7 players each.
  */
 public final class Matchbox extends JavaPlugin {
+    // Project status, versioning and update name
+    private static final ProjectStatus projectStatus = ProjectStatus.DEVELOPMENT; // Main toggle for project status
+    private String updateName = "It's all about the base";
+    private String currentVersion;
+    private CheckProjectVersion versionChecker;
+
     private static Matchbox instance;
     private HologramManager hologramManager;
     private GameManager gameManager;
@@ -37,14 +49,16 @@ public final class Matchbox extends JavaPlugin {
         this.hologramManager = new HologramManager(this);
         this.gameManager = new GameManager(this, hologramManager);
         this.sessionManager = new SessionManager();
+        this.versionChecker = new CheckProjectVersion(this);
+        this.currentVersion = getInstance().getPluginMeta().getVersion();
 
         // Register event listeners
         getServer().getPluginManager().registerEvents(new ChatListener(hologramManager, gameManager), this);
         getServer().getPluginManager().registerEvents(
                 new HitRevealListener(gameManager, hologramManager, gameManager.getInventoryManager()), this);
         getServer().getPluginManager().registerEvents(new GameItemProtectionListener(gameManager), this);
-        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.utils.DamageProtectionListener(gameManager), this);
-        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.utils.BlockInteractionProtectionListener(gameManager), this);
+        getServer().getPluginManager().registerEvents(new DamageProtectionListener(gameManager), this);
+        getServer().getPluginManager().registerEvents(new BlockInteractionProtectionListener(gameManager), this);
 
         // Register ability listeners
         getServer().getPluginManager().registerEvents(new SwipeActivationListener(gameManager, this), this);
@@ -60,14 +74,14 @@ public final class Matchbox extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(gameManager), this);
         
         // Register join listener for welcome messages
-        getServer().getPluginManager().registerEvents(new com.ohacd.matchbox.game.utils.PlayerJoinListener(this), this);
+        getServer().getPluginManager().registerEvents(new PlayerJoinListener(this, versionChecker), this);
 
         // Register command handler
         MatchboxCommand commandHandler = new MatchboxCommand(this, sessionManager, gameManager);
         getCommand("matchbox").setExecutor(commandHandler);
         getCommand("matchbox").setTabCompleter(commandHandler);
 
-        getLogger().info("Matchbox enabled");
+        getLogger().info("Matchbox" + currentVersion + "enabled");
     }
 
     @Override
@@ -122,4 +136,10 @@ public final class Matchbox extends JavaPlugin {
     public SessionManager getSessionManager() {
         return sessionManager;
     }
+
+    public String getCurrentVersion() { return currentVersion; }
+
+    public String getProjectStatus() { return projectStatus.getDisplayName();}
+
+    public String getUpdateName() { return updateName; }
 }

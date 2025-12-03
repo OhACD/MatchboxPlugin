@@ -1,4 +1,4 @@
-package com.ohacd.matchbox.game.utils;
+package com.ohacd.matchbox.game.utils.Managers;
 
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -7,6 +7,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
+
+import com.ohacd.matchbox.game.utils.Role;
 
 import java.util.*;
 

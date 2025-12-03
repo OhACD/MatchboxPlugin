@@ -1,7 +1,9 @@
-package com.ohacd.matchbox.game.utils;
+package com.ohacd.matchbox.game.utils.listeners;
 
 import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
+import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
+
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;

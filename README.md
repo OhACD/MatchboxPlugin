@@ -6,9 +6,10 @@ A 7-player social deduction game for Minecraft with recording-proof mechanics.
 
 ## Installation
 
-1. Download `Matchbox.jar` and place it in your server's `plugins/` folder
-2. Restart your server
-3. The plugin comes with a **default configuration** pre-configured for the **M4tchbox map**
+1. Download `Matchbox.jar` and `ProtocolLib-5.4.0.jar` and place them in your server's `plugins/` folder
+2. Downlod the `Map` from https://www.planetminecraft.com/project/m4tchb0x-maps/ and place it in your server folder 
+3. Restart your server
+4. The plugin comes with a **default configuration** pre-configured for the **M4tchbox map**
    - All spawn locations and seat positions are already set up
    - You can start playing immediately or customize locations as needed
 
