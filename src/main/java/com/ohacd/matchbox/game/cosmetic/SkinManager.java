@@ -50,7 +50,12 @@ public class SkinManager {
         .build();
     private static final Duration PROFILE_TIMEOUT = Duration.ofSeconds(5);
     private static final Pattern PROFILE_ID_PATTERN = Pattern.compile("\"id\"\\s*:\\s*\"([0-9a-fA-F]{32})\"");
-    private static final SkinData DEFAULT_STEVE = new SkinData("", "");
+    // Signed Steve (classic) texture pulled from Mojang session servers.
+    private static final SkinData DEFAULT_STEVE = new SkinData(
+        "ewogICJ0aW1lc3RhbXAiIDogMTcwODk5MzE5MzU2OCwKICAicHJvZmlsZUlkIiA6ICI3ZTU5NzY0MjNjNTQ0ZjM2YjRhMGE0ZTViMTA3YzdmOCIsCiAgInByb2ZpbGVOYW1lIiA6ICJDbGFzc2ljU3RldmUiLAogICJ0ZXh0dXJlcyIgOiB7CiAgICAiU0tJTiIgOiB7CiAgICAgICJ1cmwiIDogImh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYzQ1ZjRmYThjNDIwMmY1YTU4NWJiMDIzMmIxYzYzNzU2ZjJiOGY4YzlmYWZiZjM3ZmZiMDZmMTJhM2Y3NTcwOCIKICAgIH0KICB9Cn0=",
+        "TsDcm/o7blZH0Vt9gnXjASK9SKaKdXt/GAbK6n1h5sqkRLVyg0tutlKJIcLxBvS2Ou81bspUkC3DdEaUBPxURFdKXWyYPUzw+k2OibNFeDtDRv28iIgj2w0+q2vYiSkf0YZMNjyvE+mpWCfX/rVxnJjVt6PL1VZLmy5t/8O1EJe4mqDmCA8EJdlE6zV6TxevYrNAvZbtDYMBRi6S+cbRf8N+SvK9sR8z32cb96UVUsShkLT0sejGMfMZXeENPRdyX0tswrMl2BLJ0XkwpMHosSGQIhvrvCrv0D2GBKZFFKEwiafdUgIT71BnF8sxX2UeCzWbHurRosAvGwYNoM4rZq1ReTTSJ+eUqAZuZtq72kPWBzuKOfVphotphA4NRtZ7mT/IKt1IxFkrnYOuh2DYChCVa5p1Q0lS67ZHrnCIsiZTPeMT6OANil4Y1j/8QcuvG+DBtqFPRNEhPVqOgjaRdjumdFZKvgt9gLxBi82p4tAUnGKxhPeB9XFVQ+dGhDffnZllVuvYDGx+fLOJ3Hj7MfKcsRcm0NdOdaGmVQ6FacGWN/+t7Qu0f8ExhlB62iBygg2uQ4CWmUgCaS6zUzmPa9uCt3xBhVG2G+R/wab8bVfcOltwOXSHhtQ8ZRpjYvuTmtzJ1Rtlm1B5dCQzv0XKnKKwjpVrWzq+q0lQjCDY+o2jsf6qi5hbs="
+    );
+    
 
     private final Plugin plugin;
     private final List<SkinData> cachedSkins = new CopyOnWriteArrayList<>();

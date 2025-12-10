@@ -33,7 +33,7 @@ import java.util.Set;
  */
 public final class Matchbox extends JavaPlugin {
     // Project status, versioning and update name
-    private static final ProjectStatus projectStatus = ProjectStatus.DEVELOPMENT; // Main toggle for project status
+    private static final ProjectStatus projectStatus = ProjectStatus.STABLE; // Main toggle for project status
     private String updateName = "It's all about the base";
     private String currentVersion;
     private CheckProjectVersion versionChecker;
@@ -81,7 +81,7 @@ public final class Matchbox extends JavaPlugin {
         getCommand("matchbox").setExecutor(commandHandler);
         getCommand("matchbox").setTabCompleter(commandHandler);
 
-        getLogger().info("Matchbox" + currentVersion + "enabled");
+        getLogger().info("Matchbox v" + currentVersion + " enabled");
     }
 
     @Override
