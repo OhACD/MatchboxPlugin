@@ -60,6 +60,8 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 return handleStart(sender, args);
             case "begin":
                 return handleBegin(sender, args);
+            case "debugstart":
+                return handleDebugBegin(sender, args);
             case "stop":
                 return handleStop(sender, args);
             case "join":
@@ -319,6 +321,14 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleBegin(CommandSender sender, String[] args) {
+        return handleBeginInternal(sender, args, false);
+    }
+
+    private boolean handleDebugBegin(CommandSender sender, String[] args) {
+        return handleBeginInternal(sender, args, true);
+    }
+
+    private boolean handleBeginInternal(CommandSender sender, String[] args, boolean allowSinglePlayer) {
         if (!sender.hasPermission("matchbox.admin")) {
             sender.sendMessage("§cYou don't have permission to use this command.");
             return true;
@@ -330,7 +340,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 2) {
-            sender.sendMessage("§cUsage: /matchbox begin <name>");
+            sender.sendMessage("§cUsage: /matchbox " + (allowSinglePlayer ? "debugstart" : "begin") + " <name>");
             return true;
         }
 
@@ -350,6 +360,10 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         // Parallel sessions are supported - each session can run independently
 
         List<Player> players = session.getPlayers();
+        if (players.isEmpty()) {
+            sender.sendMessage("§cNo players in this session to start a game.");
+            return true;
+        }
         
         // Get config values
         com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
@@ -358,8 +372,11 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         int minSpawnLocations = configManager.getMinSpawnLocations();
         
         if (players.size() < minPlayers) {
-            sender.sendMessage("§cYou need at least " + minPlayers + " players to start a game!");
-            return true;
+            if (!allowSinglePlayer) {
+                sender.sendMessage("§cYou need at least " + minPlayers + " players to start a game!");
+                return true;
+            }
+            sender.sendMessage("§eDebug override: starting with " + players.size() + " player(s). Normal minimum is " + minPlayers + ".");
         }
         
         // Check if session has too many players
@@ -955,13 +972,14 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/matchbox list §7- List all sessions");
         sender.sendMessage("§e/matchbox cleanup §7- Emergency nametag restore (admin only)");
         sender.sendMessage("§e/matchbox debug §7- Show debug info (admin only)");
+        sender.sendMessage("§e/matchbox debugstart <name> §7- Force begin with debug override (admin only)");
         sender.sendMessage("§e/matchbox skip §7- Skip current phase (admin only)");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            List<String> subCommands = Arrays.asList("start", "begin", "stop", "join", "leave", "setdiscussion", "setspawn", "setseat", "list", "listspawns", "listseatspawns", "removespawn", "removeseat", "clearspawns", "clearseats", "remove", "cleanup", "debug", "skip");
+            List<String> subCommands = Arrays.asList("start", "begin", "debugstart", "stop", "join", "leave", "setdiscussion", "setspawn", "setseat", "list", "listspawns", "listseatspawns", "removespawn", "removeseat", "clearspawns", "clearseats", "remove", "cleanup", "debug", "skip");
             return subCommands.stream()
                     .filter(cmd -> cmd.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
@@ -969,7 +987,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 2) {
             String subCommand = args[0].toLowerCase();
-            if (subCommand.equals("begin") || subCommand.equals("stop") || subCommand.equals("join") ||
+            if (subCommand.equals("begin") || subCommand.equals("debugstart") || subCommand.equals("stop") || subCommand.equals("join") ||
                     subCommand.equals("leave") || subCommand.equals("setdiscussion") ||
                     subCommand.equals("setspawn") || subCommand.equals("setseat") || subCommand.equals("remove")) {
                 return sessionManager.getAllSessionNames().stream()

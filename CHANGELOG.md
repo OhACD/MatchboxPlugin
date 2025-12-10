@@ -2,16 +2,27 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
-
 ## [0.9.2] - Latest Release (It's all about the base)
+
+This is a quick patch that focuses on cleanup/QOL features and insuring everything works as intended.
+Due to how Skins are handled, the steve skin override falls back to using Alex/Steve skins depending on
+the player model, this will hopefully be handled better next update.
 
 ### Added
 - **Cleaner version handling/project status handling**: Project status and versioning are now handled dynamically
     - The player will get notified if a newer version is available for the plugin
     - Under the hood cleanup for dynamic project status display and project versioning/version checking
-- **Broadcast eliminated player**: Eliminated players get broadcasted to alive players on discussion phase start
-    - Added a long overdue feature where players used to get eliminated silently
-    - Eliminated players now get broadcasted to alive players on discussion phase start
+- **Pre-discussion elimination notice**: Eliminations are now announced as titles 10 seconds before teleporting to discussion
+    - Uses the MessageUtils title pipeline, matching other UI
+    - Applies blindness and heavy slowness during the 10s hold, cleared on teleport
+    - Works alongside seat teleports and discussion timers
+- **Nickname support**: Voting papers, elimination titles, and hologram reveals now use display names with UUID-backed targeting to remain compatible with nick plugins (Dantizzle)
+- **Debug force start**: `/matchbox debugstart <session>` lets admins start a game with fewer than the configured minimum players (still enforces spawn/seat validity)
+
+### Fixed
+- **Steve skin override**: `cosmetics.use-steve-skins` now reapplies Steve skins for gameplay while restoring players’ original skins during discussion (no more partial overrides), currently falls back to Alex skin; will be fixed in the next update (Dantizzle)
+- **Location listing clarity**: `/matchbox listspawns` and `/matchbox listseatspawns` now display all configured entries and mark any with missing/not-loaded worlds instead of reporting none exist
+
 
 ## [0.9.1] - (Config and QOL update)
 

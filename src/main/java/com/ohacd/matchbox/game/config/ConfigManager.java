@@ -432,25 +432,44 @@ public class ConfigManager {
      */
     public List<String> getSeatLocationsDisplay() {
         List<String> display = new ArrayList<>();
-        Map<Integer, Location> seatLocations = loadSeatLocations();
+        org.bukkit.configuration.ConfigurationSection seatSection = config.getConfigurationSection("discussion.seat-locations");
         
-        if (seatLocations.isEmpty()) {
+        if (seatSection == null || seatSection.getKeys(false).isEmpty()) {
             display.add("§7No seat locations configured.");
             return display;
         }
         
         display.add("§6Seat Locations:");
-        List<Integer> sortedSeats = new ArrayList<>(seatLocations.keySet());
-        sortedSeats.sort(Integer::compareTo);
-        
-        for (Integer seatNum : sortedSeats) {
-            Location loc = seatLocations.get(seatNum);
-            if (loc != null) {
-                display.add(String.format("§7  Seat %d: §e%s §7(%.1f, %.1f, %.1f)", 
-                    seatNum, 
-                    loc.getWorld() != null ? loc.getWorld().getName() : "unknown",
-                    loc.getX(), loc.getY(), loc.getZ()));
+        List<String> seatKeys = new ArrayList<>(seatSection.getKeys(false));
+        seatKeys.sort((a, b) -> {
+            try {
+                return Integer.compare(Integer.parseInt(a), Integer.parseInt(b));
+            } catch (NumberFormatException e) {
+                return a.compareTo(b);
             }
+        });
+        
+        for (String key : seatKeys) {
+            org.bukkit.configuration.ConfigurationSection locSection = seatSection.getConfigurationSection(key);
+            if (locSection == null) {
+                display.add("§7  Seat " + key + ": §cInvalid configuration (missing location section)");
+                continue;
+            }
+            
+            String worldName = locSection.getString("world");
+            boolean worldMissing = (worldName == null || worldName.isEmpty());
+            boolean worldLoaded = !worldMissing && Bukkit.getWorld(worldName) != null;
+            
+            double x = locSection.getDouble("x", 0.0);
+            double y = locSection.getDouble("y", 64.0);
+            double z = locSection.getDouble("z", 0.0);
+            
+            String status = worldMissing ? " §c(missing world)" : (!worldLoaded ? " §e(world not loaded)" : "");
+            display.add(String.format("§7  Seat %s: §e%s §7(%.1f, %.1f, %.1f)%s",
+                    key,
+                    worldName != null ? worldName : "unknown",
+                    x, y, z,
+                    status));
         }
         
         return display;
@@ -461,22 +480,37 @@ public class ConfigManager {
      */
     public List<String> getSpawnLocationsDisplay() {
         List<String> display = new ArrayList<>();
-        List<Location> spawnLocations = loadSpawnLocations();
+        List<?> rawList = config.getList("session.spawn-locations");
         
-        if (spawnLocations.isEmpty()) {
+        if (rawList == null || rawList.isEmpty()) {
             display.add("§7No spawn locations configured.");
             return display;
         }
         
         display.add("§6Spawn Locations:");
-        for (int i = 0; i < spawnLocations.size(); i++) {
-            Location loc = spawnLocations.get(i);
-            if (loc != null) {
-                display.add(String.format("§7  #%d: §e%s §7(%.1f, %.1f, %.1f)", 
-                    i + 1,
-                    loc.getWorld() != null ? loc.getWorld().getName() : "unknown",
-                    loc.getX(), loc.getY(), loc.getZ()));
+        for (int i = 0; i < rawList.size(); i++) {
+            Object obj = rawList.get(i);
+            if (!(obj instanceof Map)) {
+                display.add("§7  #" + (i + 1) + ": §cInvalid entry (not a location map)");
+                continue;
             }
+            
+            @SuppressWarnings("unchecked")
+            Map<String, Object> locMap = (Map<String, Object>) obj;
+            String worldName = (String) locMap.get("world");
+            boolean worldMissing = (worldName == null || worldName.isEmpty());
+            boolean worldLoaded = !worldMissing && Bukkit.getWorld(worldName) != null;
+            
+            double x = getDoubleValue(locMap.get("x"), 0.0);
+            double y = getDoubleValue(locMap.get("y"), 64.0);
+            double z = getDoubleValue(locMap.get("z"), 0.0);
+            
+            String status = worldMissing ? " §c(missing world)" : (!worldLoaded ? " §e(world not loaded)" : "");
+            display.add(String.format("§7  #%d: §e%s §7(%.1f, %.1f, %.1f)%s",
+                    i + 1,
+                    worldName != null ? worldName : "unknown",
+                    x, y, z,
+                    status));
         }
         
         return display;

@@ -20,6 +20,7 @@ import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.MessageUtils;
 import com.ohacd.matchbox.game.utils.ParticleUtils;
 import com.ohacd.matchbox.game.utils.PlayerBackup;
+import com.ohacd.matchbox.game.utils.PlayerNameUtils;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
 import com.ohacd.matchbox.game.utils.Managers.NameTagManager;
@@ -29,12 +30,14 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.plugin.Plugin;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
-import static org.bukkit.Bukkit.getLogger;
 import static org.bukkit.Bukkit.getPlayer;
 
 /**
@@ -761,7 +764,7 @@ public class GameManager {
                 plugin.getLogger().info("Player " + curedPlayer.getName() + " has been cured this round and will not be eliminated.");
             }
         }
-            Player eliminatedPlayer = null; // Bad practice but remember to add the relative defensive checks
+        List<Player> eliminatedPlayers = new ArrayList<>();
         for (UUID victimId : allPendingDeaths) {
             if (victimId == null) continue;
 
@@ -770,9 +773,9 @@ public class GameManager {
                 continue;
             }
             Player victim = getPlayer(victimId);
-            eliminatedPlayer = victim;
             if (victim != null && victim.isOnline()) {
                 try {
+                    eliminatedPlayers.add(victim);
                     eliminatePlayer(sessionName, victim); // ensure this removes them from alive and cleans state
                 } catch (Exception e) {
                     plugin.getLogger().warning("Error eliminating player " + victim.getName() + ": " + e.getMessage());
@@ -787,14 +790,6 @@ public class GameManager {
             }
             // Ensure pending death is removed
             gameState.removePendingDeath(victimId);
-        }
-
-        // Notifies players about who has been Eliminated this round
-        for (UUID player : gameState.getAlivePlayerIds()) {
-            if (eliminatedPlayer == null) continue;
-            Player target = getPlayer(player);
-            if (target == null) getLogger().info("Faild to get target players; couldn't broadcast the player death");
-            messageUtils.sendTitle(target, eliminatedPlayer.getName(), "Has been eliminated", 10, 40, 10);
         }
 
         // Ensure nametags are visible during discussion
@@ -819,6 +814,11 @@ public class GameManager {
             skinManager.restoreOriginalSkinsForDiscussion(alivePlayersForDiscussion);
         }
 
+        // Notify players about eliminated participants and hold them in place before teleport
+        if (!alivePlayersForDiscussion.isEmpty()) {
+            notifyEliminationsBeforeDiscussion(alivePlayersForDiscussion, eliminatedPlayers, 10);
+        }
+
         // Clear infected flags for the round
         gameState.clearInfectedThisRound();
 
@@ -841,51 +841,144 @@ public class GameManager {
         }
 
         // Get seat locations from session if available
-        Map<Integer, Location> seatLocations = null;
+        final Map<Integer, Location> seatLocations = fetchSeatLocations(sessionName);
+        final Location discussionLocation = context.getCurrentDiscussionLocation();
+        final int discussionDuration = configManager.getDiscussionDuration();
+
+        // Delay teleportation and discussion start to give players time to read the elimination title
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            clearPreDiscussionEffects(alivePlayersForDiscussion);
+            teleportPlayersToDiscussion(alivePlayersForDiscussion, seatLocations, discussionLocation, sessionName);
+            // Start the discussion timer and supply callback to endDiscussionPhase
+            discussionPhaseHandler.startDiscussionPhase(sessionName, discussionDuration, gameState.getAlivePlayerIds(), () -> endDiscussionPhase(sessionName), seatLocations);
+        }, 20L * 10); // 10-second delay before teleporting to discussion
+    }
+
+    private Map<Integer, Location> fetchSeatLocations(String sessionName) {
         try {
             Matchbox matchboxPlugin = (Matchbox) plugin;
             SessionManager sessionManager = matchboxPlugin.getSessionManager();
             if (sessionManager != null) {
                 GameSession session = sessionManager.getSession(sessionName);
-                if (session != null) {
-                    seatLocations = session.getSeatLocations();
+                if (session != null && session.getSeatLocations() != null) {
+                    return session.getSeatLocations();
                 }
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to get seat locations: " + e.getMessage());
         }
+        return Collections.emptyMap();
+    }
 
-        // Teleport alive players to discussion location (fallback if no seat locations)
-        // If seat locations exist, DiscussionPhaseHandler will teleport players to seats
-        // If no seat locations, use the discussion location as fallback
-        Location discussionLocation = context.getCurrentDiscussionLocation();
-        if (seatLocations == null || seatLocations.isEmpty()) {
-            // No seat locations - use discussion location as fallback
-            if (discussionLocation != null && discussionLocation.getWorld() != null) {
-                if (alivePlayerIds != null) {
-                    for (UUID playerId : alivePlayerIds) {
-                        if (playerId == null) continue;
-                        Player player = getPlayer(playerId);
-                        if (player != null && player.isOnline()) {
-                            try {
-                                player.teleport(discussionLocation);
-                            } catch (Exception e) {
-                                plugin.getLogger().warning("Failed to teleport player " + player.getName() + " to discussion: " + e.getMessage());
-                            }
-                        }
-                    }
+    /**
+     * Sends a title about eliminated players, applies blindness/slowness, and holds players for the given delay.
+     */
+    private void notifyEliminationsBeforeDiscussion(Collection<Player> alivePlayers, List<Player> eliminatedPlayers, int delaySeconds) {
+        if (alivePlayers == null || alivePlayers.isEmpty() || delaySeconds <= 0) {
+            return;
+        }
+
+        applyPreDiscussionEffects(alivePlayers, delaySeconds);
+
+        String subtitle = "Teleporting in " + delaySeconds + "s";
+        if (eliminatedPlayers == null || eliminatedPlayers.isEmpty()) {
+            messageUtils.sendTitle(alivePlayers, "§6Discussion Incoming", "§7" + subtitle, 10, delaySeconds * 20, 10);
+            return;
+        }
+
+        String eliminatedNames = eliminatedPlayers.stream()
+            .filter(Objects::nonNull)
+            .map(PlayerNameUtils::displayName)
+            .collect(Collectors.joining(", "));
+
+        if (eliminatedNames.isEmpty()) {
+            messageUtils.sendTitle(alivePlayers, "§6Discussion Incoming", "§7" + subtitle, 10, delaySeconds * 20, 10);
+            return;
+        }
+
+        String eliminationSubtitle = eliminatedPlayers.size() == 1 ? "has been eliminated" : "have been eliminated";
+        messageUtils.sendTitle(
+            alivePlayers,
+            eliminatedNames,
+            "§c" + eliminationSubtitle + " §8| §7" + subtitle,
+            10,
+            delaySeconds * 20,
+            10
+        );
+    }
+
+    /**
+     * Applies blindness and heavy slowness so players cannot move/see during the pre-discussion delay.
+     */
+    private void applyPreDiscussionEffects(Collection<Player> players, int durationSeconds) {
+        if (players == null || players.isEmpty()) {
+            return;
+        }
+
+        int durationTicks = Math.max(1, durationSeconds * 20 + 20); // small buffer to cover teleport tick
+        PotionEffect blindness = new PotionEffect(PotionEffectType.BLINDNESS, durationTicks, 1, false, false, false);
+        PotionEffect slowness = new PotionEffect(PotionEffectType.SLOWNESS, durationTicks, 6, false, false, false);
+
+        for (Player player : players) {
+            if (player != null && player.isOnline()) {
+                try {
+                    player.addPotionEffect(blindness);
+                    player.addPotionEffect(slowness);
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Failed to apply pre-discussion effects to " + player.getName() + ": " + e.getMessage());
                 }
-            } else {
-                plugin.getLogger().warning("Cannot teleport to discussion: no seat locations or discussion location set for session: " + sessionName);
             }
         }
-        // If seat locations exist, DiscussionPhaseHandler will handle teleportation
+    }
 
-        // Get discussion duration from config
-        int discussionDuration = configManager.getDiscussionDuration();
+    /**
+     * Clears the pre-discussion potion effects once players are teleported.
+     */
+    private void clearPreDiscussionEffects(Collection<Player> players) {
+        if (players == null || players.isEmpty()) {
+            return;
+        }
 
-        // Start the discussion timer and supply callback to endDiscussionPhase
-        discussionPhaseHandler.startDiscussionPhase(sessionName, discussionDuration, gameState.getAlivePlayerIds(), () -> endDiscussionPhase(sessionName), seatLocations);
+        for (Player player : players) {
+            if (player != null && player.isOnline()) {
+                try {
+                    player.removePotionEffect(PotionEffectType.BLINDNESS);
+                    player.removePotionEffect(PotionEffectType.SLOWNESS);
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Failed to clear pre-discussion effects for " + player.getName() + ": " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    /**
+     * Teleports players to the discussion area when seat locations are unavailable.
+     * If seat locations exist, DiscussionPhaseHandler will handle teleportation.
+     */
+    private void teleportPlayersToDiscussion(Collection<Player> players, Map<Integer, Location> seatLocations, Location discussionLocation, String sessionName) {
+        if (players == null || players.isEmpty()) {
+            return;
+        }
+
+        // Seat locations exist; DiscussionPhaseHandler will teleport them when the phase starts
+        if (seatLocations != null && !seatLocations.isEmpty()) {
+            return;
+        }
+
+        if (discussionLocation == null || discussionLocation.getWorld() == null) {
+            plugin.getLogger().warning("Cannot teleport to discussion: no seat locations or discussion location set for session: " + sessionName);
+            return;
+        }
+
+        for (Player player : players) {
+            if (player != null && player.isOnline()) {
+                try {
+                    player.teleport(discussionLocation);
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Failed to teleport player " + player.getName() + " to discussion: " + e.getMessage());
+                }
+            }
+        }
     }
 
     /**
@@ -1106,7 +1199,7 @@ public class GameManager {
             toEliminate = mostVoted;
             Player eliminated = getPlayer(toEliminate);
             if (eliminated != null) {
-                resultMessage = "§c" + eliminated.getName() + " was eliminated with " + maxVotes + " vote(s)!";
+                resultMessage = "§c" + PlayerNameUtils.displayName(eliminated) + " was eliminated with " + maxVotes + " vote(s)!";
             } else {
                 resultMessage = "§cA player was eliminated with " + maxVotes + " vote(s)!";
             }
@@ -1116,7 +1209,7 @@ public class GameManager {
             toEliminate = tied.get(0);
             Player eliminated = getPlayer(toEliminate);
             if (eliminated != null) {
-                resultMessage = "§cTie! " + eliminated.getName() + " was randomly eliminated with " + maxVotes + " vote(s)!";
+                resultMessage = "§cTie! " + PlayerNameUtils.displayName(eliminated) + " was randomly eliminated with " + maxVotes + " vote(s)!";
             } else {
                 resultMessage = "§cTie! A player was randomly eliminated with " + maxVotes + " vote(s)!";
             }

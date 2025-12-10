@@ -1,13 +1,17 @@
 package com.ohacd.matchbox.game.utils.Managers;
 
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
+import com.ohacd.matchbox.game.utils.PlayerNameUtils;
 import com.ohacd.matchbox.game.utils.Role;
 
 import java.util.*;
@@ -31,6 +35,8 @@ public class InventoryManager {
     private static final int ARROW_HOTBAR_SLOT = 8; // Hotbar slot 8 (rightmost)
     private static final int VOTING_PAPER_START_SLOT = 0; // First slot for voting papers
     private static final int VOTING_PAPER_END_SLOT = 6; // Last slot before crossbow (slot 7)
+
+    private static NamespacedKey VOTE_TARGET_KEY;
     
     // Track players who have used their arrow this round
     private final Set<UUID> usedArrowThisRound = new HashSet<>();
@@ -43,6 +49,9 @@ public class InventoryManager {
             throw new IllegalArgumentException("Plugin cannot be null");
         }
         this.plugin = plugin;
+        if (VOTE_TARGET_KEY == null) {
+            VOTE_TARGET_KEY = new NamespacedKey(plugin, "vote-target");
+        }
     }
     
     /**
@@ -308,16 +317,21 @@ public class InventoryManager {
             return paper;
         }
         
-        meta.setDisplayName("§eVote: " + target.getName());
+        String displayName = PlayerNameUtils.displayName(target);
+        meta.setDisplayName("§eVote: " + displayName);
         List<String> lore = new ArrayList<>();
         lore.add("§7Right-click this paper to vote");
-        lore.add("§7for " + target.getName());
+        lore.add("§7for " + displayName);
         lore.add("§7during voting phase.");
         
         meta.setLore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         
         // Store target UUID in persistent data container for identification
+        PersistentDataContainer data = meta.getPersistentDataContainer();
+        if (VOTE_TARGET_KEY != null) {
+            data.set(VOTE_TARGET_KEY, PersistentDataType.STRING, target.getUniqueId().toString());
+        }
         paper.setItemMeta(meta);
         return makeUnmovable(paper);
     }
@@ -344,25 +358,55 @@ public class InventoryManager {
     }
     
     /**
-     * Gets the target player name from a voting paper.
+     * Gets the target player UUID from a voting paper.
+     * Falls back to display name parsing when no UUID is stored (legacy papers).
      */
-    public static String getVotingPaperTarget(ItemStack paper) {
+    public static UUID getVotingPaperTargetId(ItemStack paper) {
         if (paper == null || !isVotingPaper(paper)) {
             return null;
         }
-        
+
         ItemMeta meta = paper.getItemMeta();
         if (meta == null) {
             return null;
         }
-        
+
+        if (VOTE_TARGET_KEY != null) {
+            String rawId = meta.getPersistentDataContainer().get(VOTE_TARGET_KEY, PersistentDataType.STRING);
+            if (rawId != null) {
+                try {
+                    return UUID.fromString(rawId);
+                } catch (IllegalArgumentException ignored) {
+                    // fall back to display name parsing
+                }
+            }
+        }
+
+        // Legacy fallback: parse display name
         String displayName = meta.getDisplayName();
         if (displayName == null || !displayName.startsWith("§eVote: ")) {
             return null;
         }
-        
-        // Extract name from "§eVote: PlayerName"
-        return displayName.substring(8); // Remove "§eVote: "
+        // Not ideal, but allows legacy papers to continue to function when names are unique
+        return null;
+    }
+
+    /**
+     * Gets the target display text from a voting paper (for UI/logging).
+     */
+    public static String getVotingPaperTargetDisplay(ItemStack paper) {
+        if (paper == null || !isVotingPaper(paper)) {
+            return null;
+        }
+        ItemMeta meta = paper.getItemMeta();
+        if (meta == null) {
+            return null;
+        }
+        String displayName = meta.getDisplayName();
+        if (displayName == null || !displayName.startsWith("§eVote: ")) {
+            return null;
+        }
+        return displayName.substring(8);
     }
     
     /**
@@ -709,6 +753,15 @@ public class InventoryManager {
         
         dyeMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         dyeMeta.setUnbreakable(true);
+        // Preserve persistent data such as vote target UUID
+        PersistentDataContainer source = paperMeta.getPersistentDataContainer();
+        PersistentDataContainer target = dyeMeta.getPersistentDataContainer();
+        if (VOTE_TARGET_KEY != null) {
+            String rawId = source.get(VOTE_TARGET_KEY, PersistentDataType.STRING);
+            if (rawId != null) {
+                target.set(VOTE_TARGET_KEY, PersistentDataType.STRING, rawId);
+            }
+        }
         grayDye.setItemMeta(dyeMeta);
         
         return grayDye;

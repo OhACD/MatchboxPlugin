@@ -38,6 +38,7 @@ A 7-player social deduction game for Minecraft with recording-proof mechanics.
 - `/matchbox clearspawns` - Clear all spawn locations (requires confirmation)
 - `/matchbox clearseats` - Clear all seat locations (requires confirmation)
 - `/matchbox begin <session>` - Start the game
+- `/matchbox debugstart <session>` - Force-start a game with debug override (allows starting with fewer than the configured minimum players; still enforces spawn/seat validity)
 - `/matchbox stop <session>` - Stop and remove a session
 - `/matchbox skip` - Skip current phase
 - `/matchbox debug` - Show debug info
@@ -66,6 +67,7 @@ All settings in `plugins/Matchbox/config.yml` (auto-created on first run).
 - Stand at seat → `/matchbox setseat <number>`
 - Locations automatically saved to config and persist across sessions
 - Use `/matchbox listspawns` or `/matchbox listseatspawns` to view configured locations
+  - These commands also flag entries whose worlds are missing or not loaded so you can fix them quickly
 - Use `/matchbox clearspawns` or `/matchbox clearseats` to reset (requires confirmation)
 
 **Config File**
@@ -144,6 +146,7 @@ discussion:
 - Damage protection during games
 - Block interaction protection during games
 - Skin system with phase-based restoration
+- Nickname-friendly UI (titles, voting papers, holograms use player display names)
 - Welcome message system for new players
 
 ---
@@ -157,7 +160,7 @@ Players will also see a welcome message when joining the server with information
 
 ---
 
-**Version**: 0.9.1  
+**Version**: 0.9.2  
 **Minecraft API**: 1.21.10  
 **License**: MIT  
 **Developer**: OhACD

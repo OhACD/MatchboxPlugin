@@ -4,7 +4,9 @@ import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
+import com.ohacd.matchbox.game.utils.PlayerNameUtils;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -13,6 +15,8 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.UUID;
 
 /**
  * Handles voting by right-clicking on players or right-clicking when holding voting paper.
@@ -54,11 +58,12 @@ public class VoteItemListener implements Listener {
             return;
         }
 
-        // Get target player name from paper
-        String targetName = InventoryManager.getVotingPaperTarget(heldItem);
-        if (targetName == null || !targetName.equals(target.getName())) {
-            // Paper doesn't match the clicked player - ignore
-            return;
+        UUID targetId = InventoryManager.getVotingPaperTargetId(heldItem);
+        String targetDisplay = InventoryManager.getVotingPaperTargetDisplay(heldItem);
+        boolean matchesUuid = targetId != null && targetId.equals(target.getUniqueId());
+        boolean matchesDisplay = targetDisplay != null && targetDisplay.equals(PlayerNameUtils.displayName(target));
+        if (!matchesUuid && !matchesDisplay) {
+            return; // Paper doesn't match clicked player
         }
 
         // Check if voter is alive
@@ -116,14 +121,18 @@ public class VoteItemListener implements Listener {
             return;
         }
         
-        // Get target player name from paper
-        String targetName = InventoryManager.getVotingPaperTarget(heldItem);
-        if (targetName == null) {
-            return;
+        UUID targetId = InventoryManager.getVotingPaperTargetId(heldItem);
+        String targetDisplay = InventoryManager.getVotingPaperTargetDisplay(heldItem);
+        Player target = null;
+        if (targetId != null) {
+            target = Bukkit.getPlayer(targetId);
         }
-        
-        // Find target player
-        Player target = org.bukkit.Bukkit.getPlayer(targetName);
+        if (target == null && targetDisplay != null) {
+            target = Bukkit.getOnlinePlayers().stream()
+                .filter(p -> targetDisplay.equals(PlayerNameUtils.displayName(p)))
+                .findFirst()
+                .orElse(null);
+        }
         if (target == null || !target.isOnline()) {
             return;
         }
