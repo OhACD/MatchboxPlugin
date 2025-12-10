@@ -4,12 +4,16 @@ import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
+import com.ohacd.matchbox.game.utils.PlayerNameUtils;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.UUID;
 
 /**
  * Handles voting by right-clicking voting papers during the voting phase.
@@ -57,14 +61,19 @@ public class VotePaperListener implements Listener {
             return;
         }
         
-        // Get target player name from paper
-        String targetName = InventoryManager.getVotingPaperTarget(clicked);
-        if (targetName == null) {
-            return;
+        UUID targetId = InventoryManager.getVotingPaperTargetId(clicked);
+        String targetDisplay = InventoryManager.getVotingPaperTargetDisplay(clicked);
+
+        Player target = null;
+        if (targetId != null) {
+            target = Bukkit.getPlayer(targetId);
         }
-        
-        // Find target player
-        Player target = org.bukkit.Bukkit.getPlayer(targetName);
+        if (target == null && targetDisplay != null) {
+            target = Bukkit.getOnlinePlayers().stream()
+                .filter(p -> targetDisplay.equals(PlayerNameUtils.displayName(p)))
+                .findFirst()
+                .orElse(null);
+        }
         if (target == null || !target.isOnline()) {
             return;
         }

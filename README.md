@@ -144,6 +144,7 @@ discussion:
 - Damage protection during games
 - Block interaction protection during games
 - Skin system with phase-based restoration
+- Nickname-friendly UI (titles, voting papers, holograms use player display names)
 - Welcome message system for new players
 
 ---
@@ -157,7 +158,7 @@ Players will also see a welcome message when joining the server with information
 
 ---
 
-**Version**: 0.9.1  
+**Version**: 0.9.2  
 **Minecraft API**: 1.21.10  
 **License**: MIT  
 **Developer**: OhACD

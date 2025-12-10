@@ -50,6 +50,7 @@ public class SkinManager {
         .build();
     private static final Duration PROFILE_TIMEOUT = Duration.ofSeconds(5);
     private static final Pattern PROFILE_ID_PATTERN = Pattern.compile("\"id\"\\s*:\\s*\"([0-9a-fA-F]{32})\"");
+    private static final SkinData DEFAULT_STEVE = new SkinData("", "");
 
     private final Plugin plugin;
     private final List<SkinData> cachedSkins = new CopyOnWriteArrayList<>();
@@ -118,22 +119,11 @@ public class SkinManager {
         if (!originalSkins.containsKey(playerId)) {
             captureCurrentSkin(player).ifPresent(skin -> originalSkins.put(playerId, skin));
         }
-        // Create a profile with no texture properties (default Steve skin)
-        try {
-            PlayerProfile profile = Bukkit.createProfile(player.getUniqueId(), player.getName());
-            if (profile == null) {
-                plugin.getLogger().warning("[SkinManager] Failed to create profile for " + player.getName());
-                return;
-            }
-            // Clear all properties to get default Steve skin
-            profile.getProperties().clear();
-            player.setPlayerProfile(profile);
-            // Store empty skin data as assigned skin
-            assignedSkins.put(playerId, new SkinData("", ""));
-            refreshAppearance(player);
-        } catch (Exception e) {
-            plugin.getLogger().warning("[SkinManager] Failed to apply Steve skin to " + player.getName() + ": " + e.getMessage());
-        }
+        // Store empty skin data as assigned skin so we can restore it after discussion
+        assignedSkins.put(playerId, DEFAULT_STEVE);
+        // Apply the default skin (no texture properties) via shared setter
+        setSkin(player, DEFAULT_STEVE);
+        refreshAppearance(player);
     }
 
     /**
@@ -254,8 +244,8 @@ public class SkinManager {
 
     private void setSkin(Player player, SkinData skinData) {
         try {
-            if (skinData == null || skinData.value() == null || skinData.value().isEmpty()) {
-                plugin.getLogger().warning("[SkinManager] Cannot apply invalid skin data to " + player.getName());
+            if (skinData == null) {
+                plugin.getLogger().warning("[SkinManager] Cannot apply null skin data to " + player.getName());
                 return;
             }
             PlayerProfile profile = Bukkit.createProfile(player.getUniqueId(), player.getName());
@@ -265,8 +255,11 @@ public class SkinManager {
             }
             Collection<ProfileProperty> properties = profile.getProperties();
             properties.clear();
-            String signature = skinData.signature() != null ? skinData.signature() : "";
-            profile.setProperty(new ProfileProperty("textures", skinData.value(), signature));
+            // If value is blank, we intentionally leave properties empty to force the default Steve skin
+            if (skinData.value() != null && !skinData.value().isBlank()) {
+                String signature = skinData.signature() != null ? skinData.signature() : "";
+                profile.setProperty(new ProfileProperty("textures", skinData.value(), signature));
+            }
             player.setPlayerProfile(profile);
         } catch (Exception e) {
             plugin.getLogger().warning("[SkinManager] Failed to apply skin to " + player.getName() + " (offline mode?): " + e.getMessage());

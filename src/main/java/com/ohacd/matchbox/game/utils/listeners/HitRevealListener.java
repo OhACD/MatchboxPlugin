@@ -71,7 +71,7 @@ public class HitRevealListener implements Listener {
         inventoryManager.markArrowUsed(shooter.getUniqueId());
         
         // Reveal player identity for 10 seconds (200 ticks)
-        hologramManager.showTextAbove(target, target.getName(), 200);
+        hologramManager.showTextAbove(target, com.ohacd.matchbox.game.utils.PlayerNameUtils.displayName(target), 200);
         
         // Remove arrow from inventory (they used it)
         shooter.getInventory().setItem(InventoryManager.getArrowHotbarSlot(), null);

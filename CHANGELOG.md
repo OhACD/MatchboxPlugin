@@ -9,9 +9,14 @@ All notable changes to the Matchbox plugin will be documented in this file.
 - **Cleaner version handling/project status handling**: Project status and versioning are now handled dynamically
     - The player will get notified if a newer version is available for the plugin
     - Under the hood cleanup for dynamic project status display and project versioning/version checking
-- **Broadcast eliminated player**: Eliminated players get broadcasted to alive players on discussion phase start
-    - Added a long overdue feature where players used to get eliminated silently
-    - Eliminated players now get broadcasted to alive players on discussion phase start
+- **Pre-discussion elimination notice**: Eliminations are now announced as titles 10 seconds before teleporting to discussion
+    - Uses the MessageUtils title pipeline, matching other UI
+    - Applies blindness and heavy slowness during the 10s hold, cleared on teleport
+    - Works alongside seat teleports and discussion timers
+- **Nickname support**: Voting papers, elimination titles, and hologram reveals now use display names with UUID-backed targeting to remain compatible with nick plugins
+
+### Fixed
+- **Steve skin override**: `cosmetics.use-steve-skins` now reapplies Steve skins for gameplay while restoring players’ original skins during discussion (no more partial overrides)
 
 ## [0.9.1] - (Config and QOL update)
 
