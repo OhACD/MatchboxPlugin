@@ -4,6 +4,7 @@ import com.ohacd.matchbox.Matchbox;
 import com.ohacd.matchbox.game.ability.FallbackHunterVisionAdapter;
 import com.ohacd.matchbox.game.ability.HunterVisionAdapter;
 import com.ohacd.matchbox.game.ability.ProtocolLibHunterVisionAdapter;
+import com.ohacd.matchbox.game.ability.SparkSecondaryAbility;
 import com.ohacd.matchbox.game.action.PlayerActionHandler;
 import com.ohacd.matchbox.game.config.ConfigManager;
 import com.ohacd.matchbox.game.cosmetic.SkinManager;
@@ -37,6 +38,7 @@ import org.bukkit.plugin.Plugin;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.bukkit.Bukkit.getPlayer;
 
@@ -423,6 +425,8 @@ public class GameManager {
         // Setup inventories for all players with their roles (give papers now)
         Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
         if (alivePlayers != null && !alivePlayers.isEmpty()) {
+            SparkSecondaryAbility sparkAbility = selectSparkSecondaryAbility(gameState);
+
             // Announce phase start only to players in this session
             for (Player p : alivePlayers) {
                 if (p != null && p.isOnline()) {
@@ -437,7 +441,7 @@ public class GameManager {
                     roleMap.put(playerId, role);
                 }
             }
-            inventoryManager.setupInventories(alivePlayers, roleMap);
+            inventoryManager.setupInventories(alivePlayers, roleMap, sparkAbility);
         }
 
         // Hide the name tag for all alive players on phase start
@@ -1763,5 +1767,21 @@ public class GameManager {
 
     public ConfigManager getConfigManager() {
         return configManager;
+    }
+
+    private SparkSecondaryAbility selectSparkSecondaryAbility(GameState gameState) {
+        if (gameState == null) {
+            return SparkSecondaryAbility.HUNTER_VISION;
+        }
+        UUID sparkId = gameState.getSparkUUID();
+        if (sparkId == null) {
+            gameState.setSparkSecondaryAbility(SparkSecondaryAbility.HUNTER_VISION);
+            return SparkSecondaryAbility.HUNTER_VISION;
+        }
+        SparkSecondaryAbility choice = ThreadLocalRandom.current().nextBoolean()
+                ? SparkSecondaryAbility.HUNTER_VISION
+                : SparkSecondaryAbility.SPARK_SWAP;
+        gameState.setSparkSecondaryAbility(choice);
+        return choice;
     }
 }

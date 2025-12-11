@@ -2,6 +2,17 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
+## [0.9.3] - Spark Swap Rotation
+
+### Added
+- Spark now rolls a secondary ability each round: Hunter Vision _or_ Spark Swap, alongside Swipe.
+- Spark Swap now occupies the Hunter Vision slot (slot 28) when selected and teleports with preloaded chunks and preserved velocity.
+
+### Changed
+- Ability system routing remains unified; Spark inventories are rebuilt each swipe phase with the chosen secondary.
+
+---
+
 ## [0.9.2] - Latest Release (It's all about the base)
 
 This is a quick patch that focuses on cleanup/QOL features and insuring everything works as intended.

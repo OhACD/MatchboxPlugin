@@ -124,7 +124,7 @@ discussion:
 **Spark (Impostor)**
 - Eliminate all players without being caught
 - Infect one player per round
-- Use Hunter Vision once per round
+ - Each round, you roll one secondary ability: Hunter Vision **or** Spark Swap (teleport swap)
 
 **Medic**
 - Identify Spark and save infected players
@@ -160,7 +160,7 @@ Players will also see a welcome message when joining the server with information
 
 ---
 
-**Version**: 0.9.2  
+**Version**: 0.9.3  
 **Minecraft API**: 1.21.10  
 **License**: MIT  
 **Developer**: OhACD
