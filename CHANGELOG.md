@@ -2,7 +2,7 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
-## [0.9.3] - Latest Release (The little quirks of life)
+## [0.9.3] - Latest Release (It's the little quirks in life)
 
 ### Added
 - **Spark Secondary Ability System**: Spark now rolls a secondary ability each round
