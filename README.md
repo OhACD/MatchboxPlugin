@@ -145,7 +145,7 @@ discussion:
 **Spark (Impostor)**
 - Eliminate all players without being caught
 - Infect one player per round
- - Each round, you roll one secondary ability: Hunter Vision **or** Spark Swap (teleport swap)
+ - Each round, you roll one secondary ability: Hunter Vision **or** Spark Swap (invisible teleport swap that preserves velocity and look direction)
 
 **Medic**
 - Identify Spark and save infected players

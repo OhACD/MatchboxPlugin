@@ -1,5 +1,8 @@
 package com.ohacd.matchbox.game.ability;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.events.PacketContainer;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.state.GameState;
 import com.ohacd.matchbox.game.utils.GamePhase;
@@ -15,9 +18,13 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
 
+import static org.bukkit.Bukkit.getLogger;
+
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -132,7 +139,7 @@ public class SparkSwapAbility implements AbilityHandler {
         CompletableFuture<Void> targetChunk = ensureChunkLoaded(targetLoc);
 
         CompletableFuture.allOf(sparkChunk, targetChunk).whenComplete((ignored, throwable) ->
-            Bukkit.getScheduler().runTask(plugin, () -> performSwap(spark, target, sparkLoc, targetLoc, sparkVelocity, targetVelocity))
+            Bukkit.getScheduler().runTask(plugin, () -> performSwap(spark, target, sparkLoc, targetLoc, sparkVelocity, targetVelocity, context))
         );
     }
 
@@ -172,30 +179,129 @@ public class SparkSwapAbility implements AbilityHandler {
         return future;
     }
 
-    private void performSwap(Player spark, Player target, Location sparkLoc, Location targetLoc, Vector sparkVelocity, Vector targetVelocity) {
-        if (spark == null || target == null || !spark.isOnline() || !target.isOnline()) {
-            return;
+    private void performSwap(Player spark, Player target, Location sparkLoc, Location targetLoc,
+            Vector sparkVelocity, Vector targetVelocity, SessionGameContext context) {
+
+        Set<UUID> alivePlayerIds = context.getGameState().getAlivePlayerIds();
+        if (alivePlayerIds == null || alivePlayerIds.isEmpty()) return;
+
+        List<Player> viewers = new ArrayList<>();
+
+        for (UUID uuid : alivePlayerIds) {
+            Player player = Bukkit.getPlayer(uuid);
+
+            if (player == null || !player.isOnline()) continue;
+
+            if (player.equals(spark) || player.equals(target)) continue;
+
+            if (player.canSee(spark) || player.canSee(target)) {
+                viewers.add(player);
+            }
         }
 
         try {
+            // Target and Spark destinations (swap)
             Location sparkDest = targetLoc.clone();
-            sparkDest.setYaw(spark.getLocation().getYaw());
-            sparkDest.setPitch(spark.getLocation().getPitch());
-
             Location targetDest = sparkLoc.clone();
-            targetDest.setYaw(target.getLocation().getYaw());
-            targetDest.setPitch(target.getLocation().getPitch());
 
+            // Hide both players from all viewers immediately
+            for (Player viewer : viewers) {
+                try {
+                    viewer.hidePlayer(plugin, spark);
+                } catch (Exception ignored) {}
+                try {
+                    viewer.hidePlayer(plugin, target);
+                } catch (Exception ignored) {}
+            }
+
+            // Teleport the players synchronously on main thread (same tick)
             spark.teleport(sparkDest);
             target.teleport(targetDest);
 
+            // Preserve velocities and rotations (use original saved rotations)
             spark.setVelocity(targetVelocity);
             target.setVelocity(sparkVelocity);
 
+            spark.setRotation(targetLoc.getYaw(), targetLoc.getPitch());
+            target.setRotation(sparkLoc.getYaw(), sparkLoc.getPitch());
+
             spark.setFallDistance(0f);
             target.setFallDistance(0f);
+
+            // Re-show players next tick to cause a fresh spawn on clients (no interpolation)
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                for (Player viewer : viewers) {
+                    try {
+                        viewer.showPlayer(plugin, spark);
+                    } catch (Exception ignored) {}
+                    try {
+                        viewer.showPlayer(plugin, target);
+                    } catch (Exception ignored) {}
+                }
+            });
+
         } catch (Exception ex) {
             plugin.getLogger().warning("Spark Swap failed: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Sends a spawn packet to the target and all viewers.
+     * NOTE: kept for backward-compatibility / future use but unused by current hide/show implementation.
+     * @param target
+     * @param viewers
+     */
+    @SuppressWarnings("unused")
+    private void sendSpawn(Player target, List<Player> viewers) {
+        PacketContainer spawn = ProtocolLibrary.getProtocolManager()
+                .createPacket(PacketType.Play.Server.SPAWN_ENTITY);
+
+        spawn.getUUIDs().write(0, target.getUniqueId());
+        spawn.getIntegers().write(0, target.getEntityId());
+
+        spawn.getDoubles().write(0, target.getLocation().getX());
+        spawn.getDoubles().write(1, target.getLocation().getY());
+        spawn.getDoubles().write(2, target.getLocation().getZ());
+
+        spawn.getBytes().write(0, (byte) (target.getLocation().getYaw() * 256F / 360F));
+        spawn.getBytes().write(1, (byte) (target.getLocation().getPitch() * 256F / 360F));
+
+        PacketContainer metadata = ProtocolLibrary.getProtocolManager()
+                .createPacket(PacketType.Play.Server.ENTITY_METADATA);
+
+        // WrappedDataWatcher 
+        // metadata.getIntegers().write(0, target.getEntityId());
+        // metadata.getWatchableCollectionModifier().write(0, WrappedDataWatcher.getEntityWatcher(target).getWatchableObjects());
+
+        for (Player viewer : viewers) {
+            try {
+                ProtocolLibrary.getProtocolManager().sendServerPacket(viewer, spawn);
+                ProtocolLibrary.getProtocolManager().sendServerPacket(viewer, metadata);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Sends a destroy packet to the target and all viewers.
+     * NOTE: kept for backward-compatibility / future use but unused by current hide/show implementation.
+     * @param target
+     * @param viewers
+     */
+    @SuppressWarnings("unused")
+    private void sendDestroy(Player target, List<Player> viewers) {
+        PacketContainer destroy = ProtocolLibrary.getProtocolManager()
+                .createPacket(PacketType.Play.Server.ENTITY_DESTROY);
+
+        destroy.getIntLists().write(0, Collections.singletonList(target.getEntityId()));
+
+        for (Player viewer : viewers) {
+            try {
+                ProtocolLibrary.getProtocolManager().sendServerPacket(viewer, destroy);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -208,4 +314,3 @@ public class SparkSwapAbility implements AbilityHandler {
         spark.updateInventory();
     }
 }
-

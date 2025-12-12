@@ -8,7 +8,7 @@ All notable changes to the Matchbox plugin will be documented in this file.
 - **Spark Secondary Ability System**: Spark now rolls a secondary ability each round
   - Hunter Vision _or_ Spark Swap, alongside Swipe
   - Spark Swap occupies the Hunter Vision slot (slot 28) when selected
-  - Spark Swap teleports with preloaded chunks and preserved velocity (Designed to be invisible)
+  - Spark Swap teleports with preloaded chunks, preserved velocity, and preserved look direction (designed to be invisible)
 - **Dynamic Voting Threshold System**: Voting thresholds now scale dynamically based on alive player count
   - Logarithmic scaling between key points: 20 players (20%), 7 players (30%), 3 players and below (50%)
   - Works for 2-20 players with smooth threshold transitions
