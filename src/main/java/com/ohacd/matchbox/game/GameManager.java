@@ -797,26 +797,16 @@ public class GameManager {
             gameState.removePendingDeath(victimId);
         }
 
-        // Ensure nametags are visible during discussion
+        // Collect alive players for discussion (no nametag/skin changes here)
         Collection<Player> alivePlayersForDiscussion = new ArrayList<>();
         if (alivePlayerIds != null) {
             for (UUID playerId : alivePlayerIds) {
                 if (playerId == null) continue;
                 Player player = getPlayer(playerId);
                 if (player != null && player.isOnline()) {
-                    try {
-                        NameTagManager.showNameTag(player);
-                        alivePlayersForDiscussion.add(player);
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("Failed to show nametag for " + player.getName() + ": " + e.getMessage());
-                    }
+                    alivePlayersForDiscussion.add(player);
                 }
             }
-        }
-
-        // Restore original skins during discussion
-        if (!alivePlayersForDiscussion.isEmpty()) {
-            skinManager.restoreOriginalSkinsForDiscussion(alivePlayersForDiscussion);
         }
 
         // Notify players about eliminated participants and hold them in place before teleport
@@ -1015,11 +1005,6 @@ public class GameManager {
             }
         }
 
-        // Restore assigned skins after discussion ends
-        if (sessionPlayers != null && !sessionPlayers.isEmpty()) {
-            skinManager.restoreAssignedSkinsAfterDiscussion(sessionPlayers);
-        }
-
         // Clear any previous votes
         voteManager.clearVotes();
 
@@ -1057,19 +1042,6 @@ public class GameManager {
                     }
                     // Give ONLY voting papers
                     inventoryManager.giveVotingPapers(player, alivePlayers);
-                }
-            }
-        }
-
-        // Ensure nametags stay visible during voting
-        if (alivePlayers != null) {
-            for (Player player : alivePlayers) {
-                if (player != null && player.isOnline()) {
-                    try {
-                        NameTagManager.showNameTag(player);
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("Failed to show nametag for " + player.getName() + ": " + e.getMessage());
-                    }
                 }
             }
         }

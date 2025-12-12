@@ -125,7 +125,7 @@ discussion:
 - Teleported to discussion seats
 - Infected players die (if not cured)
 - Discuss and share observations
-- Skins return to normal
+- Game skins stay applied; nametags remain hidden
 
 **3. Voting Phase (15s)**
 - Right-click or left-click voting papers in your inventory to vote

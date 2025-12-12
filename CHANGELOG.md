@@ -42,6 +42,9 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - Added information that players can choose to not vote
   - Added threshold requirement display in title subtitle
   - Added explanation that no elimination occurs if threshold isn't met
+- **Phase Visuals**: Skins are no longer reset to original during discussion/voting, and nametags remain hidden in those phases
+  - Players keep their assigned game skins across phases until swipe starts again
+  - Nametags stay hidden during discussion and voting (revealed only on elimination)
 - **Vote Resolution**: Voting now requires meeting the dynamic threshold instead of simple majority
   - Players see clear feedback when threshold isn't met
   - System tracks consecutive no-elimination phases for penalty calculation
