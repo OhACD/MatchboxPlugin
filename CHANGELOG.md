@@ -12,7 +12,7 @@ All notable changes to the Matchbox plugin will be documented in this file.
 - **Dynamic Voting Threshold System**: Voting thresholds now scale dynamically based on alive player count
   - Logarithmic scaling between key points: 20 players (20%), 7 players (30%), 3 players and below (50%)
   - Works for 2-20 players with smooth threshold transitions
-  - Threshold display shown during voting phase: "Threshold: X/Y" (required votes / alive players)
+  - Threshold display shown during voting phase: "Threshold: X/Y" (required votes / alive players) (Dantizzle)
 - **Voting Penalty System**: Penalty applied when voting phases end without elimination
   - Each phase without elimination reduces the threshold by ~3.33% (configurable)
   - Maximum penalty of 10% after 3 consecutive no-elimination phases
@@ -48,6 +48,9 @@ All notable changes to the Matchbox plugin will be documented in this file.
 - **Vote Resolution**: Voting now requires meeting the dynamic threshold instead of simple majority
   - Players see clear feedback when threshold isn't met
   - System tracks consecutive no-elimination phases for penalty calculation
+  
+### Fixed
+- **Steve skin override**: `cosmetics.use-steve-skins` now correctly applies Steve skins to players (Dantizzle)
 
 ---
 
