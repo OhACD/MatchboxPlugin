@@ -4,6 +4,7 @@ import com.ohacd.matchbox.Matchbox;
 import com.ohacd.matchbox.game.ability.FallbackHunterVisionAdapter;
 import com.ohacd.matchbox.game.ability.HunterVisionAdapter;
 import com.ohacd.matchbox.game.ability.ProtocolLibHunterVisionAdapter;
+import com.ohacd.matchbox.game.ability.SparkSecondaryAbility;
 import com.ohacd.matchbox.game.action.PlayerActionHandler;
 import com.ohacd.matchbox.game.config.ConfigManager;
 import com.ohacd.matchbox.game.cosmetic.SkinManager;
@@ -24,6 +25,7 @@ import com.ohacd.matchbox.game.utils.PlayerNameUtils;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
 import com.ohacd.matchbox.game.utils.Managers.NameTagManager;
+import com.ohacd.matchbox.game.vote.DynamicVotingThreshold;
 import com.ohacd.matchbox.game.vote.VoteManager;
 import com.ohacd.matchbox.game.win.WinConditionChecker;
 import org.bukkit.Bukkit;
@@ -37,6 +39,7 @@ import org.bukkit.plugin.Plugin;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.bukkit.Bukkit.getPlayer;
 
@@ -423,6 +426,8 @@ public class GameManager {
         // Setup inventories for all players with their roles (give papers now)
         Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
         if (alivePlayers != null && !alivePlayers.isEmpty()) {
+            SparkSecondaryAbility sparkAbility = selectSparkSecondaryAbility(gameState);
+
             // Announce phase start only to players in this session
             for (Player p : alivePlayers) {
                 if (p != null && p.isOnline()) {
@@ -437,7 +442,7 @@ public class GameManager {
                     roleMap.put(playerId, role);
                 }
             }
-            inventoryManager.setupInventories(alivePlayers, roleMap);
+            inventoryManager.setupInventories(alivePlayers, roleMap, sparkAbility);
         }
 
         // Hide the name tag for all alive players on phase start
@@ -792,26 +797,16 @@ public class GameManager {
             gameState.removePendingDeath(victimId);
         }
 
-        // Ensure nametags are visible during discussion
+        // Collect alive players for discussion (no nametag/skin changes here)
         Collection<Player> alivePlayersForDiscussion = new ArrayList<>();
         if (alivePlayerIds != null) {
             for (UUID playerId : alivePlayerIds) {
                 if (playerId == null) continue;
                 Player player = getPlayer(playerId);
                 if (player != null && player.isOnline()) {
-                    try {
-                        NameTagManager.showNameTag(player);
-                        alivePlayersForDiscussion.add(player);
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("Failed to show nametag for " + player.getName() + ": " + e.getMessage());
-                    }
+                    alivePlayersForDiscussion.add(player);
                 }
             }
-        }
-
-        // Restore original skins during discussion
-        if (!alivePlayersForDiscussion.isEmpty()) {
-            skinManager.restoreOriginalSkinsForDiscussion(alivePlayersForDiscussion);
         }
 
         // Notify players about eliminated participants and hold them in place before teleport
@@ -1010,11 +1005,6 @@ public class GameManager {
             }
         }
 
-        // Restore assigned skins after discussion ends
-        if (sessionPlayers != null && !sessionPlayers.isEmpty()) {
-            skinManager.restoreAssignedSkinsAfterDiscussion(sessionPlayers);
-        }
-
         // Clear any previous votes
         voteManager.clearVotes();
 
@@ -1056,23 +1046,17 @@ public class GameManager {
             }
         }
 
-        // Ensure nametags stay visible during voting
-        if (alivePlayers != null) {
-            for (Player player : alivePlayers) {
-                if (player != null && player.isOnline()) {
-                    try {
-                        NameTagManager.showNameTag(player);
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("Failed to show nametag for " + player.getName() + ": " + e.getMessage());
-                    }
-                }
-            }
-        }
-
         // Get voting duration from config
         int votingDuration = configManager.getVotingDuration();
+        
+        // Calculate threshold information for display
+        int alivePlayerCount = gameState.getAlivePlayerCount();
+        int consecutiveNoEliminationPhases = context.getConsecutiveNoEliminationPhases();
+        DynamicVotingThreshold thresholdCalculator = new DynamicVotingThreshold(configManager);
+        int requiredVotes = thresholdCalculator.getRequiredVoteCount(alivePlayerCount, consecutiveNoEliminationPhases);
+        
         // Start the voting timer and supply callback to endVotingPhase
-        votingPhaseHandler.startVotingPhase(sessionName, votingDuration, gameState.getAlivePlayerIds(), () -> endVotingPhase(sessionName));
+        votingPhaseHandler.startVotingPhase(sessionName, votingDuration, gameState.getAlivePlayerIds(), () -> endVotingPhase(sessionName), requiredVotes, alivePlayerCount);
     }
 
     /**
@@ -1150,7 +1134,8 @@ public class GameManager {
 
     /**
      * Resolves votes and eliminates the most-voted player.
-     * Handles ties by random elimination.
+     * Uses dynamic thresholds based on alive player count and penalty system.
+     * Handles ties by checking if tie vote count meets threshold.
      */
     private void resolveVotes(String sessionName) {
         SessionGameContext context = getContext(sessionName);
@@ -1167,6 +1152,12 @@ public class GameManager {
             return;
         }
 
+        int alivePlayerCount = gameState.getAlivePlayerCount();
+        int consecutiveNoEliminationPhases = context.getConsecutiveNoEliminationPhases();
+        
+        // Initialize dynamic voting threshold calculator
+        DynamicVotingThreshold thresholdCalculator = new DynamicVotingThreshold(configManager);
+        
         UUID mostVoted = voteManager.getMostVotedPlayer();
         List<UUID> tied = voteManager.getTiedPlayers();
         int maxVotes = voteManager.getMaxVoteCount();
@@ -1178,7 +1169,8 @@ public class GameManager {
         Collection<Player> sessionPlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
 
         if (mostVoted == null && tied.isEmpty()) {
-            // No votes cast - skip elimination
+            // No votes cast - skip elimination and increment penalty
+            context.incrementNoEliminationPhases();
             if (sessionPlayers != null) {
                 for (Player p : sessionPlayers) {
                     if (p != null && p.isOnline()) {
@@ -1187,34 +1179,74 @@ public class GameManager {
                 }
             }
             plugin.getLogger().info("No votes cast this round for session " + sessionName + ". Total voters: " + voteManager.getVoters().size() +
-                ", Alive players: " + gameState.getAlivePlayerCount());
+                ", Alive players: " + alivePlayerCount + ", Consecutive no-elimination phases: " + consecutiveNoEliminationPhases);
             return;
         }
 
         UUID toEliminate = null;
         String resultMessage;
+        boolean eliminationOccurred = false;
 
+        // Check if we have a clear winner (no tie)
         if (mostVoted != null) {
-            // Clear winner
-            toEliminate = mostVoted;
-            Player eliminated = getPlayer(toEliminate);
-            if (eliminated != null) {
-                resultMessage = "§c" + PlayerNameUtils.displayName(eliminated) + " was eliminated with " + maxVotes + " vote(s)!";
+            // Check if the vote count meets the threshold
+            if (thresholdCalculator.meetsThreshold(maxVotes, alivePlayerCount, consecutiveNoEliminationPhases)) {
+                toEliminate = mostVoted;
+                eliminationOccurred = true;
+                Player eliminated = getPlayer(toEliminate);
+                if (eliminated != null) {
+                    resultMessage = "§c" + PlayerNameUtils.displayName(eliminated) + " was eliminated with " + maxVotes + " vote(s)!";
+                } else {
+                    resultMessage = "§cA player was eliminated with " + maxVotes + " vote(s)!";
+                }
             } else {
-                resultMessage = "§cA player was eliminated with " + maxVotes + " vote(s)!";
+                // Vote count doesn't meet threshold - no elimination
+                int requiredVotes = thresholdCalculator.getRequiredVoteCount(alivePlayerCount, consecutiveNoEliminationPhases);
+                context.incrementNoEliminationPhases();
+                if (sessionPlayers != null) {
+                    for (Player p : sessionPlayers) {
+                        if (p != null && p.isOnline()) {
+                            p.sendMessage("§eNot enough votes to eliminate. Required: " + requiredVotes + ", Got: " + maxVotes);
+                        }
+                    }
+                }
+                plugin.getLogger().info("Vote threshold not met for session " + sessionName + ". Required: " + requiredVotes + 
+                    ", Got: " + maxVotes + ", Alive players: " + alivePlayerCount + 
+                    ", Consecutive no-elimination phases: " + (consecutiveNoEliminationPhases + 1));
+                return;
             }
         } else if (!tied.isEmpty()) {
-            // Tie - randomly eliminate one of the tied players
-            Collections.shuffle(tied);
-            toEliminate = tied.get(0);
-            Player eliminated = getPlayer(toEliminate);
-            if (eliminated != null) {
-                resultMessage = "§cTie! " + PlayerNameUtils.displayName(eliminated) + " was randomly eliminated with " + maxVotes + " vote(s)!";
+            // Handle tie - check if tie vote count meets threshold
+            if (thresholdCalculator.meetsThreshold(maxVotes, alivePlayerCount, consecutiveNoEliminationPhases)) {
+                // Tie meets threshold - randomly eliminate one of the tied players
+                Collections.shuffle(tied);
+                toEliminate = tied.get(0);
+                eliminationOccurred = true;
+                Player eliminated = getPlayer(toEliminate);
+                if (eliminated != null) {
+                    resultMessage = "§cTie! " + PlayerNameUtils.displayName(eliminated) + " was randomly eliminated with " + maxVotes + " vote(s)!";
+                } else {
+                    resultMessage = "§cTie! A player was randomly eliminated with " + maxVotes + " vote(s)!";
+                }
             } else {
-                resultMessage = "§cTie! A player was randomly eliminated with " + maxVotes + " vote(s)!";
+                // Tie doesn't meet threshold - no elimination
+                int requiredVotes = thresholdCalculator.getRequiredVoteCount(alivePlayerCount, consecutiveNoEliminationPhases);
+                context.incrementNoEliminationPhases();
+                if (sessionPlayers != null) {
+                    for (Player p : sessionPlayers) {
+                        if (p != null && p.isOnline()) {
+                            p.sendMessage("§eTie occurred but not enough votes to eliminate. Required: " + requiredVotes + ", Got: " + maxVotes);
+                        }
+                    }
+                }
+                plugin.getLogger().info("Tie vote threshold not met for session " + sessionName + ". Required: " + requiredVotes + 
+                    ", Got: " + maxVotes + ", Alive players: " + alivePlayerCount + 
+                    ", Consecutive no-elimination phases: " + (consecutiveNoEliminationPhases + 1));
+                return;
             }
         } else {
             // Should not happen, but handle gracefully
+            context.incrementNoEliminationPhases();
             if (sessionPlayers != null) {
                 for (Player p : sessionPlayers) {
                     if (p != null && p.isOnline()) {
@@ -1225,8 +1257,11 @@ public class GameManager {
             return;
         }
 
-        // Eliminate the player
-        if (toEliminate != null) {
+        // Eliminate the player if we have one
+        if (toEliminate != null && eliminationOccurred) {
+            // Reset penalty counter since elimination occurred
+            context.resetNoEliminationPhases();
+            
             Player player = getPlayer(toEliminate);
             if (player != null && player.isOnline()) {
                 try {
@@ -1763,5 +1798,40 @@ public class GameManager {
 
     public ConfigManager getConfigManager() {
         return configManager;
+    }
+
+    private SparkSecondaryAbility selectSparkSecondaryAbility(GameState gameState) {
+        if (gameState == null) {
+            return SparkSecondaryAbility.HUNTER_VISION;
+        }
+        UUID sparkId = gameState.getSparkUUID();
+        if (sparkId == null) {
+            gameState.setSparkSecondaryAbility(SparkSecondaryAbility.HUNTER_VISION);
+            return SparkSecondaryAbility.HUNTER_VISION;
+        }
+        
+        // Check config for ability selection
+        String configAbility = configManager.getSparkSecondaryAbility();
+        SparkSecondaryAbility choice;
+        
+        if (configAbility.equals("random")) {
+            // Random selection (default behavior)
+            choice = ThreadLocalRandom.current().nextBoolean()
+                    ? SparkSecondaryAbility.HUNTER_VISION
+                    : SparkSecondaryAbility.SPARK_SWAP;
+        } else if (configAbility.equals("hunter_vision")) {
+            choice = SparkSecondaryAbility.HUNTER_VISION;
+        } else if (configAbility.equals("spark_swap")) {
+            choice = SparkSecondaryAbility.SPARK_SWAP;
+        } else {
+            // Fallback to random if invalid config value
+            plugin.getLogger().warning("Invalid Spark ability config value, using random selection");
+            choice = ThreadLocalRandom.current().nextBoolean()
+                    ? SparkSecondaryAbility.HUNTER_VISION
+                    : SparkSecondaryAbility.SPARK_SWAP;
+        }
+        
+        gameState.setSparkSecondaryAbility(choice);
+        return choice;
     }
 }

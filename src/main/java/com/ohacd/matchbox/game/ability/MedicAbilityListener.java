@@ -8,8 +8,6 @@ import com.ohacd.matchbox.game.utils.GamePhase;
 
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -22,7 +20,7 @@ import org.bukkit.scheduler.BukkitRunnable;
  * Supports right-click and left-click in inventory, and right-click when held in main hand.
  * Silent by design (no messages/holograms).
  */
-public class MedicAbilityListener implements Listener {
+public class MedicAbilityListener implements AbilityHandler {
     private final GameManager gameManager;
     private final Plugin plugin;
 
@@ -31,22 +29,11 @@ public class MedicAbilityListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler
-    public void onInventoryClick(InventoryClickEvent event) {
+    @Override
+    public void handleInventoryClick(InventoryClickEvent event, SessionGameContext context) {
         if (!(event.getWhoClicked() instanceof Player)) return;
         
         Player player = (Player) event.getWhoClicked();
-        
-        // Get session context for this player
-        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
-        if (context == null) {
-            return; // Player not in any active game
-        }
-        
-        // Game must be active
-        if (!context.getGameState().isGameActive()) {
-            return;
-        }
         
         // Check if clicking the cure paper slot
         int slot = event.getSlot();
@@ -113,8 +100,8 @@ public class MedicAbilityListener implements Listener {
         }.runTaskLater(plugin, 8L * 20L);
     }
     
-    @EventHandler
-    public void onPlayerInteract(PlayerInteractEvent event) {
+    @Override
+    public void handlePlayerInteract(PlayerInteractEvent event, SessionGameContext context) {
         // Only handle right-click with item in hand (not block interactions)
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
@@ -125,17 +112,6 @@ public class MedicAbilityListener implements Listener {
         
         // Check if holding paper in main hand
         if (heldItem == null || heldItem.getType() != Material.PAPER) {
-            return;
-        }
-        
-        // Get session context for this player
-        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
-        if (context == null) {
-            return; // Player not in any active game
-        }
-        
-        // Game must be active
-        if (!context.getGameState().isGameActive()) {
             return;
         }
         

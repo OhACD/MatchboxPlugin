@@ -11,6 +11,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
+import com.ohacd.matchbox.game.ability.SparkSecondaryAbility;
 import com.ohacd.matchbox.game.utils.PlayerNameUtils;
 import com.ohacd.matchbox.game.utils.Role;
 
@@ -30,7 +31,7 @@ public class InventoryManager {
     // Slot constants
     private static final int ROLE_PAPER_SLOT = 17; // Top rightmost slot in inventory (top row, rightmost)
     private static final int SWIPE_CURE_PAPER_SLOT = 27; // Above hotbar slot 0
-    private static final int VISION_SIGHT_PAPER_SLOT = 28; // Above hotbar slot 1
+    private static final int VISION_SIGHT_PAPER_SLOT = 28; // Above hotbar slot 1 (also used for Spark Swap)
     private static final int CROSSBOW_HOTBAR_SLOT = 7; // Hotbar slot 7 (second from right)
     private static final int ARROW_HOTBAR_SLOT = 8; // Hotbar slot 8 (rightmost)
     private static final int VOTING_PAPER_START_SLOT = 0; // First slot for voting papers
@@ -58,7 +59,7 @@ public class InventoryManager {
      * Sets up the game inventory for a player based on their role.
      * All players get identical layouts with role-specific papers.
      */
-    public void setupPlayerInventory(Player player, Role role) {
+    public void setupPlayerInventory(Player player, Role role, SparkSecondaryAbility sparkAbility) {
         if (player == null || !player.isOnline()) {
             plugin.getLogger().warning("Cannot setup inventory for null or offline player");
             return;
@@ -85,11 +86,16 @@ public class InventoryManager {
             
             // Set ability papers based on role
             if (role == Role.SPARK) {
-                // Spark: Swipe paper in slot 27, Hunter Vision in slot 28
+                // Spark: Swipe paper in slot 27, secondary ability in slot 28
                 ItemStack swipePaper = createSwipePaper();
                 ItemStack visionPaper = createHunterVisionPaper();
+                ItemStack swapPaper = createSparkSwapPaper();
                 inv.setItem(SWIPE_CURE_PAPER_SLOT, swipePaper);
-                inv.setItem(VISION_SIGHT_PAPER_SLOT, visionPaper);
+                if (sparkAbility == SparkSecondaryAbility.SPARK_SWAP) {
+                    inv.setItem(VISION_SIGHT_PAPER_SLOT, swapPaper);
+                } else {
+                    inv.setItem(VISION_SIGHT_PAPER_SLOT, visionPaper);
+                }
             } else if (role == Role.MEDIC) {
                 // Medic: Healing Touch in slot 27, Healing Sight in slot 28
                 ItemStack curePaper = createHealingTouchPaper();
@@ -155,7 +161,7 @@ public class InventoryManager {
     /**
      * Sets up inventories for all players in a collection.
      */
-    public void setupInventories(Collection<Player> players, Map<UUID, Role> roles) {
+    public void setupInventories(Collection<Player> players, Map<UUID, Role> roles, SparkSecondaryAbility sparkAbility) {
         if (players == null || roles == null) {
             plugin.getLogger().warning("Cannot setup inventories: players or roles is null");
             return;
@@ -167,7 +173,7 @@ public class InventoryManager {
             }
             Role role = roles.get(player.getUniqueId());
             if (role != null) {
-                setupPlayerInventory(player, role);
+                setupPlayerInventory(player, role, sparkAbility);
             }
         }
     }
@@ -550,6 +556,29 @@ public class InventoryManager {
         lore.add("§7Lasts for 15 seconds.");
         lore.add("§7Once per round.");
         
+        meta.setLore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        paper.setItemMeta(meta);
+        return makeUnmovable(paper);
+    }
+
+    /**
+     * Creates the Spark Swap ability paper.
+     */
+    private ItemStack createSparkSwapPaper() {
+        ItemStack paper = new ItemStack(Material.PAPER);
+        ItemMeta meta = paper.getItemMeta();
+        if (meta == null) {
+            return paper;
+        }
+
+        meta.setDisplayName("§cSpark Swap");
+        List<String> lore = new ArrayList<>();
+        lore.add("§7Right-click to silently swap");
+        lore.add("§7positions with a random player.");
+        lore.add("§7Keeps both velocities.");
+        lore.add("§7Once per round.");
+
         meta.setLore(lore);
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         paper.setItemMeta(meta);

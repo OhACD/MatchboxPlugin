@@ -39,6 +39,9 @@ public class SessionGameContext {
     /** Spawn locations for the current round */
     private List<Location> currentSpawnLocations;
     
+    /** Number of consecutive voting phases that ended without elimination */
+    private int consecutiveNoEliminationPhases = 0;
+    
     public SessionGameContext(Plugin plugin, String sessionName) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
             throw new IllegalArgumentException("Session name cannot be null or empty");
@@ -100,6 +103,29 @@ public class SessionGameContext {
     }
     
     /**
+     * Gets the number of consecutive voting phases that ended without elimination.
+     */
+    public int getConsecutiveNoEliminationPhases() {
+        return consecutiveNoEliminationPhases;
+    }
+    
+    /**
+     * Increments the counter for consecutive no-elimination phases.
+     * Should be called when a voting phase ends without elimination.
+     */
+    public void incrementNoEliminationPhases() {
+        consecutiveNoEliminationPhases++;
+    }
+    
+    /**
+     * Resets the counter for consecutive no-elimination phases.
+     * Should be called when a voting phase ends with elimination.
+     */
+    public void resetNoEliminationPhases() {
+        consecutiveNoEliminationPhases = 0;
+    }
+    
+    /**
      * Cleans up all resources for this session context.
      */
     public void cleanup() {
@@ -107,6 +133,7 @@ public class SessionGameContext {
         activeCureWindow.clear();
         currentDiscussionLocation = null;
         currentSpawnLocations = null;
+        consecutiveNoEliminationPhases = 0;
         gameState.clearGameState();
     }
 }

@@ -1,5 +1,6 @@
 package com.ohacd.matchbox.game.state;
 
+import com.ohacd.matchbox.game.ability.SparkSecondaryAbility;
 import com.ohacd.matchbox.game.utils.Role;
 import org.bukkit.entity.Player;
 
@@ -17,9 +18,11 @@ public class GameState {
     private final Set<UUID> beenCuredThisRound = new HashSet<>();
     private final Set<UUID> usedHealingSightThisRound = new HashSet<>();
     private final Set<UUID> usedHunterVisionThisRound = new HashSet<>();
+    private final Set<UUID> usedSparkSwapThisRound = new HashSet<>();
     private final Set<UUID> infectedThisRound = new HashSet<>();
     private final Map<UUID, Long> pendingDeathTime = new HashMap<>();
     private final Set<UUID> allParticipatingPlayers = new HashSet<>();
+    private SparkSecondaryAbility sparkSecondaryAbility = SparkSecondaryAbility.HUNTER_VISION;
     private String activeSessionName = null;
     private int currentRound = 0;
 
@@ -36,6 +39,7 @@ public class GameState {
         infectedThisRound.clear();
         usedHealingSightThisRound.clear();
         usedHunterVisionThisRound.clear();
+        usedSparkSwapThisRound.clear();
         pendingDeathTime.clear();
         allParticipatingPlayers.clear();
         activeSessionName = null;
@@ -54,6 +58,8 @@ public class GameState {
         infectedThisRound.clear();
         usedHealingSightThisRound.clear();
         usedHunterVisionThisRound.clear();
+        usedSparkSwapThisRound.clear();
+        sparkSecondaryAbility = SparkSecondaryAbility.HUNTER_VISION;
     }
 
     /**
@@ -242,6 +248,30 @@ public class GameState {
      */
     public boolean hasUsedHunterVisionThisRound(UUID playerId) {
         return usedHunterVisionThisRound.contains(playerId);
+    }
+
+    /**
+     * Marks that a player has used the Spark Swap ability this round.
+     */
+    public void markUsedSparkSwap(UUID playerId) {
+        usedSparkSwapThisRound.add(playerId);
+    }
+
+    /**
+     * Checks if a player has already used Spark Swap this round.
+     */
+    public boolean hasUsedSparkSwapThisRound(UUID playerId) {
+        return usedSparkSwapThisRound.contains(playerId);
+    }
+
+    public SparkSecondaryAbility getSparkSecondaryAbility() {
+        return sparkSecondaryAbility;
+    }
+
+    public void setSparkSecondaryAbility(SparkSecondaryAbility sparkSecondaryAbility) {
+        if (sparkSecondaryAbility != null) {
+            this.sparkSecondaryAbility = sparkSecondaryAbility;
+        }
     }
 
     /**

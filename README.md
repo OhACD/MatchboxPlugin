@@ -1,6 +1,6 @@
 # Matchbox - Minecraft Social Deduction Game
 
-A 7-player social deduction game for Minecraft with recording-proof mechanics.
+A social deduction game for Minecraft (2-20 players) with recording-proof mechanics.
 
 ---
 
@@ -13,7 +13,7 @@ A 7-player social deduction game for Minecraft with recording-proof mechanics.
    - All spawn locations and seat positions are already set up
    - You can start playing immediately or customize locations as needed
 
-**Requirements**: Paper 1.21.10, Java 21+, 2-7 players per game
+**Requirements**: Paper 1.21.10, Java 21+, 2-20 players per game
 
 ---
 
@@ -55,7 +55,7 @@ All settings in `plugins/Matchbox/config.yml` (auto-created on first run).
 -  11 pre-configured spawn locations
 -  8 pre-configured seat locations for discussion phase
 -  Optimized phase durations (Swipe: 180s, Discussion: 30s, Voting: 15s)
--  Player limits set (Min: 2, Max: 7)
+-  Player limits set (Min: 2, Max: 7, supports up to 20 players)
 -  Random skins enabled by default
 
 **You can start playing immediately without any setup!** The default config works out-of-the-box with the M4tchbox map.
@@ -94,6 +94,19 @@ discussion:
 - Seat spawn numbers
 - Random skins toggle (`cosmetics.random-skins-enabled`)
 - Steve skins option (`cosmetics.use-steve-skins`) - Use default Steve skin for all players
+- **Spark Ability Selection**:
+  - `spark.secondary-ability` - Choose Spark secondary ability: "random" (default), "hunter_vision", or "spark_swap"
+  - "random" - Randomly selects ability each round (default behavior)
+  - "hunter_vision" - Always uses Hunter Vision ability
+  - "spark_swap" - Always uses Spark Swap ability
+- **Dynamic Voting Thresholds**:
+  - `voting.threshold.at-20-players` - Threshold at 20 players (default: 0.20 = 20%)
+  - `voting.threshold.at-7-players` - Threshold at 7 players (default: 0.30 = 30%)
+  - `voting.threshold.at-3-players` - Threshold at 3 players and below (default: 0.50 = 50%)
+- **Voting Penalty System**:
+  - `voting.penalty.per-phase` - Penalty per phase without elimination (default: 0.0333 = ~3.33%)
+  - `voting.penalty.max-phases` - Max phases that accumulate penalty (default: 3)
+  - `voting.penalty.max-reduction` - Maximum penalty reduction (default: 0.10 = 10%)
 
 ---
 
@@ -112,11 +125,19 @@ discussion:
 - Teleported to discussion seats
 - Infected players die (if not cured)
 - Discuss and share observations
-- Skins return to normal
+- Game skins stay applied; nametags remain hidden
 
 **3. Voting Phase (15s)**
-- Right-click players to vote
-- Most votes = eliminated
+- Right-click or left-click voting papers in your inventory to vote
+- You can choose to not vote (abstain)
+- Dynamic threshold system: Required votes scale based on alive player count
+  - Threshold shown in actionbar: "Threshold: X/Y" (required votes / alive players)
+  - Threshold shown in title subtitle at phase start
+  - Threshold ranges from 20% (20 players) to 50% (3 players and below)
+  - Penalty system: Threshold decreases if voting phases end without elimination
+- Votes must meet threshold for elimination
+- If threshold isn't met, no elimination occurs
+- Ties are resolved by checking if tie vote count meets threshold
 - Game continues to next round
 
 ### Roles
@@ -124,7 +145,7 @@ discussion:
 **Spark (Impostor)**
 - Eliminate all players without being caught
 - Infect one player per round
-- Use Hunter Vision once per round
+ - Each round, you roll one secondary ability: Hunter Vision **or** Spark Swap (invisible teleport swap that preserves velocity and look direction)
 
 **Medic**
 - Identify Spark and save infected players
@@ -148,6 +169,7 @@ discussion:
 - Skin system with phase-based restoration
 - Nickname-friendly UI (titles, voting papers, holograms use player display names)
 - Welcome message system for new players
+- **Dynamic voting system** with logarithmic threshold scaling and penalty mechanics
 
 ---
 
@@ -160,7 +182,7 @@ Players will also see a welcome message when joining the server with information
 
 ---
 
-**Version**: 0.9.2  
+**Version**: 0.9.3  
 **Minecraft API**: 1.21.10  
 **License**: MIT  
 **Developer**: OhACD

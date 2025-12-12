@@ -24,6 +24,8 @@ public class VotingPhaseHandler {
     private final MessageUtils messageUtils;
     private final Map<String, BukkitRunnable> votingTasks = new ConcurrentHashMap<>();
     private final Map<String, Collection<UUID>> currentPlayerIds = new ConcurrentHashMap<>();
+    private final Map<String, Integer> requiredVotesMap = new ConcurrentHashMap<>();
+    private final Map<String, Integer> alivePlayerCountMap = new ConcurrentHashMap<>();
     private final int DEFAULT_VOTING_SECONDS = 15; // 15 seconds for voting
 
     public VotingPhaseHandler(Plugin plugin, MessageUtils messageUtils) {
@@ -35,6 +37,13 @@ public class VotingPhaseHandler {
      * Starts the voting phase with a countdown timer for a specific session.
      */
     public void startVotingPhase(String sessionName, int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
+        startVotingPhase(sessionName, seconds, alivePlayerIds, onPhaseEnd, -1, -1);
+    }
+    
+    /**
+     * Starts the voting phase with a countdown timer and threshold display for a specific session.
+     */
+    public void startVotingPhase(String sessionName, int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd, int requiredVotes, int alivePlayerCount) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
             plugin.getLogger().warning("Cannot start voting phase with null or empty session name");
             return;
@@ -55,16 +64,24 @@ public class VotingPhaseHandler {
         cancelVotingTask(sessionName);
 
         this.currentPlayerIds.put(sessionName, alivePlayerIds);
+        this.requiredVotesMap.put(sessionName, requiredVotes);
+        this.alivePlayerCountMap.put(sessionName, alivePlayerCount);
 
         plugin.getLogger().info("Starting voting phase for " + alivePlayerIds.size() + " players (" + seconds + "s)");
         messageUtils.sendPlainMessage("§c§lVOTING PHASE! Vote for who you think is the Spark!");
 
         // Show title and instructions to all alive players at the start
         Collection<Player> alivePlayers = getAlivePlayerObjects(alivePlayerIds);
+        
+        String subtitle = "§7Vote or abstain!";
+        if (requiredVotes > 0 && alivePlayerCount > 0) {
+            subtitle = "§7Threshold: " + requiredVotes + "/" + alivePlayerCount;
+        }
+        
         messageUtils.sendTitle(
                 alivePlayers,
                 "§c§lVOTING",
-                "§7Right-click a player to vote!",
+                subtitle,
                 10, // fadeIn (0.5s)
                 40, // stay (2s)
                 10  // fadeOut (0.5s)
@@ -76,7 +93,11 @@ public class VotingPhaseHandler {
                 player.sendMessage("§e§lHow to Vote:");
                 player.sendMessage("§7- Right-click a voting paper in your inventory");
                 player.sendMessage("§7- Left-click a voting paper in your inventory");
-                player.sendMessage("§7- Right-click a player while holding their voting paper");
+                player.sendMessage("§7- You can choose to not vote");
+                if (requiredVotes > 0 && alivePlayerCount > 0) {
+                    player.sendMessage("§7- Threshold: §e" + requiredVotes + "/" + alivePlayerCount + " §7votes required to eliminate a player");
+                    player.sendMessage("§7- If threshold isn't met, no elimination will occur");
+                }
             }
         }
 
@@ -91,6 +112,8 @@ public class VotingPhaseHandler {
                     cancel();
                     votingTasks.remove(sessionKey);
                     currentPlayerIds.remove(sessionKey);
+                    requiredVotesMap.remove(sessionKey);
+                    alivePlayerCountMap.remove(sessionKey);
                     plugin.getLogger().info("Voting phase ended naturally for session: " + sessionKey);
                     clearActionBars(sessionKey);
                     onPhaseEnd.run();
@@ -98,13 +121,22 @@ public class VotingPhaseHandler {
                 }
                 // Updates actionbar for all alive players in this session
                 Collection<UUID> playerIds = currentPlayerIds.get(sessionKey);
+                Integer requiredVotes = requiredVotesMap.get(sessionKey);
+                Integer aliveCount = alivePlayerCountMap.get(sessionKey);
                 if (playerIds != null) {
                     Collection<Player> alivePlayers = getAlivePlayerObjects(playerIds);
                     if (alivePlayers != null) {
                         for (Player player : alivePlayers) {
                             if (player != null && player.isOnline()) {
                                 try {
-                                    messageUtils.sendActionBar(player, "§cVoting: " + secs + "s");
+                                    // Build actionbar message with timer and threshold
+                                    String actionBarMessage;
+                                    if (requiredVotes != null && aliveCount != null && requiredVotes > 0 && aliveCount > 0) {
+                                        actionBarMessage = "§cVoting: " + secs + "s §8| §eThreshold: " + requiredVotes + "/" + aliveCount;
+                                    } else {
+                                        actionBarMessage = "§cVoting: " + secs + "s";
+                                    }
+                                    messageUtils.sendActionBar(player, actionBarMessage);
                                 } catch (Exception e) {
                                     // Ignore individual player errors
                                 }
@@ -155,6 +187,8 @@ public class VotingPhaseHandler {
             } catch (IllegalStateException ignored) {}
         }
         currentPlayerIds.remove(sessionName);
+        requiredVotesMap.remove(sessionName);
+        alivePlayerCountMap.remove(sessionName);
     }
     
     /**

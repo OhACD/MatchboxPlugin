@@ -5,12 +5,15 @@ import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.chat.ChatListener;
 import com.ohacd.matchbox.game.hologram.HologramManager;
 import com.ohacd.matchbox.game.session.SessionManager;
-import com.ohacd.matchbox.game.ability.SwipeActivationListener;
-import com.ohacd.matchbox.game.ability.SparkVisionListener;
-import com.ohacd.matchbox.game.ability.SwipeHitListener;
+import com.ohacd.matchbox.game.ability.AbilityEventListener;
+import com.ohacd.matchbox.game.ability.AbilityManager;
 import com.ohacd.matchbox.game.ability.MedicAbilityListener;
 import com.ohacd.matchbox.game.ability.MedicHitListener;
 import com.ohacd.matchbox.game.ability.MedicSightListener;
+import com.ohacd.matchbox.game.ability.SparkSwapAbility;
+import com.ohacd.matchbox.game.ability.SparkVisionListener;
+import com.ohacd.matchbox.game.ability.SwipeActivationListener;
+import com.ohacd.matchbox.game.ability.SwipeHitListener;
 import com.ohacd.matchbox.game.utils.CheckProjectVersion;
 import com.ohacd.matchbox.game.utils.Managers.NameTagManager;
 import com.ohacd.matchbox.game.utils.ProjectStatus;
@@ -34,7 +37,7 @@ import java.util.Set;
 public final class Matchbox extends JavaPlugin {
     // Project status, versioning and update name
     private static final ProjectStatus projectStatus = ProjectStatus.STABLE; // Main toggle for project status
-    private String updateName = "It's all about the base";
+    private String updateName = "It's the little quirks in life";
     private String currentVersion;
     private CheckProjectVersion versionChecker;
 
@@ -42,6 +45,7 @@ public final class Matchbox extends JavaPlugin {
     private HologramManager hologramManager;
     private GameManager gameManager;
     private SessionManager sessionManager;
+    private AbilityManager abilityManager;
 
     @Override
     public void onEnable() {
@@ -49,6 +53,7 @@ public final class Matchbox extends JavaPlugin {
         this.hologramManager = new HologramManager(this);
         this.gameManager = new GameManager(this, hologramManager);
         this.sessionManager = new SessionManager();
+        this.abilityManager = new AbilityManager(gameManager);
         this.versionChecker = new CheckProjectVersion(this);
         this.currentVersion = getInstance().getPluginMeta().getVersion();
 
@@ -60,13 +65,15 @@ public final class Matchbox extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new DamageProtectionListener(gameManager), this);
         getServer().getPluginManager().registerEvents(new BlockInteractionProtectionListener(gameManager), this);
 
-        // Register ability listeners
-        getServer().getPluginManager().registerEvents(new SwipeActivationListener(gameManager, this), this);
-        getServer().getPluginManager().registerEvents(new SwipeHitListener(gameManager), this);
-        getServer().getPluginManager().registerEvents(new SparkVisionListener(gameManager), this);
-        getServer().getPluginManager().registerEvents(new MedicAbilityListener(gameManager, this), this);
-        getServer().getPluginManager().registerEvents(new MedicHitListener(gameManager), this);
-        getServer().getPluginManager().registerEvents(new MedicSightListener(gameManager), this);
+        // Register abilities through a single event router
+        abilityManager.registerAbility(new SwipeActivationListener(gameManager, this));
+        abilityManager.registerAbility(new SwipeHitListener(gameManager));
+        abilityManager.registerAbility(new SparkVisionListener(gameManager));
+        abilityManager.registerAbility(new MedicAbilityListener(gameManager, this));
+        abilityManager.registerAbility(new MedicHitListener(gameManager));
+        abilityManager.registerAbility(new MedicSightListener(gameManager));
+        abilityManager.registerAbility(new SparkSwapAbility(this));
+        getServer().getPluginManager().registerEvents(new AbilityEventListener(abilityManager), this);
 
         // Register voting listeners
         getServer().getPluginManager().registerEvents(new VoteItemListener(gameManager), this);
