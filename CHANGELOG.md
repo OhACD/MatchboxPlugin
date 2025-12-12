@@ -27,6 +27,10 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - `voting.penalty.per-phase` - Penalty percentage per phase without elimination (default: 0.0333)
   - `voting.penalty.max-phases` - Maximum phases that accumulate penalty (default: 3)
   - `voting.penalty.max-reduction` - Maximum penalty reduction percentage (default: 0.10)
+- **Spark Ability Configuration**: Spark secondary ability selection is now configurable
+  - `spark.secondary-ability` - Choose Spark ability: "random" (default), "hunter_vision", or "spark_swap"
+  - When set to "random", ability is randomly selected each round (default behavior)
+  - When set to a specific ability, that ability is always used
 
 ### Changed
 - **Ability System Routing**: Ability system routing remains unified; Spark inventories are rebuilt each swipe phase with the chosen secondary

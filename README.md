@@ -94,6 +94,11 @@ discussion:
 - Seat spawn numbers
 - Random skins toggle (`cosmetics.random-skins-enabled`)
 - Steve skins option (`cosmetics.use-steve-skins`) - Use default Steve skin for all players
+- **Spark Ability Selection**:
+  - `spark.secondary-ability` - Choose Spark secondary ability: "random" (default), "hunter_vision", or "spark_swap"
+  - "random" - Randomly selects ability each round (default behavior)
+  - "hunter_vision" - Always uses Hunter Vision ability
+  - "spark_swap" - Always uses Spark Swap ability
 - **Dynamic Voting Thresholds**:
   - `voting.threshold.at-20-players` - Threshold at 20 players (default: 0.20 = 20%)
   - `voting.threshold.at-7-players` - Threshold at 7 players (default: 0.30 = 30%)

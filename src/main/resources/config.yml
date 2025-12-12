@@ -188,6 +188,12 @@ discussion:
     # Discussion phase duration in seconds
   duration: 30
 
+# Spark Ability Settings
+spark:
+  # Spark secondary ability selection mode
+  # Options: "random" (default - randomly selects each round), "hunter_vision", "spark_swap"
+  secondary-ability: random
+
 # Voting Phase Settings
 voting:
   # Voting phase duration in seconds

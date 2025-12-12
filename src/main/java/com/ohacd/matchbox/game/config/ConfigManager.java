@@ -113,6 +113,11 @@ public class ConfigManager {
         if (!config.contains("voting.penalty.max-reduction")) {
             config.set("voting.penalty.max-reduction", 0.10); // 10% max reduction
         }
+        
+        // Spark ability settings
+        if (!config.contains("spark.secondary-ability")) {
+            config.set("spark.secondary-ability", "random"); // Default: random selection
+        }
 
         // Cosmetic settings
         if (!config.contains("cosmetics.random-skins-enabled")) {
@@ -407,6 +412,24 @@ public class ConfigManager {
             return 0.5;
         }
         return maxPenalty;
+    }
+    
+    /**
+     * Gets the configured Spark secondary ability selection mode.
+     * Returns "random" for random selection, or a specific ability name.
+     * Valid values: "random", "hunter_vision", "spark_swap"
+     */
+    public String getSparkSecondaryAbility() {
+        String ability = config.getString("spark.secondary-ability", "random");
+        if (ability == null) {
+            return "random";
+        }
+        String lowerAbility = ability.toLowerCase().trim();
+        if (lowerAbility.equals("random") || lowerAbility.equals("hunter_vision") || lowerAbility.equals("spark_swap")) {
+            return lowerAbility;
+        }
+        plugin.getLogger().warning("Invalid Spark secondary ability setting: " + ability + ". Valid options: random, hunter_vision, spark_swap. Using default: random");
+        return "random";
     }
 
     /**

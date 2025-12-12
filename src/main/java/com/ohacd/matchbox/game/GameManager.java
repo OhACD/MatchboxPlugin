@@ -1837,9 +1837,28 @@ public class GameManager {
             gameState.setSparkSecondaryAbility(SparkSecondaryAbility.HUNTER_VISION);
             return SparkSecondaryAbility.HUNTER_VISION;
         }
-        SparkSecondaryAbility choice = ThreadLocalRandom.current().nextBoolean()
-                ? SparkSecondaryAbility.HUNTER_VISION
-                : SparkSecondaryAbility.SPARK_SWAP;
+        
+        // Check config for ability selection
+        String configAbility = configManager.getSparkSecondaryAbility();
+        SparkSecondaryAbility choice;
+        
+        if (configAbility.equals("random")) {
+            // Random selection (default behavior)
+            choice = ThreadLocalRandom.current().nextBoolean()
+                    ? SparkSecondaryAbility.HUNTER_VISION
+                    : SparkSecondaryAbility.SPARK_SWAP;
+        } else if (configAbility.equals("hunter_vision")) {
+            choice = SparkSecondaryAbility.HUNTER_VISION;
+        } else if (configAbility.equals("spark_swap")) {
+            choice = SparkSecondaryAbility.SPARK_SWAP;
+        } else {
+            // Fallback to random if invalid config value
+            plugin.getLogger().warning("Invalid Spark ability config value, using random selection");
+            choice = ThreadLocalRandom.current().nextBoolean()
+                    ? SparkSecondaryAbility.HUNTER_VISION
+                    : SparkSecondaryAbility.SPARK_SWAP;
+        }
+        
         gameState.setSparkSecondaryAbility(choice);
         return choice;
     }
