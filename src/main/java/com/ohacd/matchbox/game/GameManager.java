@@ -25,6 +25,7 @@ import com.ohacd.matchbox.game.utils.PlayerNameUtils;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
 import com.ohacd.matchbox.game.utils.Managers.NameTagManager;
+import com.ohacd.matchbox.game.vote.DynamicVotingThreshold;
 import com.ohacd.matchbox.game.vote.VoteManager;
 import com.ohacd.matchbox.game.win.WinConditionChecker;
 import org.bukkit.Bukkit;
@@ -1075,8 +1076,15 @@ public class GameManager {
 
         // Get voting duration from config
         int votingDuration = configManager.getVotingDuration();
+        
+        // Calculate threshold information for display
+        int alivePlayerCount = gameState.getAlivePlayerCount();
+        int consecutiveNoEliminationPhases = context.getConsecutiveNoEliminationPhases();
+        DynamicVotingThreshold thresholdCalculator = new DynamicVotingThreshold(configManager);
+        int requiredVotes = thresholdCalculator.getRequiredVoteCount(alivePlayerCount, consecutiveNoEliminationPhases);
+        
         // Start the voting timer and supply callback to endVotingPhase
-        votingPhaseHandler.startVotingPhase(sessionName, votingDuration, gameState.getAlivePlayerIds(), () -> endVotingPhase(sessionName));
+        votingPhaseHandler.startVotingPhase(sessionName, votingDuration, gameState.getAlivePlayerIds(), () -> endVotingPhase(sessionName), requiredVotes, alivePlayerCount);
     }
 
     /**
@@ -1154,7 +1162,8 @@ public class GameManager {
 
     /**
      * Resolves votes and eliminates the most-voted player.
-     * Handles ties by random elimination.
+     * Uses dynamic thresholds based on alive player count and penalty system.
+     * Handles ties by checking if tie vote count meets threshold.
      */
     private void resolveVotes(String sessionName) {
         SessionGameContext context = getContext(sessionName);
@@ -1171,6 +1180,12 @@ public class GameManager {
             return;
         }
 
+        int alivePlayerCount = gameState.getAlivePlayerCount();
+        int consecutiveNoEliminationPhases = context.getConsecutiveNoEliminationPhases();
+        
+        // Initialize dynamic voting threshold calculator
+        DynamicVotingThreshold thresholdCalculator = new DynamicVotingThreshold(configManager);
+        
         UUID mostVoted = voteManager.getMostVotedPlayer();
         List<UUID> tied = voteManager.getTiedPlayers();
         int maxVotes = voteManager.getMaxVoteCount();
@@ -1182,7 +1197,8 @@ public class GameManager {
         Collection<Player> sessionPlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
 
         if (mostVoted == null && tied.isEmpty()) {
-            // No votes cast - skip elimination
+            // No votes cast - skip elimination and increment penalty
+            context.incrementNoEliminationPhases();
             if (sessionPlayers != null) {
                 for (Player p : sessionPlayers) {
                     if (p != null && p.isOnline()) {
@@ -1191,34 +1207,74 @@ public class GameManager {
                 }
             }
             plugin.getLogger().info("No votes cast this round for session " + sessionName + ". Total voters: " + voteManager.getVoters().size() +
-                ", Alive players: " + gameState.getAlivePlayerCount());
+                ", Alive players: " + alivePlayerCount + ", Consecutive no-elimination phases: " + consecutiveNoEliminationPhases);
             return;
         }
 
         UUID toEliminate = null;
         String resultMessage;
+        boolean eliminationOccurred = false;
 
+        // Check if we have a clear winner (no tie)
         if (mostVoted != null) {
-            // Clear winner
-            toEliminate = mostVoted;
-            Player eliminated = getPlayer(toEliminate);
-            if (eliminated != null) {
-                resultMessage = "§c" + PlayerNameUtils.displayName(eliminated) + " was eliminated with " + maxVotes + " vote(s)!";
+            // Check if the vote count meets the threshold
+            if (thresholdCalculator.meetsThreshold(maxVotes, alivePlayerCount, consecutiveNoEliminationPhases)) {
+                toEliminate = mostVoted;
+                eliminationOccurred = true;
+                Player eliminated = getPlayer(toEliminate);
+                if (eliminated != null) {
+                    resultMessage = "§c" + PlayerNameUtils.displayName(eliminated) + " was eliminated with " + maxVotes + " vote(s)!";
+                } else {
+                    resultMessage = "§cA player was eliminated with " + maxVotes + " vote(s)!";
+                }
             } else {
-                resultMessage = "§cA player was eliminated with " + maxVotes + " vote(s)!";
+                // Vote count doesn't meet threshold - no elimination
+                int requiredVotes = thresholdCalculator.getRequiredVoteCount(alivePlayerCount, consecutiveNoEliminationPhases);
+                context.incrementNoEliminationPhases();
+                if (sessionPlayers != null) {
+                    for (Player p : sessionPlayers) {
+                        if (p != null && p.isOnline()) {
+                            p.sendMessage("§eNot enough votes to eliminate. Required: " + requiredVotes + ", Got: " + maxVotes);
+                        }
+                    }
+                }
+                plugin.getLogger().info("Vote threshold not met for session " + sessionName + ". Required: " + requiredVotes + 
+                    ", Got: " + maxVotes + ", Alive players: " + alivePlayerCount + 
+                    ", Consecutive no-elimination phases: " + (consecutiveNoEliminationPhases + 1));
+                return;
             }
         } else if (!tied.isEmpty()) {
-            // Tie - randomly eliminate one of the tied players
-            Collections.shuffle(tied);
-            toEliminate = tied.get(0);
-            Player eliminated = getPlayer(toEliminate);
-            if (eliminated != null) {
-                resultMessage = "§cTie! " + PlayerNameUtils.displayName(eliminated) + " was randomly eliminated with " + maxVotes + " vote(s)!";
+            // Handle tie - check if tie vote count meets threshold
+            if (thresholdCalculator.meetsThreshold(maxVotes, alivePlayerCount, consecutiveNoEliminationPhases)) {
+                // Tie meets threshold - randomly eliminate one of the tied players
+                Collections.shuffle(tied);
+                toEliminate = tied.get(0);
+                eliminationOccurred = true;
+                Player eliminated = getPlayer(toEliminate);
+                if (eliminated != null) {
+                    resultMessage = "§cTie! " + PlayerNameUtils.displayName(eliminated) + " was randomly eliminated with " + maxVotes + " vote(s)!";
+                } else {
+                    resultMessage = "§cTie! A player was randomly eliminated with " + maxVotes + " vote(s)!";
+                }
             } else {
-                resultMessage = "§cTie! A player was randomly eliminated with " + maxVotes + " vote(s)!";
+                // Tie doesn't meet threshold - no elimination
+                int requiredVotes = thresholdCalculator.getRequiredVoteCount(alivePlayerCount, consecutiveNoEliminationPhases);
+                context.incrementNoEliminationPhases();
+                if (sessionPlayers != null) {
+                    for (Player p : sessionPlayers) {
+                        if (p != null && p.isOnline()) {
+                            p.sendMessage("§eTie occurred but not enough votes to eliminate. Required: " + requiredVotes + ", Got: " + maxVotes);
+                        }
+                    }
+                }
+                plugin.getLogger().info("Tie vote threshold not met for session " + sessionName + ". Required: " + requiredVotes + 
+                    ", Got: " + maxVotes + ", Alive players: " + alivePlayerCount + 
+                    ", Consecutive no-elimination phases: " + (consecutiveNoEliminationPhases + 1));
+                return;
             }
         } else {
             // Should not happen, but handle gracefully
+            context.incrementNoEliminationPhases();
             if (sessionPlayers != null) {
                 for (Player p : sessionPlayers) {
                     if (p != null && p.isOnline()) {
@@ -1229,8 +1285,11 @@ public class GameManager {
             return;
         }
 
-        // Eliminate the player
-        if (toEliminate != null) {
+        // Eliminate the player if we have one
+        if (toEliminate != null && eliminationOccurred) {
+            // Reset penalty counter since elimination occurred
+            context.resetNoEliminationPhases();
+            
             Player player = getPlayer(toEliminate);
             if (player != null && player.isOnline()) {
                 try {

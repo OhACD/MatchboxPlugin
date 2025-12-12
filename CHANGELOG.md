@@ -2,18 +2,49 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
-## [0.9.3] - Spark Swap Rotation
+## [0.9.3] - Latest Release (The little quirks of life)
 
 ### Added
-- Spark now rolls a secondary ability each round: Hunter Vision _or_ Spark Swap, alongside Swipe.
-- Spark Swap now occupies the Hunter Vision slot (slot 28) when selected and teleports with preloaded chunks and preserved velocity.
+- **Spark Secondary Ability System**: Spark now rolls a secondary ability each round
+  - Hunter Vision _or_ Spark Swap, alongside Swipe
+  - Spark Swap occupies the Hunter Vision slot (slot 28) when selected
+  - Spark Swap teleports with preloaded chunks and preserved velocity (Designed to be invisible)
+- **Dynamic Voting Threshold System**: Voting thresholds now scale dynamically based on alive player count
+  - Logarithmic scaling between key points: 20 players (20%), 7 players (30%), 3 players and below (50%)
+  - Works for 2-20 players with smooth threshold transitions
+  - Threshold display shown during voting phase: "Threshold: X/Y" (required votes / alive players)
+- **Voting Penalty System**: Penalty applied when voting phases end without elimination
+  - Each phase without elimination reduces the threshold by ~3.33% (configurable)
+  - Maximum penalty of 10% after 3 consecutive no-elimination phases
+  - Penalty resets when a successful elimination occurs
+- **Enhanced Tie Handling**: Ties are now checked against the dynamic threshold
+  - If tie vote count doesn't meet threshold: no elimination occurs
+  - If tie vote count meets threshold: random player from tie is eliminated
+- **Voting Configuration**: All voting threshold values are now configurable in `config.yml`
+  - `voting.threshold.at-20-players` - Threshold percentage at 20 players (default: 0.20)
+  - `voting.threshold.at-7-players` - Threshold percentage at 7 players (default: 0.30)
+  - `voting.threshold.at-3-players` - Threshold percentage at 3 players and below (default: 0.50)
+  - `voting.penalty.per-phase` - Penalty percentage per phase without elimination (default: 0.0333)
+  - `voting.penalty.max-phases` - Maximum phases that accumulate penalty (default: 3)
+  - `voting.penalty.max-reduction` - Maximum penalty reduction percentage (default: 0.10)
 
 ### Changed
-- Ability system routing remains unified; Spark inventories are rebuilt each swipe phase with the chosen secondary.
+- **Ability System Routing**: Ability system routing remains unified; Spark inventories are rebuilt each swipe phase with the chosen secondary
+- **Voting Phase Display**: Actionbar now shows both countdown timer and threshold requirement
+  - Format: "Voting: Xs | Threshold: Y/Z" (timer and required votes / alive players)
+  - Updates every second alongside the countdown timer
+- **Voting Phase Instructions**: Improved voting phase start messages
+  - Removed counter-intuitive "right-click player while holding paper" instruction
+  - Added information that players can choose to not vote
+  - Added threshold requirement display in title subtitle
+  - Added explanation that no elimination occurs if threshold isn't met
+- **Vote Resolution**: Voting now requires meeting the dynamic threshold instead of simple majority
+  - Players see clear feedback when threshold isn't met
+  - System tracks consecutive no-elimination phases for penalty calculation
 
 ---
 
-## [0.9.2] - Latest Release (It's all about the base)
+## [0.9.2] - (It's all about the base)
 
 This is a quick patch that focuses on cleanup/QOL features and insuring everything works as intended.
 Due to how Skins are handled, the steve skin override falls back to using Alex/Steve skins depending on

@@ -192,6 +192,25 @@ discussion:
 voting:
   # Voting phase duration in seconds
   duration: 15
+  
+  # Dynamic voting threshold settings
+  # Thresholds are calculated logarithmically between these key points
+  threshold:
+    # Threshold percentage at 20 players (0.20 = 20%)
+    at-20-players: 0.20
+    # Threshold percentage at 7 players (0.30 = 30%)
+    at-7-players: 0.30
+    # Threshold percentage at 3 players and below (0.50 = 50%)
+    at-3-players: 0.50
+  
+  # Penalty system for voting phases without elimination
+  penalty:
+    # Penalty percentage applied per phase without elimination (0.0333 = ~3.33%)
+    per-phase: 0.0333
+    # Maximum number of phases that can accumulate penalty
+    max-phases: 3
+    # Maximum penalty reduction percentage (0.10 = 10%)
+    max-reduction: 0.10
 
 # Cosmetic Settings
 cosmetics:

@@ -91,6 +91,28 @@ public class ConfigManager {
         if (!config.contains("voting.duration")) {
             config.set("voting.duration", 15);
         }
+        
+        // Dynamic voting threshold settings
+        if (!config.contains("voting.threshold.at-20-players")) {
+            config.set("voting.threshold.at-20-players", 0.20); // 20%
+        }
+        if (!config.contains("voting.threshold.at-7-players")) {
+            config.set("voting.threshold.at-7-players", 0.30); // 30%
+        }
+        if (!config.contains("voting.threshold.at-3-players")) {
+            config.set("voting.threshold.at-3-players", 0.50); // 50%
+        }
+        
+        // Voting penalty settings (for phases without elimination)
+        if (!config.contains("voting.penalty.per-phase")) {
+            config.set("voting.penalty.per-phase", 0.0333); // ~3.33% per phase
+        }
+        if (!config.contains("voting.penalty.max-phases")) {
+            config.set("voting.penalty.max-phases", 3); // Max 3 phases
+        }
+        if (!config.contains("voting.penalty.max-reduction")) {
+            config.set("voting.penalty.max-reduction", 0.10); // 10% max reduction
+        }
 
         // Cosmetic settings
         if (!config.contains("cosmetics.random-skins-enabled")) {
@@ -283,6 +305,108 @@ public class ConfigManager {
      */
     public boolean isUseSteveSkins() {
         return config.getBoolean("cosmetics.use-steve-skins", false);
+    }
+    
+    /**
+     * Gets the voting threshold percentage at 20 players.
+     * Validates and clamps to reasonable range (0.05-1.0).
+     */
+    public double getVotingThresholdAt20Players() {
+        double threshold = config.getDouble("voting.threshold.at-20-players", 0.20);
+        if (threshold < 0.05) {
+            plugin.getLogger().warning("Voting threshold at 20 players too low (" + threshold + "), using minimum 0.05");
+            return 0.05;
+        }
+        if (threshold > 1.0) {
+            plugin.getLogger().warning("Voting threshold at 20 players too high (" + threshold + "), using maximum 1.0");
+            return 1.0;
+        }
+        return threshold;
+    }
+    
+    /**
+     * Gets the voting threshold percentage at 7 players.
+     * Validates and clamps to reasonable range (0.05-1.0).
+     */
+    public double getVotingThresholdAt7Players() {
+        double threshold = config.getDouble("voting.threshold.at-7-players", 0.30);
+        if (threshold < 0.05) {
+            plugin.getLogger().warning("Voting threshold at 7 players too low (" + threshold + "), using minimum 0.05");
+            return 0.05;
+        }
+        if (threshold > 1.0) {
+            plugin.getLogger().warning("Voting threshold at 7 players too high (" + threshold + "), using maximum 1.0");
+            return 1.0;
+        }
+        return threshold;
+    }
+    
+    /**
+     * Gets the voting threshold percentage at 3 players and below.
+     * Validates and clamps to reasonable range (0.05-1.0).
+     */
+    public double getVotingThresholdAt3Players() {
+        double threshold = config.getDouble("voting.threshold.at-3-players", 0.50);
+        if (threshold < 0.05) {
+            plugin.getLogger().warning("Voting threshold at 3 players too low (" + threshold + "), using minimum 0.05");
+            return 0.05;
+        }
+        if (threshold > 1.0) {
+            plugin.getLogger().warning("Voting threshold at 3 players too high (" + threshold + "), using maximum 1.0");
+            return 1.0;
+        }
+        return threshold;
+    }
+    
+    /**
+     * Gets the penalty percentage applied per voting phase without elimination.
+     * Validates and clamps to reasonable range (0.0-0.5).
+     */
+    public double getVotingPenaltyPerPhase() {
+        double penalty = config.getDouble("voting.penalty.per-phase", 0.0333);
+        if (penalty < 0.0) {
+            plugin.getLogger().warning("Voting penalty per phase too low (" + penalty + "), using minimum 0.0");
+            return 0.0;
+        }
+        if (penalty > 0.5) {
+            plugin.getLogger().warning("Voting penalty per phase too high (" + penalty + "), using maximum 0.5");
+            return 0.5;
+        }
+        return penalty;
+    }
+    
+    /**
+     * Gets the maximum number of phases that can accumulate penalty.
+     * Validates and clamps to reasonable range (1-10).
+     */
+    public int getVotingMaxPenaltyPhases() {
+        int maxPhases = config.getInt("voting.penalty.max-phases", 3);
+        if (maxPhases < 1) {
+            plugin.getLogger().warning("Voting max penalty phases too low (" + maxPhases + "), using minimum 1");
+            return 1;
+        }
+        if (maxPhases > 10) {
+            plugin.getLogger().warning("Voting max penalty phases too high (" + maxPhases + "), using maximum 10");
+            return 10;
+        }
+        return maxPhases;
+    }
+    
+    /**
+     * Gets the maximum penalty reduction percentage.
+     * Validates and clamps to reasonable range (0.0-0.5).
+     */
+    public double getVotingMaxPenalty() {
+        double maxPenalty = config.getDouble("voting.penalty.max-reduction", 0.10);
+        if (maxPenalty < 0.0) {
+            plugin.getLogger().warning("Voting max penalty too low (" + maxPenalty + "), using minimum 0.0");
+            return 0.0;
+        }
+        if (maxPenalty > 0.5) {
+            plugin.getLogger().warning("Voting max penalty too high (" + maxPenalty + "), using maximum 0.5");
+            return 0.5;
+        }
+        return maxPenalty;
     }
 
     /**
