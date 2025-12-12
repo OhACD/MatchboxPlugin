@@ -36,8 +36,8 @@ import java.util.Set;
  */
 public final class Matchbox extends JavaPlugin {
     // Project status, versioning and update name
-    private static final ProjectStatus projectStatus = ProjectStatus.DEVELOPMENT; // Main toggle for project status
-    private String updateName = "The little quirks of life";
+    private static final ProjectStatus projectStatus = ProjectStatus.STABLE; // Main toggle for project status
+    private String updateName = "It's the little quirks in life";
     private String currentVersion;
     private CheckProjectVersion versionChecker;
 
