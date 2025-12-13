@@ -118,13 +118,18 @@ public class ConfigManager {
         if (!config.contains("spark.secondary-ability")) {
             config.set("spark.secondary-ability", "random"); // Default: random selection
         }
+        
+        // Medic ability settings
+        if (!config.contains("medic.secondary-ability")) {
+            config.set("medic.secondary-ability", "random"); // Default: random selection
+        }
 
         // Cosmetic settings
         if (!config.contains("cosmetics.random-skins-enabled")) {
-            config.set("cosmetics.random-skins-enabled", true);
+            config.set("cosmetics.random-skins-enabled", false);
         }
         if (!config.contains("cosmetics.use-steve-skins")) {
-            config.set("cosmetics.use-steve-skins", false);
+            config.set("cosmetics.use-steve-skins", true);
         }
     }
 
@@ -425,10 +430,28 @@ public class ConfigManager {
             return "random";
         }
         String lowerAbility = ability.toLowerCase().trim();
-        if (lowerAbility.equals("random") || lowerAbility.equals("hunter_vision") || lowerAbility.equals("spark_swap")) {
+        if (lowerAbility.equals("random") || lowerAbility.equals("hunter_vision") || lowerAbility.equals("spark_swap") || lowerAbility.equals("delusion")) {
             return lowerAbility;
         }
-        plugin.getLogger().warning("Invalid Spark secondary ability setting: " + ability + ". Valid options: random, hunter_vision, spark_swap. Using default: random");
+        plugin.getLogger().warning("Invalid Spark secondary ability setting: " + ability + ". Valid options: random, hunter_vision, spark_swap, delusion. Using default: random");
+        return "random";
+    }
+    
+    /**
+     * Gets the configured Medic secondary ability selection mode.
+     * Returns "random" for random selection, or a specific ability name.
+     * Valid values: "random", "healing_sight"
+     */
+    public String getMedicSecondaryAbility() {
+        String ability = config.getString("medic.secondary-ability", "random");
+        if (ability == null) {
+            return "random";
+        }
+        String lowerAbility = ability.toLowerCase().trim();
+        if (lowerAbility.equals("random") || lowerAbility.equals("healing_sight")) {
+            return lowerAbility;
+        }
+        plugin.getLogger().warning("Invalid Medic secondary ability setting: " + ability + ". Valid options: random, healing_sight. Using default: random");
         return "random";
     }
 

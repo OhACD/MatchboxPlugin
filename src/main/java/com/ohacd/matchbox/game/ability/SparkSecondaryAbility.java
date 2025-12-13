@@ -5,6 +5,7 @@ package com.ohacd.matchbox.game.ability;
  */
 public enum SparkSecondaryAbility {
     HUNTER_VISION,
-    SPARK_SWAP
+    SPARK_SWAP,
+    DELUSION
 }
 

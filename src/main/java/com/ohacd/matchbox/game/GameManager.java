@@ -4,6 +4,7 @@ import com.ohacd.matchbox.Matchbox;
 import com.ohacd.matchbox.game.ability.FallbackHunterVisionAdapter;
 import com.ohacd.matchbox.game.ability.HunterVisionAdapter;
 import com.ohacd.matchbox.game.ability.ProtocolLibHunterVisionAdapter;
+import com.ohacd.matchbox.game.ability.MedicSecondaryAbility;
 import com.ohacd.matchbox.game.ability.SparkSecondaryAbility;
 import com.ohacd.matchbox.game.action.PlayerActionHandler;
 import com.ohacd.matchbox.game.config.ConfigManager;
@@ -399,6 +400,18 @@ public class GameManager {
         // Use lifecycle manager to start new round
         lifecycleManager.startNewRound(context, sessionName);
 
+        // Reapply skins based on config settings to ensure consistency
+        Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
+        if (alivePlayers != null && !alivePlayers.isEmpty()) {
+            if (configManager.isUseSteveSkins()) {
+                // Reapply Steve skins for all players to ensure consistency
+                skinManager.applySteveSkins(alivePlayers);
+            } else if (configManager.isRandomSkinsEnabled()) {
+                // Restore assigned skins (which should be random skins from game start)
+                skinManager.restoreAssignedSkinsAfterDiscussion(alivePlayers);
+            }
+        }
+
         // Teleport players to spawns
         lifecycleManager.teleportPlayersToSpawns(context, sessionName);
 
@@ -427,6 +440,7 @@ public class GameManager {
         Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
         if (alivePlayers != null && !alivePlayers.isEmpty()) {
             SparkSecondaryAbility sparkAbility = selectSparkSecondaryAbility(gameState);
+            MedicSecondaryAbility medicAbility = selectMedicSecondaryAbility(gameState);
 
             // Announce phase start only to players in this session
             for (Player p : alivePlayers) {
@@ -442,7 +456,7 @@ public class GameManager {
                     roleMap.put(playerId, role);
                 }
             }
-            inventoryManager.setupInventories(alivePlayers, roleMap, sparkAbility);
+            inventoryManager.setupInventories(alivePlayers, roleMap, sparkAbility, medicAbility);
         }
 
         // Hide the name tag for all alive players on phase start
@@ -511,6 +525,65 @@ public class GameManager {
         SessionGameContext context = getContextForPlayer(playerId);
         if (context == null) return false;
         return actionHandler.isSwipeWindowActive(context, playerId);
+    }
+
+    /**
+     * Start a delusion window for the player (silent). Duration in seconds.
+     * Can be reactivated if window expires without successful use.
+     */
+    public Long startDelusionWindow(Player spark, int seconds) {
+        if (spark == null) return null;
+        UUID id = spark.getUniqueId();
+
+        SessionGameContext context = getContextForPlayer(id);
+        if (context == null) return null;
+
+        GameState gameState = context.getGameState();
+        PhaseManager phaseManager = context.getPhaseManager();
+        Map<UUID, Long> activeDelusionWindow = context.getActiveDelusionWindow();
+
+        // Only in SWIPE phase and only if spark role
+        if (!phaseManager.isPhase(GamePhase.SWIPE)) return null;
+        if (gameState.getRole(id) != Role.SPARK) return null;
+        // Check if delusion ability is active
+        if (gameState.getSparkSecondaryAbility() != SparkSecondaryAbility.DELUSION) return null;
+        // Don't check hasUsedDelusionThisRound here - allow reactivation if not successfully used
+
+        long expire = System.currentTimeMillis() + (seconds * 1000L);
+        activeDelusionWindow.put(id, expire);
+
+        return expire;
+    }
+
+    /**
+     * Ends delusion window immediately (manual cleanup).
+     */
+    public void endDelusionWindow(UUID playerId) {
+        SessionGameContext context = getContextForPlayer(playerId);
+        if (context != null) {
+            context.getActiveDelusionWindow().remove(playerId);
+        }
+    }
+
+    /**
+     * Returns whether the given player has an active delusion window.
+     */
+    public boolean isDelusionWindowActive(UUID playerId) {
+        SessionGameContext context = getContextForPlayer(playerId);
+        if (context == null) return false;
+        return actionHandler.isDelusionWindowActive(context, playerId);
+    }
+
+    /**
+     * Handles a delusion action from a spark.
+     */
+    public void handleDelusion(Player spark, Player target) {
+        if (spark == null || target == null) return;
+
+        SessionGameContext context = getContextForPlayer(spark.getUniqueId());
+        if (context == null) return;
+
+        actionHandler.handleDelusion(context, spark, target);
     }
 
     public SkinManager getSkinManager() {
@@ -635,13 +708,14 @@ public class GameManager {
 
         GameState gameState = context.getGameState();
 
-        // Get all alive players with pending deaths
+        // Get all alive players with pending deaths OR delusion infections
         List<Player> infectedPlayers = new ArrayList<>();
         Set<UUID> alivePlayerIds = gameState.getAlivePlayerIds();
         if (alivePlayerIds != null) {
             for (UUID playerId : alivePlayerIds) {
                 if (playerId == null) continue;
-                if (gameState.hasPendingDeath(playerId)) {
+                // Show both real infections and delusion infections (medic can't tell the difference)
+                if (gameState.hasPendingDeath(playerId) || gameState.isDelusionInfected(playerId)) {
                     Player infected = getPlayer(playerId);
                     if (infected != null && infected.isOnline()) {
                         infectedPlayers.add(infected);
@@ -1815,23 +1889,71 @@ public class GameManager {
         SparkSecondaryAbility choice;
         
         if (configAbility.equals("random")) {
-            // Random selection (default behavior)
-            choice = ThreadLocalRandom.current().nextBoolean()
-                    ? SparkSecondaryAbility.HUNTER_VISION
-                    : SparkSecondaryAbility.SPARK_SWAP;
+            // Random selection (default behavior) - choose from all three abilities
+            int random = ThreadLocalRandom.current().nextInt(3);
+            if (random == 0) {
+                choice = SparkSecondaryAbility.HUNTER_VISION;
+            } else if (random == 1) {
+                choice = SparkSecondaryAbility.SPARK_SWAP;
+            } else {
+                choice = SparkSecondaryAbility.DELUSION;
+            }
         } else if (configAbility.equals("hunter_vision")) {
             choice = SparkSecondaryAbility.HUNTER_VISION;
         } else if (configAbility.equals("spark_swap")) {
             choice = SparkSecondaryAbility.SPARK_SWAP;
+        } else if (configAbility.equals("delusion")) {
+            choice = SparkSecondaryAbility.DELUSION;
         } else {
             // Fallback to random if invalid config value
             plugin.getLogger().warning("Invalid Spark ability config value, using random selection");
-            choice = ThreadLocalRandom.current().nextBoolean()
-                    ? SparkSecondaryAbility.HUNTER_VISION
-                    : SparkSecondaryAbility.SPARK_SWAP;
+            int random = ThreadLocalRandom.current().nextInt(3);
+            if (random == 0) {
+                choice = SparkSecondaryAbility.HUNTER_VISION;
+            } else if (random == 1) {
+                choice = SparkSecondaryAbility.SPARK_SWAP;
+            } else {
+                choice = SparkSecondaryAbility.DELUSION;
+            }
         }
         
         gameState.setSparkSecondaryAbility(choice);
+        return choice;
+    }
+
+    private MedicSecondaryAbility selectMedicSecondaryAbility(GameState gameState) {
+        if (gameState == null) {
+            return MedicSecondaryAbility.HEALING_SIGHT;
+        }
+        // Check if medic exists in game
+        boolean hasMedic = false;
+        for (UUID playerId : gameState.getAlivePlayerIds()) {
+            if (gameState.getRole(playerId) == Role.MEDIC) {
+                hasMedic = true;
+                break;
+            }
+        }
+        if (!hasMedic) {
+            gameState.setMedicSecondaryAbility(MedicSecondaryAbility.HEALING_SIGHT);
+            return MedicSecondaryAbility.HEALING_SIGHT;
+        }
+        
+        // Check config for ability selection
+        String configAbility = configManager.getMedicSecondaryAbility();
+        MedicSecondaryAbility choice;
+        
+        if (configAbility.equals("random")) {
+            // Random selection (default behavior) - currently only HEALING_SIGHT available
+            choice = MedicSecondaryAbility.HEALING_SIGHT;
+        } else if (configAbility.equals("healing_sight")) {
+            choice = MedicSecondaryAbility.HEALING_SIGHT;
+        } else {
+            // Fallback to healing_sight if invalid config value
+            plugin.getLogger().warning("Invalid Medic ability config value, using healing_sight");
+            choice = MedicSecondaryAbility.HEALING_SIGHT;
+        }
+        
+        gameState.setMedicSecondaryAbility(choice);
         return choice;
     }
 }

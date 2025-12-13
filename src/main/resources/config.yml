@@ -191,7 +191,13 @@ discussion:
 # Spark Ability Settings
 spark:
   # Spark secondary ability selection mode
-  # Options: "random" (default - randomly selects each round), "hunter_vision", "spark_swap"
+  # Options: "random" (default - randomly selects each round), "hunter_vision", "spark_swap", "delusion"
+  secondary-ability: random
+
+# Medic Ability Settings
+medic:
+  # Medic secondary ability selection mode
+  # Options: "random" (default - randomly selects each round), "healing_sight"
   secondary-ability: random
 
 # Voting Phase Settings
@@ -223,10 +229,10 @@ cosmetics:
   # Enable/disable random skin assignment for players during games
   # When enabled, players will receive random skins at game start
   # When disabled, players will keep their original skins
-  random-skins-enabled: true
+  random-skins-enabled: false
   
   # Use Steve (default) skins for all players during games
   # When enabled, all players will have the default Steve skin regardless of random-skins-enabled setting
   # When disabled, random skins or original skins will be used based on random-skins-enabled
-  use-steve-skins: false
+  use-steve-skins: true
 

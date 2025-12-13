@@ -11,6 +11,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
+import com.ohacd.matchbox.game.ability.MedicSecondaryAbility;
 import com.ohacd.matchbox.game.ability.SparkSecondaryAbility;
 import com.ohacd.matchbox.game.utils.PlayerNameUtils;
 import com.ohacd.matchbox.game.utils.Role;
@@ -59,7 +60,7 @@ public class InventoryManager {
      * Sets up the game inventory for a player based on their role.
      * All players get identical layouts with role-specific papers.
      */
-    public void setupPlayerInventory(Player player, Role role, SparkSecondaryAbility sparkAbility) {
+    public void setupPlayerInventory(Player player, Role role, SparkSecondaryAbility sparkAbility, MedicSecondaryAbility medicAbility) {
         if (player == null || !player.isOnline()) {
             plugin.getLogger().warning("Cannot setup inventory for null or offline player");
             return;
@@ -90,18 +91,26 @@ public class InventoryManager {
                 ItemStack swipePaper = createSwipePaper();
                 ItemStack visionPaper = createHunterVisionPaper();
                 ItemStack swapPaper = createSparkSwapPaper();
+                ItemStack delusionPaper = createDelusionPaper();
                 inv.setItem(SWIPE_CURE_PAPER_SLOT, swipePaper);
                 if (sparkAbility == SparkSecondaryAbility.SPARK_SWAP) {
                     inv.setItem(VISION_SIGHT_PAPER_SLOT, swapPaper);
+                } else if (sparkAbility == SparkSecondaryAbility.DELUSION) {
+                    inv.setItem(VISION_SIGHT_PAPER_SLOT, delusionPaper);
                 } else {
                     inv.setItem(VISION_SIGHT_PAPER_SLOT, visionPaper);
                 }
             } else if (role == Role.MEDIC) {
-                // Medic: Healing Touch in slot 27, Healing Sight in slot 28
+                // Medic: Healing Touch in slot 27, secondary ability in slot 28
                 ItemStack curePaper = createHealingTouchPaper();
                 ItemStack sightPaper = createHealingSightPaper();
                 inv.setItem(SWIPE_CURE_PAPER_SLOT, curePaper);
-                inv.setItem(VISION_SIGHT_PAPER_SLOT, sightPaper);
+                if (medicAbility == MedicSecondaryAbility.HEALING_SIGHT) {
+                    inv.setItem(VISION_SIGHT_PAPER_SLOT, sightPaper);
+                } else {
+                    // Default to healing sight if unknown ability
+                    inv.setItem(VISION_SIGHT_PAPER_SLOT, sightPaper);
+                }
             } else {
                 // Innocent: Empty slots (or placeholder papers if needed)
                 // For now, leave empty for innocents
@@ -161,7 +170,7 @@ public class InventoryManager {
     /**
      * Sets up inventories for all players in a collection.
      */
-    public void setupInventories(Collection<Player> players, Map<UUID, Role> roles, SparkSecondaryAbility sparkAbility) {
+    public void setupInventories(Collection<Player> players, Map<UUID, Role> roles, SparkSecondaryAbility sparkAbility, MedicSecondaryAbility medicAbility) {
         if (players == null || roles == null) {
             plugin.getLogger().warning("Cannot setup inventories: players or roles is null");
             return;
@@ -173,7 +182,7 @@ public class InventoryManager {
             }
             Role role = roles.get(player.getUniqueId());
             if (role != null) {
-                setupPlayerInventory(player, role, sparkAbility);
+                setupPlayerInventory(player, role, sparkAbility, medicAbility);
             }
         }
     }
@@ -577,6 +586,30 @@ public class InventoryManager {
         lore.add("§7Right-click to silently swap");
         lore.add("§7positions with a random player.");
         lore.add("§7Keeps both velocities.");
+        lore.add("§7Once per round.");
+
+        meta.setLore(lore);
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        paper.setItemMeta(meta);
+        return makeUnmovable(paper);
+    }
+
+    /**
+     * Creates the Delusion ability paper.
+     */
+    private ItemStack createDelusionPaper() {
+        ItemStack paper = new ItemStack(Material.PAPER);
+        ItemMeta meta = paper.getItemMeta();
+        if (meta == null) {
+            return paper;
+        }
+
+        meta.setDisplayName("§5Delusion");
+        List<String> lore = new ArrayList<>();
+        lore.add("§7Right-click to activate an 8s window.");
+        lore.add("§7Then right-click a player to apply");
+        lore.add("§7a fake infection that medic can see.");
+        lore.add("§7a Decays after 1 minute.");
         lore.add("§7Once per round.");
 
         meta.setLore(lore);

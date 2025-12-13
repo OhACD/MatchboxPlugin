@@ -95,10 +95,11 @@ discussion:
 - Random skins toggle (`cosmetics.random-skins-enabled`)
 - Steve skins option (`cosmetics.use-steve-skins`) - Use default Steve skin for all players
 - **Spark Ability Selection**:
-  - `spark.secondary-ability` - Choose Spark secondary ability: "random" (default), "hunter_vision", or "spark_swap"
+  - `spark.secondary-ability` - Choose Spark secondary ability: "random" (default), "hunter_vision", "spark_swap", or "delusion"
   - "random" - Randomly selects ability each round (default behavior)
   - "hunter_vision" - Always uses Hunter Vision ability
   - "spark_swap" - Always uses Spark Swap ability
+  - "delusion" - Always uses Delusion ability
 - **Dynamic Voting Thresholds**:
   - `voting.threshold.at-20-players` - Threshold at 20 players (default: 0.20 = 20%)
   - `voting.threshold.at-7-players` - Threshold at 7 players (default: 0.30 = 30%)
@@ -145,7 +146,10 @@ discussion:
 **Spark (Impostor)**
 - Eliminate all players without being caught
 - Infect one player per round
- - Each round, you roll one secondary ability: Hunter Vision **or** Spark Swap (invisible teleport swap that preserves velocity and look direction)
+- Each round, you roll one secondary ability:
+  - **Hunter Vision**: See all players with particles for 15 seconds
+  - **Spark Swap**: Invisible teleport swap with a random player (preserves velocity and look direction)
+  - **Delusion**: Apply a fake infection to a player that medic can see but doesn't cause elimination (decays after 1 minute)
 
 **Medic**
 - Identify Spark and save infected players
@@ -182,7 +186,7 @@ Players will also see a welcome message when joining the server with information
 
 ---
 
-**Version**: 0.9.3  
+**Version**: 0.9.4  
 **Minecraft API**: 1.21.10  
 **License**: MIT  
 **Developer**: OhACD

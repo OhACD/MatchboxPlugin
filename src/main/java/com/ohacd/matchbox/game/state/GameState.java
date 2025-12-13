@@ -1,5 +1,6 @@
 package com.ohacd.matchbox.game.state;
 
+import com.ohacd.matchbox.game.ability.MedicSecondaryAbility;
 import com.ohacd.matchbox.game.ability.SparkSecondaryAbility;
 import com.ohacd.matchbox.game.utils.Role;
 import org.bukkit.entity.Player;
@@ -19,10 +20,13 @@ public class GameState {
     private final Set<UUID> usedHealingSightThisRound = new HashSet<>();
     private final Set<UUID> usedHunterVisionThisRound = new HashSet<>();
     private final Set<UUID> usedSparkSwapThisRound = new HashSet<>();
+    private final Set<UUID> usedDelusionThisRound = new HashSet<>();
     private final Set<UUID> infectedThisRound = new HashSet<>();
+    private final Set<UUID> delusionInfectedThisRound = new HashSet<>();
     private final Map<UUID, Long> pendingDeathTime = new HashMap<>();
     private final Set<UUID> allParticipatingPlayers = new HashSet<>();
     private SparkSecondaryAbility sparkSecondaryAbility = SparkSecondaryAbility.HUNTER_VISION;
+    private MedicSecondaryAbility medicSecondaryAbility = MedicSecondaryAbility.HEALING_SIGHT;
     private String activeSessionName = null;
     private int currentRound = 0;
 
@@ -40,6 +44,8 @@ public class GameState {
         usedHealingSightThisRound.clear();
         usedHunterVisionThisRound.clear();
         usedSparkSwapThisRound.clear();
+        usedDelusionThisRound.clear();
+        delusionInfectedThisRound.clear();
         pendingDeathTime.clear();
         allParticipatingPlayers.clear();
         activeSessionName = null;
@@ -59,7 +65,10 @@ public class GameState {
         usedHealingSightThisRound.clear();
         usedHunterVisionThisRound.clear();
         usedSparkSwapThisRound.clear();
+        usedDelusionThisRound.clear();
+        delusionInfectedThisRound.clear();
         sparkSecondaryAbility = SparkSecondaryAbility.HUNTER_VISION;
+        medicSecondaryAbility = MedicSecondaryAbility.HEALING_SIGHT;
     }
 
     /**
@@ -264,6 +273,41 @@ public class GameState {
         return usedSparkSwapThisRound.contains(playerId);
     }
 
+    /**
+     * Marks that a player has used the Delusion ability this round.
+     */
+    public void markUsedDelusion(UUID playerId) {
+        usedDelusionThisRound.add(playerId);
+    }
+
+    /**
+     * Checks if a player has already used Delusion this round.
+     */
+    public boolean hasUsedDelusionThisRound(UUID playerId) {
+        return usedDelusionThisRound.contains(playerId);
+    }
+
+    /**
+     * Marks that a player was infected with delusion (fake infection) this round.
+     */
+    public void markDelusionInfected(UUID playerId) {
+        delusionInfectedThisRound.add(playerId);
+    }
+
+    /**
+     * Checks if a player was infected with delusion this round.
+     */
+    public boolean isDelusionInfected(UUID playerId) {
+        return delusionInfectedThisRound.contains(playerId);
+    }
+
+    /**
+     * Removes delusion infection from a player (when cured).
+     */
+    public void removeDelusionInfection(UUID playerId) {
+        delusionInfectedThisRound.remove(playerId);
+    }
+
     public SparkSecondaryAbility getSparkSecondaryAbility() {
         return sparkSecondaryAbility;
     }
@@ -271,6 +315,16 @@ public class GameState {
     public void setSparkSecondaryAbility(SparkSecondaryAbility sparkSecondaryAbility) {
         if (sparkSecondaryAbility != null) {
             this.sparkSecondaryAbility = sparkSecondaryAbility;
+        }
+    }
+
+    public MedicSecondaryAbility getMedicSecondaryAbility() {
+        return medicSecondaryAbility;
+    }
+
+    public void setMedicSecondaryAbility(MedicSecondaryAbility medicSecondaryAbility) {
+        if (medicSecondaryAbility != null) {
+            this.medicSecondaryAbility = medicSecondaryAbility;
         }
     }
 
