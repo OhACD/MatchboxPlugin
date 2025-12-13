@@ -639,6 +639,25 @@ public class GameManager {
     }
 
     /**
+     * Restores the secondary ability paper (Slot 28) for Sparks/Medics when a window expires unused.
+     * @param player
+     */
+    public void restoreSecondaryAbilityPaper(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        UUID id = player.getUniqueId();
+        SessionGameContext context = getContextForPlayer(id);
+        if (context == null) {
+            return;
+        }
+        Role role = context.getGameState().getRole(id);
+        if (role == Role.SPARK || role == Role.MEDIC) {
+            inventoryManager.refreshSecondaryAbilityPaper(player, role, context);
+        }
+    }
+
+    /**
      * Activates Healing Sight for the medic.
      * Shows highlight particles on all infected players for 15 seconds (only visible to medic).
      * This is separate from the cure ability.

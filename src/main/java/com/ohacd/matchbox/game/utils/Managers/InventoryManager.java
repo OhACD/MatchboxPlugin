@@ -11,8 +11,10 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
+import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.ability.MedicSecondaryAbility;
 import com.ohacd.matchbox.game.ability.SparkSecondaryAbility;
+import com.ohacd.matchbox.game.state.GameState;
 import com.ohacd.matchbox.game.utils.PlayerNameUtils;
 import com.ohacd.matchbox.game.utils.Role;
 
@@ -164,6 +166,57 @@ public class InventoryManager {
             player.updateInventory();
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to refresh ability paper for " + player.getName() + ": " + e.getMessage());
+        }
+    }
+
+
+    /**
+     * Restores the secondary ability paper (Slot 28) based on the player's role.
+     * Used when an activation window expires without being used
+     * 
+     */
+    public void refreshSecondaryAbilityPaper(Player player, Role role, SessionGameContext context) {
+        try {
+            PlayerInventory inv = player.getInventory();
+            if (inv == null) return;
+
+            GameState gameState = context.getGameState();
+            if (gameState == null) return;
+
+            ItemStack paper = null;
+
+            if (role == Role.SPARK) {
+                // Switch statement to set the secondary ability paper based on the game state
+                switch (gameState.getSparkSecondaryAbility()) {
+                    case HUNTER_VISION:
+                        paper = createHunterVisionPaper();
+                        break;
+                    case SPARK_SWAP:
+                        paper = createSparkSwapPaper();
+                        break;
+                    case DELUSION:
+                        paper = createDelusionPaper();
+                        break;
+                    default:
+                        paper = createHunterVisionPaper();
+                        break;
+                }
+            } else if (role == Role.MEDIC) {
+                // Switch statement to set the secondary ability paper based on the game state
+                switch (gameState.getMedicSecondaryAbility()) {
+                    case HEALING_SIGHT:
+                        paper = createHealingSightPaper();
+                        break;
+                }
+            } else {
+                // Default to healing sight if unknown ability
+                paper = createHealingSightPaper();
+            }
+            inv.setItem(VISION_SIGHT_PAPER_SLOT, paper);
+            player.updateInventory();
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to refresh secondary ability paper for " + player.getName() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -609,7 +662,7 @@ public class InventoryManager {
         lore.add("§7Right-click to activate an 8s window.");
         lore.add("§7Then right-click a player to apply");
         lore.add("§7a fake infection that medic can see.");
-        lore.add("§7a Decays after 1 minute.");
+        lore.add("§7Decays after 1 minute.");
         lore.add("§7Once per round.");
 
         meta.setLore(lore);

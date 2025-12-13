@@ -100,7 +100,7 @@ public class DelusionActivationListener implements AbilityHandler {
                 Long currentExpiry = ctx.getActiveDelusionWindow().get(player.getUniqueId());
                 if (currentExpiry != null && currentExpiry.equals(windowExpiry)) {
                     gameManager.endDelusionWindow(player.getUniqueId());
-                    gameManager.restoreAbilityPaper(player);
+                    gameManager.restoreSecondaryAbilityPaper(player);
                 }
             }
         }.runTaskLater(plugin, 20L * 8); // 8 seconds
@@ -172,7 +172,7 @@ public class DelusionActivationListener implements AbilityHandler {
                 Long currentExpiry = ctx.getActiveDelusionWindow().get(player.getUniqueId());
                 if (currentExpiry != null && currentExpiry.equals(windowExpiry)) {
                     gameManager.endDelusionWindow(player.getUniqueId());
-                    gameManager.restoreAbilityPaper(player);
+                    gameManager.restoreSecondaryAbilityPaper(player);
                 }
             }
         }.runTaskLater(plugin, 20L * 8); // 8 seconds
