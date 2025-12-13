@@ -29,7 +29,9 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - MedicSightListener now checks if ability is active before allowing use
   - System is now extensible for adding new medic abilities in the future
 - **Config steve skin override**: Default config now comes with steve skin override as true by default
-- Random skin toggle is now set to false by default
+  - Random skin toggle is now set to false by default
+- **Debug command**: Fake infected (Delusion infection) is tracked by the debug command
+  - Added the fake infected param to `/matchbox debug` command
 
 ### Fixed
 - **Steve Skin Override**: Fixed inconsistent steve skin application

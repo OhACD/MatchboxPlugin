@@ -466,7 +466,7 @@ public class GameState {
      */
     public String getDebugInfo() {
         return String.format(
-                "GameState[Round=%d, Session=%s, Participating=%d, Alive=%d, Roles=%d, Swiped=%d, Cured=%d, Infected=%d, Pending=%d, beenCured=%d]",
+                "GameState[Round=%d, Session=%s, Participating=%d, Alive=%d, Roles=%d, Swiped=%d, Cured=%d, Infected=%d, Fake-Infected=%d, Pending=%d, beenCured=%d]",
                 currentRound,
                 activeSessionName != null ? activeSessionName : "none",
                 allParticipatingPlayers.size(),
@@ -475,6 +475,7 @@ public class GameState {
                 swipedThisRound.size(),
                 curedThisRound.size(),
                 infectedThisRound.size(),
+                delusionInfectedThisRound.size(),
                 pendingDeathTime.size(),
                 beenCuredThisRound.size()
         );
