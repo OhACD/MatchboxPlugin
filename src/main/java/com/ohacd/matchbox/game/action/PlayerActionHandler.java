@@ -7,8 +7,11 @@ import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.ParticleUtils;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.vote.VoteManager;
+
+import org.bukkit.Color;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Map;
 import java.util.UUID;
@@ -278,7 +281,7 @@ public class PlayerActionHandler {
         // Show subtle lime particles (same as real infection to fool medic)
         ParticleUtils.showColoredParticlesToEveryone(
             target,
-            org.bukkit.Color.fromRGB(50, 205, 50), // Lime green
+            Color.fromRGB(50, 205, 50), // Lime green
             8,
             plugin
         );
@@ -290,7 +293,7 @@ public class PlayerActionHandler {
         final UUID targetIdFinal = targetId;
         final String sessionName = context.getSessionName();
         final SessionGameContext contextFinal = context;
-        org.bukkit.scheduler.BukkitRunnable decayTask = new org.bukkit.scheduler.BukkitRunnable() {
+        BukkitRunnable decayTask = new BukkitRunnable() {
             @Override
             public void run() {
                 // Check if game is still active and player still has delusion infection
@@ -300,13 +303,13 @@ public class PlayerActionHandler {
                 
                 GameState state = contextFinal.getGameState();
                 if (state.isDelusionInfected(targetIdFinal)) {
-                    // Remove delusion infection after 1 minute
+                    // Remove delusion infection after 30 seconds
                     state.removeDelusionInfection(targetIdFinal);
                     plugin.getLogger().info("Delusion infection decayed for player " + targetIdFinal + " in session '" + sessionName + "'");
                 }
             }
         };
-        decayTask.runTaskLater(plugin, 20L * 60); // 60 seconds = 1200 ticks
+        decayTask.runTaskLater(plugin, 20L * 30); // 30 seconds = 600 ticks
         
         plugin.getLogger().info("Delusion registered in session '" + context.getSessionName() + "': " + spark.getName() + " applied delusion to " + target.getName() + " (will decay in 1 minute)");
     }

@@ -16,7 +16,7 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - Fake infections appear identical to real infections to the medic (same particles)
   - Medic can see delusion infections using Healing Sight alongside real infections
   - Medic can cure delusion infections, wasting their cure on a non-infected player
-  - Delusion infections automatically decay after 1 minute
+  - Delusion infections automatically decay after 30 seconds
   - Delusion infections do not cause elimination when discussion phase starts
   - Configurable via `spark.secondary-ability` in config.yml
   - Options: "random" (default), "hunter_vision", "spark_swap", "delusion"
@@ -38,6 +38,9 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - All players now consistently receive steve skins when enabled
   - Skins are reapplied at the start of each new round to ensure consistency
   - Fixed issue where some players would get alex or random skins instead of steve
+- **Invalid default seat locations**: Fixed an error where default seatlocations weren't loading correctly when used with the `m4tchb0x` map
+  - Default Spawn/Seat locations are no longer linked to a world folder named `world` 
+  - Now linked to a world folder named `m4tchb0x`
 
 ---
 
