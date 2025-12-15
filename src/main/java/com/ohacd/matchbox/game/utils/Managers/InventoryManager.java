@@ -662,7 +662,7 @@ public class InventoryManager {
         lore.add("§7Right-click to activate an 8s window.");
         lore.add("§7Then right-click a player to apply");
         lore.add("§7a fake infection that the medic can see.");
-        lore.add("§7Decays after 1 minute.");
+        lore.add("§7Decays after 30 seconds.");
         lore.add("§7Once per round.");
 
         meta.setLore(lore);

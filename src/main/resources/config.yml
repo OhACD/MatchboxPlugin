@@ -10,77 +10,62 @@ session:
   
   # Minimum number of spawn locations required before starting a game
   min-spawn-locations: 1
-  
-  # Game spawn locations (coordinates where players spawn at round start)
-  # Can be set via /matchbox setspawn <name> or configured here
-  # Format: world, x, y, z, yaw, pitch
   spawn-locations:
-  - world: world
-    x: -50.8562505032138
+  - world: m4tchb0x
+    x: -51.473426361396264
     y: -28.0
-    z: 161.53220990480872
-    pitch: -1.4964615
-    yaw: 0.3725586
-  - world: world
-    x: -52.73351247130995
+    z: 62.99461190591391
+    pitch: 0.69033235
+    yaw: 0.1887207
+  - world: m4tchb0x
+    x: -150.17946738772446
     y: -28.0
-    z: 255.22775887105558
-    pitch: 0.114887916
-    yaw: -179.96387
-  - world: world
-    x: -6.558074022330881
+    z: 56.40573214795135
+    pitch: 5.9847145
+    yaw: -29.963623
+  - world: m4tchb0x
+    x: -148.54268372924275
     y: -28.0
-    z: 208.71715784104558
-    pitch: 1.95642
-    yaw: 90.04712
-  - world: world
-    x: -149.0318268149002
+    z: 157.59044118502777
+    pitch: 0.69035906
+    yaw: -92.0
+  - world: m4tchb0x
+    x: -51.739567395775154
     y: -28.0
-    z: 156.60047567992828
-    pitch: 1.2658979
-    yaw: -89.94336
-  - world: world
-    x: -145.65882147418128
+    z: 255.41098517125434
+    pitch: 4.488498
+    yaw: -177.7445
+  - world: m4tchb0x
+    x: -4.691513152574944
     y: -28.0
-    z: 60.9582433094325
-    pitch: 4.2583613
-    yaw: -40.241455
-  - world: world
-    x: -50.94640213245196
+    z: 208.96547601851555
+    pitch: 4.258306
+    yaw: 90.31067
+  - world: m4tchb0x
+    x: 34.49659508040274
     y: -28.0
-    z: 65.57967602167355
-    pitch: 1.6112012
-    yaw: 0.8474121
-  - world: world
-    x: -12.853299896941419
+    z: 156.4157398922256
+    pitch: 6.560222
+    yaw: 90.77466
+  - world: m4tchb0x
+    x: -0.5183775312148339
     y: -28.0
-    z: 68.58756215846395
-    pitch: 6.3300858
-    yaw: -101.4751
-  - world: world
-    x: -0.6638734082145273
+    z: 113.5868217210009
+    pitch: 3.1073725
+    yaw: 1.0196533
+  - world: m4tchb0x
+    x: 34.3062856383851
     y: -28.0
-    z: 114.0285342048551
-    pitch: 4.603675
-    yaw: -2.7338867
-  - world: world
-    x: 35.01776788375859
+    z: 98.9279350023729
+    pitch: 5.1790857
+    yaw: 6.4093018
+  - world: m4tchb0x
+    x: 12.167055671992346
     y: -28.0
-    z: 156.51610727450935
-    pitch: 5.2942443
-    yaw: 91.049805
-  - world: world
-    x: 33.69344917063158
-    y: -28.0
-    z: 99.66568098214483
-    pitch: 15.3075075
-    yaw: 85.52905
-  - world: world
-    x: 13.456050482229537
-    y: -28.0
-    z: 69.35289177192249
-    pitch: 4.3735056
-    yaw: 91.85693
+    z: 70.27321679178925
+    pitch: 14.962158
+    yaw: 114.36682
+
 # Example:
 # - world: world
 #   x: 0.5
@@ -109,66 +94,6 @@ discussion:
   - 7
   - 8
   
-  # Seat locations (coordinates for each seat)
-  # Can be set via /matchbox setseat <name> <seat-number> or configured here
-  # Format: seat number, then world, x, y, z, yaw, pitch
-  seat-locations:
-    '1':
-      world: world
-      x: -129.131814985295
-      y: -26.5
-      z: 254.52635539512744
-      yaw: -90.11377
-      pitch: 2.9922788
-    '2':
-      world: world
-      x: -129.13709990454862
-      y: -26.5
-      z: 251.90142060573828
-      yaw: -90.11377
-      pitch: 2.9922788
-    '3':
-      world: world
-      x: -125.41551290002177
-      y: -26.5
-      z: 249.02583875200165
-      yaw: 0.69384766
-      pitch: 2.186616
-    '4':
-      world: world
-      x: -122.35331764513435
-      y: -26.5
-      z: 249.0628321728634
-      yaw: 0.69384766
-      pitch: 2.186616
-    '5':
-      world: world
-      x: -118.8420315201995
-      y: -26.5
-      z: 251.51947208186309
-      yaw: 89.18445
-      pitch: -2.532296
-    '6':
-      world: world
-      x: -118.80047601429517
-      y: -26.5
-      z: 254.6102972035724
-      yaw: 90.33667
-      pitch: -1.0360769
-    '7':
-      world: world
-      x: -122.72919660060212
-      y: -26.5
-      z: 257.0749253454155
-      yaw: -178.85303
-      pitch: -0.69077116
-    '8':
-      world: world
-      x: -125.52647074862402
-      y: -26.5
-      z: 257.17158451521794
-      yaw: -178.96729
-      pitch: -4.0284977
   # Example:
   # 1:
   #   world: world
@@ -187,6 +112,63 @@ discussion:
 
     # Discussion phase duration in seconds
   duration: 30
+  seat-locations:
+    '1':
+      world: m4tchb0x
+      x: -129.16343439943907
+      y: -26.5
+      z: 251.55774675779458
+      yaw: -89.37445
+      pitch: 1.611053
+    '2':
+      world: m4tchb0x
+      x: -129.1864844318363
+      y: -26.5
+      z: 254.36611360150775
+      yaw: -90.75531
+      pitch: 1.7261552
+    '3':
+      world: m4tchb0x
+      x: -125.52719780180495
+      y: -26.5
+      z: 257.0771164995616
+      yaw: 179.12561
+      pitch: 4.143142
+    '4':
+      world: m4tchb0x
+      x: -122.25339360180097
+      y: -26.5
+      z: 257.0268930333515
+      yaw: 179.12561
+      pitch: 4.143142
+    '5':
+      world: m4tchb0x
+      x: -119.0030134337861
+      y: -26.5
+      z: 254.59310772635314
+      yaw: 90.84845
+      pitch: 1.265751
+    '6':
+      world: m4tchb0x
+      x: -118.96102588929145
+      y: -26.5
+      z: 251.74950939174357
+      yaw: 90.84845
+      pitch: 1.265751
+    '7':
+      world: m4tchb0x
+      x: -122.2330839151841
+      y: -26.5
+      z: 248.93487004108408
+      yaw: 1.9953613
+      pitch: 0.11480462
+    '8':
+      world: m4tchb0x
+      x: -125.51700092500927
+      y: -26.5
+      z: 248.82053637494593
+      yaw: -0.19140625
+      pitch: 2.4167016
 
 # Spark Ability Settings
 spark:
@@ -209,11 +191,11 @@ voting:
   # Thresholds are calculated logarithmically between these key points
   threshold:
     # Threshold percentage at 20 players (0.20 = 20%)
-    at-20-players: 0.20
+    at-20-players: 0.2
     # Threshold percentage at 7 players (0.30 = 30%)
-    at-7-players: 0.30
+    at-7-players: 0.3
     # Threshold percentage at 3 players and below (0.50 = 50%)
-    at-3-players: 0.50
+    at-3-players: 0.5
   
   # Penalty system for voting phases without elimination
   penalty:
@@ -222,7 +204,7 @@ voting:
     # Maximum number of phases that can accumulate penalty
     max-phases: 3
     # Maximum penalty reduction percentage (0.10 = 10%)
-    max-reduction: 0.10
+    max-reduction: 0.1
 
 # Cosmetic Settings
 cosmetics:
