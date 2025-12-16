@@ -2,7 +2,49 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
-## [0.9.3] - Latest Release (It's the little quirks in life)
+## [0.9.4] - Latest Release (Ability System)
+
+### Added
+- **Medic Secondary Ability System**: Medic now uses the same ability system as Spark
+  - Healing Sight is now tracked as a secondary ability (preparing for future abilities)
+  - System modeled after the Spark secondary ability system for consistency
+  - Configurable via `medic.secondary-ability` in config.yml
+  - Options: "random" (default), "healing_sight"
+  - Ready for future medic abilities to be added
+- **Delusion Ability**: New Spark secondary ability that creates fake infections
+  - Spark can activate an 8-second window, then right-click a player to apply a fake infection
+  - Fake infections appear identical to real infections to the medic (same particles)
+  - Medic can see delusion infections using Healing Sight alongside real infections
+  - Medic can cure delusion infections, wasting their cure on a non-infected player
+  - Delusion infections automatically decay after 30 seconds
+  - Delusion infections do not cause elimination when discussion phase starts
+  - Configurable via `spark.secondary-ability` in config.yml
+  - Options: "random" (default), "hunter_vision", "spark_swap", "delusion"
+
+### Changed
+- **Medic Ability System Architecture**: Refactored medic abilities to match Spark's system
+  - Created `MedicSecondaryAbility` enum for ability tracking
+  - Added ability selection logic in GameManager
+  - Updated InventoryManager to handle medic abilities dynamically
+  - MedicSightListener now checks if ability is active before allowing use
+  - System is now extensible for adding new medic abilities in the future
+- **Config steve skin override**: Default config now comes with steve skin override as true by default
+  - Random skin toggle is now set to false by default
+- **Debug command**: Fake infected (Delusion infection) is tracked by the debug command
+  - Added the fake infected param to `/matchbox debug` command
+
+### Fixed
+- **Steve Skin Override**: Fixed inconsistent steve skin application
+  - All players now consistently receive steve skins when enabled
+  - Skins are reapplied at the start of each new round to ensure consistency
+  - Fixed issue where some players would get alex or random skins instead of steve
+- **Invalid default seat locations**: Fixed an error where default seatlocations weren't loading correctly when used with the `m4tchb0x` map
+  - Default Spawn/Seat locations are no longer linked to a world folder named `world` 
+  - Now linked to a world folder named `m4tchb0x`
+
+---
+
+## [0.9.3] - (The little quirks of life)
 
 ### Added
 - **Spark Secondary Ability System**: Spark now rolls a secondary ability each round

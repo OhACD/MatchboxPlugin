@@ -33,6 +33,9 @@ public class SessionGameContext {
     /** Maps player UUID to expiry timestamp for active cure windows */
     private final Map<UUID, Long> activeCureWindow = new ConcurrentHashMap<>();
     
+    /** Maps player UUID to expiry timestamp for active delusion windows */
+    private final Map<UUID, Long> activeDelusionWindow = new ConcurrentHashMap<>();
+    
     /** Discussion location for the current round */
     private Location currentDiscussionLocation;
     
@@ -86,6 +89,10 @@ public class SessionGameContext {
         return activeCureWindow;
     }
     
+    public Map<UUID, Long> getActiveDelusionWindow() {
+        return activeDelusionWindow;
+    }
+    
     public Location getCurrentDiscussionLocation() {
         return currentDiscussionLocation;
     }
@@ -131,6 +138,7 @@ public class SessionGameContext {
     public void cleanup() {
         activeSwipeWindow.clear();
         activeCureWindow.clear();
+        activeDelusionWindow.clear();
         currentDiscussionLocation = null;
         currentSpawnLocations = null;
         consecutiveNoEliminationPhases = 0;

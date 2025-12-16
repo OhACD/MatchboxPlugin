@@ -12,18 +12,22 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
+
 
 /**
- * Activates Healing Sight when a Medic clicks a PAPER in slot 28 (above hotbar slot 1).
+ * Activates an 8s delusion window when a Spark clicks a PAPER in slot 28 (above hotbar slot 1).
  * Supports right-click and left-click in inventory, and right-click when held in main hand.
- * Shows subtle highlight particles on all infected players for 15 seconds (only visible to medic).
  * Silent by design (no messages/holograms).
  */
-public class MedicSightListener implements AbilityHandler {
+public class DelusionActivationListener implements AbilityHandler {
     private final GameManager gameManager;
+    private final Plugin plugin;
 
-    public MedicSightListener(GameManager gameManager) {
+    public DelusionActivationListener(GameManager gameManager, Plugin plugin) {
         this.gameManager = gameManager;
+        this.plugin = plugin;
     }
 
     @Override
@@ -32,7 +36,7 @@ public class MedicSightListener implements AbilityHandler {
         
         Player player = (Player) event.getWhoClicked();
         
-        // Check if clicking the sight paper slot
+        // Check if clicking the delusion paper slot
         int slot = event.getSlot();
         int rawSlot = event.getRawSlot();
         
@@ -48,15 +52,15 @@ public class MedicSightListener implements AbilityHandler {
         ItemStack clicked = event.getCurrentItem();
         if (clicked == null || clicked.getType() != Material.PAPER) return;
         if (!context.getPhaseManager().isPhase(GamePhase.SWIPE)) return;
-        if (context.getGameState().getRole(player.getUniqueId()) != Role.MEDIC) return;
+        if (context.getGameState().getRole(player.getUniqueId()) != Role.SPARK) return;
         
-        // Check if healing sight ability is active for this round
-        if (context.getGameState().getMedicSecondaryAbility() != MedicSecondaryAbility.HEALING_SIGHT) {
+        // Check if delusion ability is active for this round
+        if (context.getGameState().getSparkSecondaryAbility() != SparkSecondaryAbility.DELUSION) {
             return;
         }
 
-        // Check if medic already used healing sight this round
-        if (context.getGameState().hasUsedHealingSightThisRound(player.getUniqueId())) {
+        // Check if spark already used delusion this round
+        if (context.getGameState().hasUsedDelusionThisRound(player.getUniqueId())) {
             return; // Silent - already used this round
         }
 
@@ -71,13 +75,35 @@ public class MedicSightListener implements AbilityHandler {
         // Consume the click (prevent moving the paper)
         event.setCancelled(true);
 
-        // Activate healing sight (shows particles on infected players for 15 seconds)
-        gameManager.activateHealingSight(player);
-        
+        // Start the 8 second delusion window silently
+        Long windowExpiry = gameManager.startDelusionWindow(player, 8);
+        if (windowExpiry == null) {
+            return;
+        }
+
         // Replace paper with gray dye indicator
         ItemStack usedIndicator = InventoryManager.createUsedIndicator(clicked);
         player.getInventory().setItem(slot, usedIndicator);
         player.updateInventory();
+
+        // schedule cleanup that restores the paper if unused
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    return;
+                }
+                SessionGameContext ctx = gameManager.getContextForPlayer(player.getUniqueId());
+                if (ctx == null) {
+                    return;
+                }
+                Long currentExpiry = ctx.getActiveDelusionWindow().get(player.getUniqueId());
+                if (currentExpiry != null && currentExpiry.equals(windowExpiry)) {
+                    gameManager.endDelusionWindow(player.getUniqueId());
+                    gameManager.restoreSecondaryAbilityPaper(player);
+                }
+            }
+        }.runTaskLater(plugin, 20L * 8); // 8 seconds
     }
     
     @Override
@@ -95,7 +121,7 @@ public class MedicSightListener implements AbilityHandler {
             return;
         }
         
-        // Check if it's the sight paper by checking slot 28
+        // Check if it's the delusion paper by checking slot 28
         ItemStack slot28Item = player.getInventory().getItem(InventoryManager.getVisionSightPaperSlot());
         if (slot28Item == null || slot28Item.getType() != Material.PAPER || !slot28Item.equals(heldItem)) {
             return;
@@ -104,30 +130,52 @@ public class MedicSightListener implements AbilityHandler {
         if (!context.getPhaseManager().isPhase(GamePhase.SWIPE)) {
             return;
         }
-        if (context.getGameState().getRole(player.getUniqueId()) != Role.MEDIC) {
+        if (context.getGameState().getRole(player.getUniqueId()) != Role.SPARK) {
             return;
         }
         
-        // Check if healing sight ability is active for this round
-        if (context.getGameState().getMedicSecondaryAbility() != MedicSecondaryAbility.HEALING_SIGHT) {
+        // Check if delusion ability is active for this round
+        if (context.getGameState().getSparkSecondaryAbility() != SparkSecondaryAbility.DELUSION) {
             return;
         }
         
-        // Check if medic already used healing sight this round
-        if (context.getGameState().hasUsedHealingSightThisRound(player.getUniqueId())) {
+        // Check if spark already used delusion this round
+        if (context.getGameState().hasUsedDelusionThisRound(player.getUniqueId())) {
             return; // Silent - already used this round
         }
         
         // Prevent interaction
         event.setCancelled(true);
         
-        // Activate healing sight (shows particles on infected players for 15 seconds)
-        gameManager.activateHealingSight(player);
+        // Start the 8 second delusion window silently
+        Long windowExpiry = gameManager.startDelusionWindow(player, 8);
+        if (windowExpiry == null) {
+            return;
+        }
         
         // Replace paper with gray dye indicator in slot 28
         ItemStack usedIndicator = InventoryManager.createUsedIndicator(heldItem);
         player.getInventory().setItem(InventoryManager.getVisionSightPaperSlot(), usedIndicator);
         player.updateInventory();
+
+        // schedule cleanup that restores the paper if unused
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) {
+                    return;
+                }
+                SessionGameContext ctx = gameManager.getContextForPlayer(player.getUniqueId());
+                if (ctx == null) {
+                    return;
+                }
+                Long currentExpiry = ctx.getActiveDelusionWindow().get(player.getUniqueId());
+                if (currentExpiry != null && currentExpiry.equals(windowExpiry)) {
+                    gameManager.endDelusionWindow(player.getUniqueId());
+                    gameManager.restoreSecondaryAbilityPaper(player);
+                }
+            }
+        }.runTaskLater(plugin, 20L * 8); // 8 seconds
     }
 }
 

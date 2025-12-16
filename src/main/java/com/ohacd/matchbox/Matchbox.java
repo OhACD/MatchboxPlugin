@@ -10,6 +10,8 @@ import com.ohacd.matchbox.game.ability.AbilityManager;
 import com.ohacd.matchbox.game.ability.MedicAbilityListener;
 import com.ohacd.matchbox.game.ability.MedicHitListener;
 import com.ohacd.matchbox.game.ability.MedicSightListener;
+import com.ohacd.matchbox.game.ability.DelusionActivationListener;
+import com.ohacd.matchbox.game.ability.DelusionHitListener;
 import com.ohacd.matchbox.game.ability.SparkSwapAbility;
 import com.ohacd.matchbox.game.ability.SparkVisionListener;
 import com.ohacd.matchbox.game.ability.SwipeActivationListener;
@@ -37,7 +39,7 @@ import java.util.Set;
 public final class Matchbox extends JavaPlugin {
     // Project status, versioning and update name
     private static final ProjectStatus projectStatus = ProjectStatus.STABLE; // Main toggle for project status
-    private String updateName = "It's the little quirks in life";
+    private String updateName = "Ability System";
     private String currentVersion;
     private CheckProjectVersion versionChecker;
 
@@ -73,6 +75,8 @@ public final class Matchbox extends JavaPlugin {
         abilityManager.registerAbility(new MedicHitListener(gameManager));
         abilityManager.registerAbility(new MedicSightListener(gameManager));
         abilityManager.registerAbility(new SparkSwapAbility(this));
+        abilityManager.registerAbility(new DelusionActivationListener(gameManager, this));
+        abilityManager.registerAbility(new DelusionHitListener(gameManager));
         getServer().getPluginManager().registerEvents(new AbilityEventListener(abilityManager), this);
 
         // Register voting listeners

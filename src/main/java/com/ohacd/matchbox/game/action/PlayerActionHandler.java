@@ -7,8 +7,11 @@ import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.ParticleUtils;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.vote.VoteManager;
+
+import org.bukkit.Color;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Map;
 import java.util.UUID;
@@ -119,17 +122,29 @@ public class PlayerActionHandler {
             return;
         }
         
-        // Check if target has a pending death to cure
-        if (!gameState.hasPendingDeath(targetId)) {
+        // Check if target has a pending death OR delusion infection to cure
+        boolean hasRealInfection = gameState.hasPendingDeath(targetId);
+        boolean hasDelusionInfection = gameState.isDelusionInfected(targetId);
+        
+        if (!hasRealInfection && !hasDelusionInfection) {
             activeCureWindow.remove(medicId);
             return;
         }
         
         // Mark as cured
         gameState.markCured(medicId);
-        gameState.removePendingDeath(targetId);
-        // NEW: 0.8.7 - mark the target as been cured
-        gameState.markBeenCured(targetId);
+        
+        // Remove real infection if present
+        if (hasRealInfection) {
+            gameState.removePendingDeath(targetId);
+            // NEW: 0.8.7 - mark the target as been cured
+            gameState.markBeenCured(targetId);
+        }
+        
+        // Remove delusion infection if present (wastes the cure)
+        if (hasDelusionInfection) {
+            gameState.removeDelusionInfection(targetId);
+        }
         
         // Show subtle blue particles
         ParticleUtils.showColoredParticlesToEveryone(
@@ -212,6 +227,103 @@ public class PlayerActionHandler {
         if (expiry == null) return false;
         if (expiry <= System.currentTimeMillis()) {
             activeCureWindow.remove(playerId);
+            return false;
+        }
+        return true;
+    }
+    
+    /**
+     * Handles a delusion action from a spark.
+     * Applies a fake infection that medic can see but doesn't cause elimination.
+     */
+    public void handleDelusion(SessionGameContext context, Player spark, Player target) {
+        if (context == null || spark == null || target == null) return;
+        
+        GameState gameState = context.getGameState();
+        
+        // Game must be active
+        if (!gameState.isGameActive()) return;
+        
+        // Both players must be in the same session
+        if (!gameState.getAllParticipatingPlayerIds().contains(target.getUniqueId())) {
+            return;
+        }
+        
+        PhaseManager phaseManager = context.getPhaseManager();
+        Map<UUID, Long> activeDelusionWindow = context.getActiveDelusionWindow();
+        
+        // Phase and permission checks
+        if (!phaseManager.isPhase(GamePhase.SWIPE)) return;
+        
+        UUID sparkId = spark.getUniqueId();
+        UUID targetId = target.getUniqueId();
+        
+        // Only a Spark can use delusion
+        if (gameState.getRole(sparkId) != Role.SPARK) {
+            return;
+        }
+        
+        // Must have an active delusion window
+        if (!isDelusionWindowActive(context, sparkId)) {
+            return;
+        }
+        
+        // If target already has delusion infection, ignore duplicate
+        if (gameState.isDelusionInfected(targetId)) {
+            activeDelusionWindow.remove(sparkId);
+            return;
+        }
+        
+        // Mark as used and apply delusion infection
+        gameState.markUsedDelusion(sparkId);
+        gameState.markDelusionInfected(targetId);
+        
+        // Show subtle lime particles (same as real infection to fool medic)
+        ParticleUtils.showColoredParticlesToEveryone(
+            target,
+            Color.fromRGB(50, 205, 50), // Lime green
+            8,
+            plugin
+        );
+        
+        // Close the delusion window
+        activeDelusionWindow.remove(sparkId);
+        
+        // Schedule decay after 1 minute (60 seconds)
+        final UUID targetIdFinal = targetId;
+        final String sessionName = context.getSessionName();
+        final SessionGameContext contextFinal = context;
+        BukkitRunnable decayTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                // Check if game is still active and player still has delusion infection
+                if (contextFinal == null || !contextFinal.getGameState().isGameActive()) {
+                    return;
+                }
+                
+                GameState state = contextFinal.getGameState();
+                if (state.isDelusionInfected(targetIdFinal)) {
+                    // Remove delusion infection after 30 seconds
+                    state.removeDelusionInfection(targetIdFinal);
+                    plugin.getLogger().info("Delusion infection decayed for player " + targetIdFinal + " in session '" + sessionName + "'");
+                }
+            }
+        };
+        decayTask.runTaskLater(plugin, 20L * 30); // 30 seconds = 600 ticks
+        
+        plugin.getLogger().info("Delusion registered in session '" + context.getSessionName() + "': " + spark.getName() + " applied delusion to " + target.getName() + " (will decay in 1 minute)");
+    }
+    
+    /**
+     * Checks if a player has an active delusion window.
+     */
+    public boolean isDelusionWindowActive(SessionGameContext context, UUID playerId) {
+        if (context == null) return false;
+        Map<UUID, Long> activeDelusionWindow = context.getActiveDelusionWindow();
+        Long expiry = activeDelusionWindow.get(playerId);
+        if (expiry == null) return false;
+        if (expiry <= System.currentTimeMillis()) {
+            activeDelusionWindow.remove(playerId);
             return false;
         }
         return true;

@@ -10,7 +10,7 @@ Matchbox is a 7-player social deduction game where players work together to iden
 - **Recording-Proof Design**: Identical inventories, paper-based abilities, hologram chat
 - **Three Roles**: Spark (impostor), Medic (can save players), Innocent (detective)
 - **Three Phases**: Swipe (3 min), Discussion (30 sec), Voting (15 sec)
-- **Special Abilities**: Hunter Vision, Healing Touch, Healing Sight
+- **Special Abilities**: Hunter Vision, Spark Swap, Delusion, Healing Touch, Healing Sight
 - **Full Game Loop**: Multiple rounds until win condition
 
 ## We're Looking For Beta Testers

@@ -107,8 +107,11 @@ public class SkinManager {
         if (players == null || players.isEmpty()) {
             return;
         }
+        // Apply steve skin to all players to ensure consistency
         for (Player player : players) {
-            applySteveSkin(player);
+            if (player != null && player.isOnline()) {
+                applySteveSkin(player);
+            }
         }
     }
 
@@ -124,11 +127,20 @@ public class SkinManager {
         if (!originalSkins.containsKey(playerId)) {
             captureCurrentSkin(player).ifPresent(skin -> originalSkins.put(playerId, skin));
         }
-        // Store empty skin data as assigned skin so we can restore it after discussion
+        // Store Steve skin data as assigned skin so we can restore it after discussion
         assignedSkins.put(playerId, DEFAULT_STEVE);
-        // Apply the default skin (no texture properties) via shared setter
-        setSkin(player, DEFAULT_STEVE);
-        refreshAppearance(player);
+        // Apply the Steve skin via shared setter - ensure it runs on main thread
+        if (Bukkit.isPrimaryThread()) {
+            setSkin(player, DEFAULT_STEVE);
+            refreshAppearance(player);
+        } else {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (player.isOnline()) {
+                    setSkin(player, DEFAULT_STEVE);
+                    refreshAppearance(player);
+                }
+            });
+        }
     }
 
     /**
@@ -251,6 +263,9 @@ public class SkinManager {
         try {
             if (skinData == null) {
                 plugin.getLogger().warning("[SkinManager] Cannot apply null skin data to " + player.getName());
+                return;
+            }
+            if (player == null || !player.isOnline()) {
                 return;
             }
             PlayerProfile profile = Bukkit.createProfile(player.getUniqueId(), player.getName());
