@@ -1,15 +1,18 @@
 package com.ohacd.matchbox.api;
 
+import com.ohacd.matchbox.game.session.GameSession;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.utils.MockBukkitFactory;
+import com.ohacd.matchbox.utils.TestPluginFactory;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,138 +22,376 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for ApiGameSession class.
  */
 public class ApiGameSessionTest {
-    
+
     private List<Player> testPlayers;
+    private List<Location> testSpawnPoints;
     private String testSessionName;
-    
+    private ApiGameSession apiSession;
+
     @BeforeEach
     void setUp() {
         MockBukkitFactory.setUpBukkitMocks();
+        TestPluginFactory.setUpMockPlugin();
+
         testPlayers = MockBukkitFactory.createMockPlayers(3);
+        testSpawnPoints = List.of(
+            MockBukkitFactory.createMockLocation(0.0, 64.0, 0.0, 0.0f, 0.0f),
+            MockBukkitFactory.createMockLocation(10.0, 64.0, 0.0, 90.0f, 0.0f),
+            MockBukkitFactory.createMockLocation(0.0, 64.0, 10.0, 180.0f, 0.0f)
+        );
         testSessionName = "test-session-" + UUID.randomUUID();
+
+        // Create a real session for testing
+        SessionCreationResult result = MatchboxAPI.createSessionBuilder(testSessionName)
+            .withPlayers(testPlayers)
+            .withSpawnPoints(testSpawnPoints)
+            .startWithResult();
+
+        assertThat(result.isSuccess()).isTrue();
+        apiSession = result.getSession().get();
     }
-    
+
+    @AfterEach
+    void tearDown() {
+        // Clean up session
+        MatchboxAPI.endSession(testSessionName);
+    }
+
     @Test
     @DisplayName("Should create API game session wrapper")
     void shouldCreateApiGameSessionWrapper() {
-        // This test would need access to the actual GameSession constructor
-        // For now, we'll test the basic structure
-        // Note: This test may need adjustment based on the actual GameSession implementation
-        
-        // Arrange
-        SessionCreationResult result = MatchboxAPI.createSessionBuilder(testSessionName)
-            .withPlayers(testPlayers)
-            .withSpawnPoints(List.of(MockBukkitFactory.createMockLocation()))
-            .startWithResult();
-        
-        // Act & Assert
-        if (result.isSuccess()) {
-            ApiGameSession session = result.getSession().get();
-            assertThat(session).isNotNull();
-            assertThat(session.getName()).isEqualTo(testSessionName);
-        } else {
-            // If session creation fails due to mocking limitations, test the structure
-            assertTrue(true, "Session creation skipped due to mocking limitations");
-        }
+        // Arrange & Act - session created in setUp
+
+        // Assert
+        assertThat(apiSession).isNotNull();
+        assertThat(apiSession.getName()).isEqualTo(testSessionName);
     }
-    
+
+    @Test
+    @DisplayName("Should throw exception for null GameSession")
+    void shouldThrowExceptionForNullGameSession() {
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> new ApiGameSession(null));
+    }
+
     @Test
     @DisplayName("Should handle session name correctly")
     void shouldHandleSessionNameCorrectly() {
-        // This test would require a real GameSession instance
-        // For now, we'll test the basic structure
-        assertTrue(true, "Session name handling test requires real GameSession instance");
+        // Act
+        String name = apiSession.getName();
+
+        // Assert
+        assertThat(name).isEqualTo(testSessionName);
+        assertThat(name).isNotNull();
+        assertThat(name.trim()).isNotEmpty();
     }
-    
+
     @Test
     @DisplayName("Should get players from session")
     void shouldGetPlayersFromSession() {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Players retrieval test requires real GameSession instance");
+        // Act
+        var players = apiSession.getPlayers();
+
+        // Assert
+        assertThat(players).isNotNull();
+        assertThat(players).hasSize(3);
+        assertThat(players).containsAll(testPlayers);
     }
-    
-    @Test
-    @DisplayName("Should check if player is in session")
-    void shouldCheckIfPlayerIsInSession() {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Player check test requires real GameSession instance");
-    }
-    
-    @ParameterizedTest
-    @EnumSource(GamePhase.class)
-    @DisplayName("Should handle different game phases")
-    void shouldHandleDifferentGamePhases(GamePhase phase) {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Game phase test requires real GameSession instance");
-    }
-    
-    @Test
-    @DisplayName("Should get current phase")
-    void shouldGetCurrentPhase() {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Current phase test requires real GameSession instance");
-    }
-    
+
     @Test
     @DisplayName("Should check if session is active")
     void shouldCheckIfSessionIsActive() {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Active status test requires real GameSession instance");
+        // Act & Assert
+        assertThat(apiSession.isActive()).isTrue();
+
+        // End session and check again
+        MatchboxAPI.endSession(testSessionName);
+        assertThat(apiSession.isActive()).isFalse();
     }
-    
+
     @Test
-    @DisplayName("Should handle player roles")
-    void shouldHandlePlayerRoles() {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Player roles test requires real GameSession instance");
+    @DisplayName("Should get current phase when game is active")
+    void shouldGetCurrentPhaseWhenGameIsActive() {
+        // Act
+        GamePhase phase = apiSession.getCurrentPhase();
+
+        // Assert - Phase should be SWIPE when game is started automatically
+        assertThat(phase).isEqualTo(GamePhase.SWIPE);
     }
-    
+
     @Test
-    @DisplayName("Should handle session lifecycle")
-    void shouldHandleSessionLifecycle() {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Session lifecycle test requires real GameSession instance");
+    @DisplayName("Should get current round when game is active")
+    void shouldGetCurrentRoundWhenGameIsActive() {
+        // Act
+        int round = apiSession.getCurrentRound();
+
+        // Assert - Round should be 1 when game is started
+        assertThat(round).isEqualTo(1);
     }
-    
+
     @Test
-    @DisplayName("Should handle configuration changes")
-    void shouldHandleConfigurationChanges() {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Configuration changes test requires real GameSession instance");
+    @DisplayName("Should get alive players when game is active")
+    void shouldGetAlivePlayersWhenGameIsActive() {
+        // Act
+        var alivePlayers = apiSession.getAlivePlayers();
+
+        // Assert - Should return players when game is active
+        assertThat(alivePlayers).isNotNull();
+        assertThat(alivePlayers).hasSize(3);
+        assertThat(alivePlayers).containsAll(testPlayers);
     }
-    
+
     @Test
-    @DisplayName("Should handle event firing")
-    void shouldHandleEventFiring() {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Event firing test requires real GameSession instance");
+    @DisplayName("Should get player role when no game is active")
+    void shouldGetPlayerRoleWhenNoGameIsActive() {
+        // Arrange
+        Player testPlayer = testPlayers.get(0);
+
+        // Act
+        Optional<com.ohacd.matchbox.game.utils.Role> role = apiSession.getPlayerRole(testPlayer);
+
+        // Assert
+        assertThat(role).isEmpty();
     }
-    
+
     @Test
-    @DisplayName("Should handle player addition and removal")
-    void shouldHandlePlayerAdditionAndRemoval() {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Player addition/removal test requires real GameSession instance");
+    @DisplayName("Should handle null player for role check")
+    void shouldHandleNullPlayerForRoleCheck() {
+        // Act
+        Optional<com.ohacd.matchbox.game.utils.Role> role = apiSession.getPlayerRole(null);
+
+        // Assert
+        assertThat(role).isEmpty();
     }
-    
+
     @Test
-    @DisplayName("Should handle session termination")
-    void shouldHandleSessionTermination() {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Session termination test requires real GameSession instance");
+    @DisplayName("Should add player successfully")
+    void shouldAddPlayerSuccessfully() {
+        // Arrange
+        Player newPlayer = MockBukkitFactory.createMockPlayer(UUID.randomUUID(), "new-player");
+
+        // Act
+        boolean added = apiSession.addPlayer(newPlayer);
+
+        // Assert
+        assertThat(added).isTrue();
+        assertThat(apiSession.getPlayers()).contains(newPlayer);
+        assertThat(apiSession.getTotalPlayerCount()).isEqualTo(4);
     }
-    
+
     @Test
-    @DisplayName("Should handle null inputs gracefully")
-    void shouldHandleNullInputsGracefully() {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Null input test requires real GameSession instance");
+    @DisplayName("Should handle adding null player")
+    void shouldHandleAddingNullPlayer() {
+        // Act
+        boolean added = apiSession.addPlayer(null);
+
+        // Assert
+        assertThat(added).isFalse();
     }
-    
+
     @Test
-    @DisplayName("Should handle concurrent access")
-    void shouldHandleConcurrentAccess() {
-        // This test would require a real GameSession instance
-        assertTrue(true, "Concurrent access test requires real GameSession instance");
+    @DisplayName("Should handle adding offline player")
+    void shouldHandleAddingOfflinePlayer() {
+        // Arrange
+        Player offlinePlayer = MockBukkitFactory.createMockPlayer(UUID.randomUUID(), "offline");
+        // Mock player as offline by not setting online status properly
+        // This is a limitation of the mock, but we test the API behavior
+
+        // Act
+        boolean added = apiSession.addPlayer(offlinePlayer);
+
+        // Assert - Should handle gracefully
+        assertThat(added).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should remove player successfully")
+    void shouldRemovePlayerSuccessfully() {
+        // Arrange
+        Player playerToRemove = testPlayers.get(0);
+
+        // Act
+        boolean removed = apiSession.removePlayer(playerToRemove);
+
+        // Assert - Remove player should work even without active game
+        assertThat(removed).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should handle removing null player")
+    void shouldHandleRemovingNullPlayer() {
+        // Act
+        boolean removed = apiSession.removePlayer(null);
+
+        // Assert
+        assertThat(removed).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should check if player is alive when no game active")
+    void shouldCheckIfPlayerIsAliveWhenNoGameActive() {
+        // Arrange
+        Player testPlayer = testPlayers.get(0);
+
+        // Act
+        boolean isAlive = apiSession.isPlayerAlive(testPlayer);
+
+        // Assert - Should return false when no game is active
+        assertThat(isAlive).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should check if null player is alive")
+    void shouldCheckIfNullPlayerIsAlive() {
+        // Act
+        boolean isAlive = apiSession.isPlayerAlive(null);
+
+        // Assert
+        assertThat(isAlive).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should get alive player count when no game active")
+    void shouldGetAlivePlayerCountWhenNoGameActive() {
+        // Act
+        int aliveCount = apiSession.getAlivePlayerCount();
+
+        // Assert
+        assertThat(aliveCount).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("Should get total player count")
+    void shouldGetTotalPlayerCount() {
+        // Act
+        int totalCount = apiSession.getTotalPlayerCount();
+
+        // Assert
+        assertThat(totalCount).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("Should check if in game phase when no game active")
+    void shouldCheckIfInGamePhaseWhenNoGameActive() {
+        // Act
+        boolean inGamePhase = apiSession.isInGamePhase();
+
+        // Assert
+        assertThat(inGamePhase).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should get status description")
+    void shouldGetStatusDescription() {
+        // Act
+        String status = apiSession.getStatusDescription();
+
+        // Assert
+        assertThat(status).isNotNull();
+        assertThat(status).contains("Session inactive");
+    }
+
+    @Test
+    @DisplayName("Should provide phase controller")
+    void shouldProvidePhaseController() {
+        // Act
+        PhaseController controller = apiSession.getPhaseController();
+
+        // Assert
+        assertThat(controller).isNotNull();
+        assertThat(controller).isInstanceOf(PhaseController.class);
+    }
+
+    @Test
+    @DisplayName("Should handle deprecated skip to next phase")
+    void shouldHandleDeprecatedSkipToNextPhase() {
+        // Act
+        boolean skipped = apiSession.skipToNextPhase();
+
+        // Assert - Should handle gracefully when no game is active
+        assertThat(skipped).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should handle deprecated force phase")
+    void shouldHandleDeprecatedForcePhase() {
+        // Act
+        boolean forced = apiSession.forcePhase(GamePhase.DISCUSSION);
+
+        // Assert - Should handle gracefully when no game is active
+        assertThat(forced).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should handle deprecated force phase with null")
+    void shouldHandleDeprecatedForcePhaseWithNull() {
+        // Act
+        boolean forced = apiSession.forcePhase(null);
+
+        // Assert
+        assertThat(forced).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should provide internal session access")
+    void shouldProvideInternalSessionAccess() {
+        // Act
+        GameSession internal = apiSession.getInternalSession();
+
+        // Assert
+        assertThat(internal).isNotNull();
+        assertThat(internal).isInstanceOf(GameSession.class);
+        assertThat(internal.getName()).isEqualTo(testSessionName);
+    }
+
+    @Test
+    @DisplayName("Should implement equals and hashCode correctly")
+    void shouldImplementEqualsAndHashCodeCorrectly() {
+        // Arrange
+        ApiGameSession sameSession = apiSession; // Same reference
+        ApiGameSession differentSession = createDifferentSession();
+
+        // Act & Assert
+        assertThat(apiSession.equals(apiSession)).isTrue();
+        assertThat(apiSession.equals(sameSession)).isTrue();
+        assertThat(apiSession.equals(null)).isFalse();
+        assertThat(apiSession.equals("not a session")).isFalse();
+        assertThat(apiSession.equals(differentSession)).isFalse();
+
+        assertThat(apiSession.hashCode()).isEqualTo(sameSession.hashCode());
+    }
+
+    @Test
+    @DisplayName("Should provide meaningful toString")
+    void shouldProvideMeaningfulToString() {
+        // Act
+        String toString = apiSession.toString();
+
+        // Assert
+        assertThat(toString).isNotNull();
+        assertThat(toString).contains("ApiGameSession");
+        assertThat(toString).contains(testSessionName);
+        assertThat(toString).contains("active=");
+    }
+
+    /**
+     * Helper method to create a different session for comparison tests.
+     */
+    private ApiGameSession createDifferentSession() {
+        String differentName = "different-session-" + UUID.randomUUID();
+        Player differentPlayer = MockBukkitFactory.createMockPlayer(UUID.randomUUID(), "different-player");
+
+        SessionCreationResult result = MatchboxAPI.createSessionBuilder(differentName)
+            .withPlayers(List.of(differentPlayer))
+            .withSpawnPoints(testSpawnPoints.subList(0, 1))
+            .startWithResult();
+
+        assertThat(result.isSuccess()).isTrue();
+        ApiGameSession differentSession = result.getSession().get();
+
+        // Clean up after test
+        MatchboxAPI.endSession(differentName);
+
+        return differentSession;
     }
 }

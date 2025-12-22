@@ -2,11 +2,13 @@ package com.ohacd.matchbox.game.session;
 
 import java.util.*;
 
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Manages all game sessions.
  */
 public class SessionManager {
-    private final Map<String, GameSession> sessions = new HashMap<>();
+    private final Map<String, GameSession> sessions = new ConcurrentHashMap<>();
 
     /**
      * Creates a new game session.
