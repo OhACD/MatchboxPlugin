@@ -115,26 +115,45 @@ public class GameManager {
 
     /**
      * Gets the game context for a session, creating it if it doesn't exist.
-     * Also validates that the session exists in SessionManager.
+     * Also validates that the Session exists in SessionManager.
      */
     private SessionGameContext getOrCreateContext(String sessionName) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
             throw new IllegalArgumentException("Session name cannot be null or empty");
         }
 
-        // Validate session exists in SessionManager
+        // Validate session exists in SessionManager BEFORE creating context
         try {
             Matchbox matchboxPlugin = (Matchbox) plugin;
             SessionManager sessionManager = matchboxPlugin.getSessionManager();
-            if (sessionManager != null && !sessionManager.sessionExists(sessionName)) {
+            if (sessionManager == null) {
+                plugin.getLogger().warning("SessionManager is null, cannot validate session: " + sessionName);
+                return null;
+            }
+            
+            if (!sessionManager.sessionExists(sessionName)) {
                 plugin.getLogger().warning("Attempted to create context for non-existent session: " + sessionName);
                 return null;
             }
+            
+            // Get the actual session to ensure it's valid and active
+            GameSession session = sessionManager.getSession(sessionName);
+            if (session == null || !session.isActive()) {
+                plugin.getLogger().warning("Session is null or not active: " + sessionName);
+                return null;
+            }
+            
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to validate session existence: " + e.getMessage());
+            return null;
         }
 
-        return activeSessions.computeIfAbsent(sessionName, name -> new SessionGameContext(plugin, name));
+        // Only create context if Session validation passed
+        return activeSessions.computeIfAbsent(sessionName, name -> {
+            SessionGameContext context = new SessionGameContext(plugin, name);
+            plugin.getLogger().info("Created new game context for session: " + name);
+            return context;
+        });
     }
 
     /**

@@ -94,7 +94,7 @@ public final class MatchboxAPI {
     
     /**
      * Ends a game session gracefully.
-     * 
+     *
      * @param name the session name to end
      * @return true if the session was found and ended, false otherwise
      */
@@ -102,13 +102,21 @@ public final class MatchboxAPI {
         if (name == null || name.trim().isEmpty()) {
             return false;
         }
-        
+
         Matchbox plugin = Matchbox.getInstance();
         if (plugin == null) return false;
-        
+
+        SessionManager sessionManager = plugin.getSessionManager();
+        if (sessionManager == null) return false;
+
+        // Check if session exists before trying to end it
+        if (!sessionManager.sessionExists(name)) {
+            return false;
+        }
+
         GameManager gameManager = plugin.getGameManager();
         if (gameManager == null) return false;
-        
+
         try {
             gameManager.endGame(name);
             return true;
@@ -119,6 +127,41 @@ public final class MatchboxAPI {
             }
             return false;
         }
+    }
+
+    /**
+     * Ends all active game sessions gracefully.
+     *
+     * @return the number of sessions that were ended
+     */
+    public static int endAllSessions() {
+        Matchbox plugin = Matchbox.getInstance();
+        if (plugin == null) return 0;
+
+        SessionManager sessionManager = plugin.getSessionManager();
+        if (sessionManager == null) return 0;
+
+        GameManager gameManager = plugin.getGameManager();
+        if (gameManager == null) return 0;
+
+        Collection<GameSession> allSessions = sessionManager.getAllSessions();
+        int endedCount = 0;
+
+        for (GameSession session : allSessions) {
+            if (session != null && session.isActive()) {
+                try {
+                    gameManager.endGame(session.getName());
+                    endedCount++;
+                } catch (Exception e) {
+                    JavaPlugin matchboxPlugin = Matchbox.getInstance();
+                    if (matchboxPlugin != null) {
+                        matchboxPlugin.getLogger().warning("Failed to end session '" + session.getName() + "': " + e.getMessage());
+                    }
+                }
+            }
+        }
+
+        return endedCount;
     }
     
     /**

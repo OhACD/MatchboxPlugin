@@ -37,7 +37,7 @@ MatchboxAPI.addEventListener(new MatchboxEventListener() {
 
 ### MatchboxAPI
 Main entry point for all API operations:
-- Session management (create, get, end)
+- Session management (create, get, end, endAll)
 - Player queries (get session, get role)
 - Event registration and management
 - Phase information
@@ -334,8 +334,76 @@ public class MultiArenaManager {
         });
         
         // Remove any associated sessions
-        activeSessions.removeIf(session -> 
+        activeSessions.removeIf(session ->
             session.getName().startsWith(name));
+    }
+}
+```
+
+### 6. Bulk Session Management
+
+```java
+public class ServerMaintenanceManager {
+    private final Logger logger;
+
+    public ServerMaintenanceManager(Logger logger) {
+        this.logger = logger;
+    }
+
+    public void performEmergencyShutdown() {
+        // Broadcast warning to all players
+        Bukkit.broadcastMessage("§c§lSERVER SHUTDOWN IN 30 SECONDS!");
+        Bukkit.broadcastMessage("§eAll active games will be ended gracefully.");
+
+        // Give players time to finish current rounds
+        try {
+            Thread.sleep(30000); // 30 seconds
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // End all active sessions at once
+        int endedSessions = MatchboxAPI.endAllSessions();
+        logger.info("Emergency shutdown: Ended " + endedSessions + " active game sessions");
+
+        // Proceed with server shutdown
+        Bukkit.shutdown();
+    }
+
+    public void cleanupOrphanedSessions() {
+        // Get all active sessions
+        Collection<ApiGameSession> activeSessions = MatchboxAPI.getAllSessions();
+
+        int cleanedCount = 0;
+        for (ApiGameSession session : activeSessions) {
+            // Check if session has any online players
+            boolean hasOnlinePlayers = session.getPlayers().stream()
+                .anyMatch(player -> player != null && player.isOnline());
+
+            if (!hasOnlinePlayers) {
+                // End session with no online players
+                if (MatchboxAPI.endSession(session.getName())) {
+                    cleanedCount++;
+                    logger.info("Cleaned up orphaned session: " + session.getName());
+                }
+            }
+        }
+
+        if (cleanedCount > 0) {
+            logger.info("Cleaned up " + cleanedCount + " orphaned game sessions");
+        }
+    }
+
+    public void displayServerStatus() {
+        Collection<ApiGameSession> sessions = MatchboxAPI.getAllSessions();
+        logger.info("Server Status: " + sessions.size() + " active game sessions");
+
+        for (ApiGameSession session : sessions) {
+            logger.info("  - " + session.getName() + ": " +
+                       session.getAlivePlayerCount() + "/" +
+                       session.getTotalPlayerCount() + " players, " +
+                       "Phase: " + session.getCurrentPhase());
+        }
     }
 }
 ```

@@ -16,12 +16,34 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - Event-driven architecture for seamless integration with external plugins
   - Complete documentation with examples and best practices
   - Future compatibility guarantees with versioned API
+- **Bulk Session Management**: New `endAllSessions()` API method
+  - Ends all active game sessions gracefully in one operation
+  - Returns count of successfully ended sessions
+  - Perfect for server maintenance, emergency shutdowns, and cleanup operations
+  - Thread-safe and handles errors gracefully per session
 
 ### Changed
 - **Default Configuration**: Updated default config with optimized phase durations
   - Discussion phase duration set to 60 seconds by default (was 30 seconds)
   - Voting phase duration set to 30 seconds by default (was 15 seconds)
   - Provides more balanced gameplay experience with adequate discussion and voting time
+- **Session Creation Error Handling**: Improved error type mapping in SessionBuilder
+  - Validation errors now properly map to specific ErrorType enums
+  - Better error reporting for debugging session creation failures
+  - Enhanced error messages for different failure scenarios
+
+### Fixed
+- **API Testing Issues**: Resolved comprehensive test suite problems
+  - Fixed mock player UUID conflicts causing session interference
+  - Corrected SessionBuilder validation error type mapping
+  - Fixed concurrent session creation test isolation
+  - Resolved Collection casting issues in integration tests
+  - Added proper mock player creation with unique identifiers
+  - Enhanced session cleanup between test executions
+- **Session Validation**: Improved session existence checking in API methods
+  - `endSession()` now properly validates session existence before attempting to end
+  - Prevents false positive returns when ending non-existent sessions
+  - Better error handling in bulk operations
 
 ---
 

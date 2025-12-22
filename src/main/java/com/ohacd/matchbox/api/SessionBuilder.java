@@ -227,10 +227,21 @@ public class SessionBuilder {
         // Validate configuration first
         Optional<String> validationError = validate();
         if (validationError.isPresent()) {
-            return SessionCreationResult.failure(
-                SessionCreationResult.ErrorType.NO_PLAYERS, 
-                validationError.get()
-            );
+            String errorMsg = validationError.get();
+            SessionCreationResult.ErrorType errorType;
+
+            // Map validation error messages to appropriate error types
+            if (errorMsg.contains("players")) {
+                errorType = SessionCreationResult.ErrorType.NO_PLAYERS;
+            } else if (errorMsg.contains("spawn")) {
+                errorType = SessionCreationResult.ErrorType.NO_SPAWN_POINTS;
+            } else if (errorMsg.contains("discussion")) {
+                errorType = SessionCreationResult.ErrorType.INVALID_DISCUSSION_LOCATION;
+            } else {
+                errorType = SessionCreationResult.ErrorType.INTERNAL_ERROR;
+            }
+
+            return SessionCreationResult.failure(errorType, errorMsg);
         }
         
         // Get plugin components
@@ -329,6 +340,7 @@ public class SessionBuilder {
      * 
      * @return a new GameConfig.Builder instance
      */
+    @NotNull
     public static GameConfig.Builder configBuilder() {
         return new GameConfig.Builder();
     }
