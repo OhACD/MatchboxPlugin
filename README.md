@@ -17,6 +17,48 @@ A social deduction game for Minecraft (2-20 players) with recording-proof mechan
 
 ---
 
+## Plugin API (v0.9.5+)
+
+Matchbox now includes a comprehensive API for minigame servers and plugin integration:
+
+### Key Features
+- **Session Management**: Create, configure, and manage multiple game sessions
+- **Event System**: 10+ events for complete game lifecycle integration
+- **Custom Configuration**: Override phase durations, abilities, and cosmetics per session
+- **Thread-Safe Design**: Proper synchronization and resource management
+- **Future Compatibility**: Versioned API with backward compatibility guarantees
+
+### Quick Example
+```java
+// Create a custom game session
+Optional<ApiGameSession> session = MatchboxAPI.createSession("arena1")
+    .withPlayers(arena.getPlayers())
+    .withSpawnPoints(arena.getSpawnPoints())
+    .withDiscussionLocation(arena.getDiscussionArea())
+    .withCustomConfig(GameConfig.builder()
+        .discussionDuration(120)  // 2 minutes
+        .votingDuration(60)       // 1 minute
+        .build())
+    .start();
+
+// Listen for game events
+MatchboxAPI.addEventListener(new MatchboxEventListener() {
+    @Override
+    public void onGameStart(GameStartEvent event) {
+        // Handle game start - update UI, start timers, etc.
+    }
+    
+    @Override
+    public void onPlayerEliminate(PlayerEliminateEvent event) {
+        // Handle eliminations - update stats, send rewards, etc.
+    }
+});
+```
+
+**Complete API Documentation**: See `MatchboxAPI_Docs.md` for detailed usage examples, configuration options, and best practices.
+
+---
+
 ## Commands
 
 ### Player Commands
@@ -54,9 +96,9 @@ All settings in `plugins/Matchbox/config.yml` (auto-created on first run).
 **The plugin ships with a complete default configuration for the M4tchbox map:**
 -  11 pre-configured spawn locations
 -  8 pre-configured seat locations for discussion phase
--  Optimized phase durations (Swipe: 180s, Discussion: 30s, Voting: 15s)
+-  Optimized phase durations (Swipe: 180s, Discussion: 60s, Voting: 30s)
 -  Player limits set (Min: 2, Max: 7, supports up to 20 players)
--  Random skins enabled by default
+-  Random skins disabled by default, Steve skins enabled
 
 **You can start playing immediately without any setup!** The default config works out-of-the-box with the M4tchbox map.
 
@@ -122,13 +164,13 @@ discussion:
 - Use abilities (Hunter Vision, Healing Sight)
 - Chat appears as holograms
 
-**2. Discussion Phase (30s)**
+**2. Discussion Phase (60s)**
 - Teleported to discussion seats
 - Infected players die (if not cured)
 - Discuss and share observations
 - Game skins stay applied; nametags remain hidden
 
-**3. Voting Phase (15s)**
+**3. Voting Phase (30s)**
 - Right-click or left-click voting papers in your inventory to vote
 - You can choose to not vote (abstain)
 - Dynamic threshold system: Required votes scale based on alive player count
@@ -186,7 +228,7 @@ Players will also see a welcome message when joining the server with information
 
 ---
 
-**Version**: 0.9.4  
+**Version**: 0.9.5  
 **Minecraft API**: 1.21.10  
 **License**: MIT  
 **Developer**: OhACD

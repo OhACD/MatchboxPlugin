@@ -84,12 +84,12 @@ public class ConfigManager {
             config.set("discussion.seat-spawns", new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7)));
         }
         if (!config.contains("discussion.duration")) {
-            config.set("discussion.duration", 30);
+            config.set("discussion.duration", 60);
         }
 
         // Voting phase settings
         if (!config.contains("voting.duration")) {
-            config.set("voting.duration", 15);
+            config.set("voting.duration", 30);
         }
         
         // Dynamic voting threshold settings

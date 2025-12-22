@@ -2,7 +2,30 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
-## [0.9.4] - Latest Release (Ability System)
+## [0.9.5] - Latest Release (API Module & Config Updates)
+
+### Added
+- **Matchbox Plugin API**: Complete API module for external integration
+  - `MatchboxAPI` main entry point for session management, player queries, and event registration
+  - `SessionBuilder` fluent interface for creating and configuring game sessions
+  - `ApiGameSession` wrapper for managing active game sessions with full control capabilities
+  - `GameConfig` builder for custom game configuration (phase durations, abilities, cosmetics)
+  - Comprehensive event system with 10+ events for game lifecycle integration
+  - Thread-safe design with proper resource management and error handling
+  - Parallel session support for minigame servers
+  - Event-driven architecture for seamless integration with external plugins
+  - Complete documentation with examples and best practices
+  - Future compatibility guarantees with versioned API
+
+### Changed
+- **Default Configuration**: Updated default config with optimized phase durations
+  - Discussion phase duration set to 60 seconds by default (was 30 seconds)
+  - Voting phase duration set to 30 seconds by default (was 15 seconds)
+  - Provides more balanced gameplay experience with adequate discussion and voting time
+
+---
+
+## [0.9.4] - Ability System
 
 ### Added
 - **Medic Secondary Ability System**: Medic now uses the same ability system as Spark
@@ -38,7 +61,7 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - All players now consistently receive steve skins when enabled
   - Skins are reapplied at the start of each new round to ensure consistency
   - Fixed issue where some players would get alex or random skins instead of steve
-- **Invalid default seat locations**: Fixed an error where default seatlocations weren't loading correctly when used with the `m4tchb0x` map
+- **Invalid default seat locations**: Fixed an error where default seat locations weren't loading correctly when used with the `m4tchb0x` map
   - Default Spawn/Seat locations are no longer linked to a world folder named `world` 
   - Now linked to a world folder named `m4tchb0x`
 
