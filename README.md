@@ -25,6 +25,7 @@ Matchbox now includes a comprehensive API for minigame servers and plugin integr
 - **Session Management**: Create, configure, and manage multiple game sessions
 - **Event System**: 10+ events for complete game lifecycle integration
 - **Custom Configuration**: Override phase durations, abilities, and cosmetics per session
+- **Chat Pipeline System**: Advanced spectator chat isolation and customization
 - **Thread-Safe Design**: Proper synchronization and resource management
 - **Future Compatibility**: Versioned API with backward compatibility guarantees
 

@@ -268,21 +268,131 @@ public final class MatchboxAPI {
     }
     
     /**
+     * Registers a custom chat processor for a specific session.
+     * The processor will be called for all chat messages in that session.
+     *
+     * @param sessionName the session name to register the processor for
+     * @param processor the chat processor to register
+     * @return true if the processor was registered, false if session not found
+     * @throws IllegalArgumentException if sessionName or processor is null
+     */
+    public static boolean registerChatProcessor(@NotNull String sessionName, @NotNull ChatProcessor processor) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Session name cannot be null or empty");
+        }
+        if (processor == null) {
+            throw new IllegalArgumentException("Chat processor cannot be null");
+        }
+
+        Matchbox plugin = Matchbox.getInstance();
+        if (plugin == null) return false;
+
+        GameManager gameManager = plugin.getGameManager();
+        if (gameManager == null) return false;
+
+        try {
+            // Get the chat pipeline manager from game manager
+            // This will be added to GameManager in the next step
+            var chatPipelineManager = gameManager.getChatPipelineManager();
+            if (chatPipelineManager == null) return false;
+
+            chatPipelineManager.registerProcessor(sessionName, processor);
+            return true;
+        } catch (Exception e) {
+            JavaPlugin matchboxPlugin = Matchbox.getInstance();
+            if (matchboxPlugin != null) {
+                matchboxPlugin.getLogger().warning("Failed to register chat processor for session '" + sessionName + "': " + e.getMessage());
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Unregisters a custom chat processor from a specific session.
+     *
+     * @param sessionName the session name to unregister the processor from
+     * @param processor the chat processor to unregister
+     * @return true if the processor was unregistered, false if not found
+     * @throws IllegalArgumentException if sessionName or processor is null
+     */
+    public static boolean unregisterChatProcessor(@NotNull String sessionName, @NotNull ChatProcessor processor) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Session name cannot be null or empty");
+        }
+        if (processor == null) {
+            throw new IllegalArgumentException("Chat processor cannot be null");
+        }
+
+        Matchbox plugin = Matchbox.getInstance();
+        if (plugin == null) return false;
+
+        GameManager gameManager = plugin.getGameManager();
+        if (gameManager == null) return false;
+
+        try {
+            var chatPipelineManager = gameManager.getChatPipelineManager();
+            if (chatPipelineManager == null) return false;
+
+            chatPipelineManager.unregisterProcessor(sessionName, processor);
+            return true;
+        } catch (Exception e) {
+            JavaPlugin matchboxPlugin = Matchbox.getInstance();
+            if (matchboxPlugin != null) {
+                matchboxPlugin.getLogger().warning("Failed to unregister chat processor for session '" + sessionName + "': " + e.getMessage());
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Unregisters all custom chat processors from a specific session.
+     *
+     * @param sessionName the session name to clear processors from
+     * @return true if processors were cleared, false if session not found
+     * @throws IllegalArgumentException if sessionName is null
+     */
+    public static boolean clearChatProcessors(@NotNull String sessionName) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Session name cannot be null or empty");
+        }
+
+        Matchbox plugin = Matchbox.getInstance();
+        if (plugin == null) return false;
+
+        GameManager gameManager = plugin.getGameManager();
+        if (gameManager == null) return false;
+
+        try {
+            var chatPipelineManager = gameManager.getChatPipelineManager();
+            if (chatPipelineManager == null) return false;
+
+            chatPipelineManager.clearProcessors(sessionName);
+            return true;
+        } catch (Exception e) {
+            JavaPlugin matchboxPlugin = Matchbox.getInstance();
+            if (matchboxPlugin != null) {
+                matchboxPlugin.getLogger().warning("Failed to clear chat processors for session '" + sessionName + "': " + e.getMessage());
+            }
+            return false;
+        }
+    }
+
+    /**
      * Fires an event to all registered listeners.
      * This method is used internally by the plugin.
-     * 
+     *
      * @param event the event to fire
      */
     static void fireEvent(@NotNull MatchboxEvent event) {
         if (event == null) return;
-        
+
         for (MatchboxEventListener listener : listeners.keySet()) {
             try {
                 event.dispatch(listener);
             } catch (Exception e) {
                 JavaPlugin plugin = Matchbox.getInstance();
                 if (plugin != null) {
-                    plugin.getLogger().warning("Error dispatching event " + event.getClass().getSimpleName() + 
+                    plugin.getLogger().warning("Error dispatching event " + event.getClass().getSimpleName() +
                                              " to listener: " + e.getMessage());
                 }
             }

@@ -63,6 +63,14 @@ Configuration builder for game settings:
 - Ability settings (Spark/Medic secondary abilities)
 - Cosmetic settings (skins, Steve skins)
 
+### Chat Pipeline System
+Advanced spectator chat isolation and customization:
+- `ChatChannel` enum for routing (GAME, SPECTATOR, GLOBAL)
+- `ChatMessage` record with full metadata for processing
+- `ChatProcessor` interface for custom chat logic
+- `ChatResult` enum for processing outcomes
+- Session-scoped chat handlers with spectator isolation
+
 ### Event System
 Comprehensive event system with these events:
 - **GameStartEvent** - Game initialization
@@ -404,6 +412,115 @@ public class ServerMaintenanceManager {
                        session.getTotalPlayerCount() + " players, " +
                        "Phase: " + session.getCurrentPhase());
         }
+    }
+}
+```
+
+### 7. Chat Pipeline Customization
+
+```java
+public class CustomChatManager implements ChatProcessor {
+    private final Map<String, ChatProcessor> sessionProcessors = new HashMap<>();
+
+    public void registerCustomProcessor(String sessionName, ChatProcessor processor) {
+        if (MatchboxAPI.registerChatProcessor(sessionName, processor)) {
+            sessionProcessors.put(sessionName, processor);
+            logger.info("Registered custom chat processor for session: " + sessionName);
+        }
+    }
+
+    public void unregisterCustomProcessor(String sessionName) {
+        ChatProcessor processor = sessionProcessors.remove(sessionName);
+        if (processor != null && MatchboxAPI.unregisterChatProcessor(sessionName, processor)) {
+            logger.info("Unregistered custom chat processor for session: " + sessionName);
+        }
+    }
+
+    @Override
+    public ChatProcessingResult process(ChatMessage message) {
+        // Custom processing logic - this is just an example
+        Component original = message.formattedMessage();
+
+        // Add session prefix
+        Component modified = Component.text("[" + message.sessionName() + "] ")
+            .color(NamedTextColor.GRAY)
+            .append(original);
+
+        // Route spectators to special channel for staff monitoring
+        if (!message.isAlivePlayer() && shouldMonitorSpectatorChat()) {
+            return ChatProcessingResult.allowModified(
+                message.withChannel(ChatChannel.SPECTATOR).withFormattedMessage(modified));
+        }
+
+        return ChatProcessingResult.allowModified(message.withFormattedMessage(modified));
+    }
+
+    private boolean shouldMonitorSpectatorChat() {
+        // Your logic for when to monitor spectator chat
+        return true;
+    }
+}
+
+// Usage example
+public class ChatIntegrationPlugin extends JavaPlugin {
+    private final CustomChatManager chatManager = new CustomChatManager();
+
+    @Override
+    public void onEnable() {
+        // Register for session events to manage chat processors
+        MatchboxAPI.addEventListener(new MatchboxEventListener() {
+            @Override
+            public void onGameStart(GameStartEvent event) {
+                // Register custom chat processor for this session
+                chatManager.registerCustomProcessor(event.getSessionName(),
+                    new CustomChatProcessor(event.getSessionName()));
+            }
+
+            @Override
+            public void onGameEnd(GameEndEvent event) {
+                // Clean up chat processor
+                chatManager.unregisterCustomProcessor(event.getSessionName());
+            }
+        });
+    }
+
+    @Override
+    public void onDisable() {
+        // Clean up all processors
+        for (String sessionName : new HashSet<>(chatManager.getActiveSessions())) {
+            chatManager.unregisterCustomProcessor(sessionName);
+        }
+    }
+}
+
+public class CustomChatProcessor implements ChatProcessor {
+    private final String sessionName;
+
+    public CustomChatProcessor(String sessionName) {
+        this.sessionName = sessionName;
+    }
+
+    @Override
+    public ChatProcessingResult process(ChatMessage message) {
+        // Add custom formatting based on player role
+        Optional<Role> role = MatchboxAPI.getPlayerRole(message.sender());
+        Component prefix = Component.empty();
+
+        if (role.isPresent()) {
+            prefix = switch (role.get()) {
+                case SPARK -> Component.text("[SPARK] ").color(NamedTextColor.RED);
+                case MEDIC -> Component.text("[MEDIC] ").color(NamedTextColor.GREEN);
+                case INNOCENT -> Component.text("[INNOCENT] ").color(NamedTextColor.BLUE);
+            };
+        }
+
+        // Add spectator indicator
+        if (!message.isAlivePlayer()) {
+            prefix = prefix.append(Component.text("[SPECTATOR] ").color(NamedTextColor.GRAY));
+        }
+
+        Component newMessage = prefix.append(message.formattedMessage());
+        return ChatProcessingResult.allowModified(message.withFormattedMessage(newMessage));
     }
 }
 ```

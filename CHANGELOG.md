@@ -16,6 +16,15 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - Event-driven architecture for seamless integration with external plugins
   - Complete documentation with examples and best practices
   - Future compatibility guarantees with versioned API
+- **Chat Pipeline System**: Advanced spectator chat isolation and customization
+  - Complete separation between alive players and spectators chat channels
+  - Spectators can see game chat but have isolated spectator-only communication
+  - Custom chat processors for server-specific chat filtering and routing
+  - `ChatChannel` enum for GAME, SPECTATOR, and GLOBAL chat routing
+  - `ChatProcessor` interface for implementing custom chat logic
+  - `ChatMessage` record with full metadata for advanced processing
+  - Session-scoped chat handling with proper cleanup
+  - Thread-safe pipeline processing with error isolation
 - **Bulk Session Management**: New `endAllSessions()` API method
   - Ends all active game sessions gracefully in one operation
   - Returns count of successfully ended sessions

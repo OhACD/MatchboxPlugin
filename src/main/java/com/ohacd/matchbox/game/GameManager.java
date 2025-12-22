@@ -7,6 +7,7 @@ import com.ohacd.matchbox.game.ability.ProtocolLibHunterVisionAdapter;
 import com.ohacd.matchbox.game.ability.MedicSecondaryAbility;
 import com.ohacd.matchbox.game.ability.SparkSecondaryAbility;
 import com.ohacd.matchbox.game.action.PlayerActionHandler;
+import com.ohacd.matchbox.game.chat.ChatPipelineManager;
 import com.ohacd.matchbox.game.config.ConfigManager;
 import com.ohacd.matchbox.game.cosmetic.SkinManager;
 import com.ohacd.matchbox.game.hologram.HologramManager;
@@ -65,6 +66,7 @@ public class GameManager {
     private final PlayerActionHandler actionHandler;
     private final SkinManager skinManager;
     private final HunterVisionAdapter hunterVisionAdapter;
+    private final ChatPipelineManager chatPipelineManager;
 
     // Active game sessions - each session has its own game state and context
     private final Map<String, SessionGameContext> activeSessions = new ConcurrentHashMap<>();
@@ -96,6 +98,7 @@ public class GameManager {
         // Initialize helper classes
         this.lifecycleManager = new GameLifecycleManager(plugin, messageUtils, swipePhaseHandler, inventoryManager, playerBackups);
         this.actionHandler = new PlayerActionHandler(plugin);
+        this.chatPipelineManager = new ChatPipelineManager(plugin, this);
 
         skinManager.preloadDefaultSkins();
     }
@@ -1910,6 +1913,13 @@ public class GameManager {
 
     public ConfigManager getConfigManager() {
         return configManager;
+    }
+
+    /**
+     * Gets the chat pipeline manager for handling session-scoped chat processing.
+     */
+    public ChatPipelineManager getChatPipelineManager() {
+        return chatPipelineManager;
     }
 
     private SparkSecondaryAbility selectSparkSecondaryAbility(GameState gameState) {
