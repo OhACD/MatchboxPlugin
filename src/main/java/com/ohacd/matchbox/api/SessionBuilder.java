@@ -210,11 +210,85 @@ public class SessionBuilder {
     
     /**
      * Creates and starts the game session with the configured settings.
-     * 
+     *
      * @return Optional containing the created session, empty if creation failed
      */
     public Optional<ApiGameSession> start() {
         return startWithResult().toOptional();
+    }
+
+    /**
+     * Creates the game session without starting the game.
+     * This is useful for testing scenarios where you need a configured session
+     * but don't want to trigger full game initialization.
+     *
+     * @return Optional containing the created session, empty if creation failed
+     */
+    public Optional<ApiGameSession> createSessionOnly() {
+        // Validate configuration first
+        Optional<String> validationError = validate();
+        if (validationError.isPresent()) {
+            return Optional.empty();
+        }
+
+        // Get plugin components
+        Matchbox plugin = Matchbox.getInstance();
+        if (plugin == null) return Optional.empty();
+
+        SessionManager sessionManager = plugin.getSessionManager();
+        if (sessionManager == null) return Optional.empty();
+
+        GameSession session = null;
+        try {
+            // Create the session
+            session = sessionManager.createSession(sessionName);
+            if (session == null) {
+                return Optional.empty();
+            }
+
+            // Add players to session
+            for (Player player : players) {
+                if (player != null && player.isOnline()) {
+                    session.addPlayer(player);
+                }
+            }
+
+            // Set session locations
+            for (Location spawnPoint : spawnPoints) {
+                if (spawnPoint != null && spawnPoint.getWorld() != null) {
+                    session.addSpawnLocation(spawnPoint);
+                }
+            }
+
+            if (discussionLocation != null && discussionLocation.getWorld() != null) {
+                session.setDiscussionLocation(discussionLocation);
+            }
+
+            if (seatLocations != null && !seatLocations.isEmpty()) {
+                for (Map.Entry<Integer, Location> entry : seatLocations.entrySet()) {
+                    if (entry.getKey() != null && entry.getValue() != null && entry.getValue().getWorld() != null) {
+                        session.setSeatLocation(entry.getKey(), entry.getValue());
+                    }
+                }
+            }
+
+            // Mark session as active but don't start the game
+            session.setActive(true);
+
+            return Optional.of(new ApiGameSession(session));
+
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to create session '" + sessionName + "': " + e.getMessage());
+
+            // Clean up on failure
+            if (session != null) {
+                try {
+                    sessionManager.removeSession(sessionName);
+                } catch (Exception ignored) {}
+            }
+
+            return Optional.empty();
+        }
     }
     
     /**

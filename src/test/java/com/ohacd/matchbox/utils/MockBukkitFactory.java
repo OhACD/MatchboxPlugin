@@ -13,6 +13,7 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.scheduler.BukkitScheduler;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -132,12 +133,57 @@ public class MockBukkitFactory {
         Server server = mock(Server.class);
         when(server.getLogger()).thenReturn(Logger.getAnonymousLogger());
         when(server.getBukkitVersion()).thenReturn("1.21.10-R0.1-SNAPSHOT");
-        
+
         // Mock Scheduler
         BukkitScheduler scheduler = mock(BukkitScheduler.class);
         when(server.getScheduler()).thenReturn(scheduler);
-        
+
         return server;
+    }
+
+    /**
+     * Creates a mock Server with player registry support.
+     * This version supports player lookups for testing.
+     */
+    public static Server createMockServerWithPlayerRegistry() {
+        Server server = createMockServer();
+
+        // Create a static player registry that can be accessed globally
+        if (globalPlayerRegistry == null) {
+            globalPlayerRegistry = new java.util.HashMap<>();
+        }
+
+        // Mock getPlayer methods to use the global registry
+        when(server.getPlayer(any(UUID.class))).thenAnswer(invocation -> {
+            UUID uuid = invocation.getArgument(0);
+            return globalPlayerRegistry.get(uuid);
+        });
+
+        when(server.getPlayer(any(String.class))).thenAnswer(invocation -> {
+            String name = invocation.getArgument(0);
+            return globalPlayerRegistry.values().stream()
+                .filter(p -> name != null && name.equals(p.getName()))
+                .findFirst()
+                .orElse(null);
+        });
+
+        when(server.getOnlinePlayers()).thenAnswer(invocation ->
+            java.util.Collections.unmodifiableCollection(globalPlayerRegistry.values()));
+
+        return server;
+    }
+
+    // Global registry for all mock servers
+    private static Map<UUID, Player> globalPlayerRegistry;
+
+    /**
+     * Registers a mock player with the current mock server.
+     * This allows GameSession.getPlayers() to work properly in tests.
+     */
+    public static void registerMockPlayer(Player player) {
+        if (player == null || globalPlayerRegistry == null) return;
+
+        globalPlayerRegistry.put(player.getUniqueId(), player);
     }
     
     /**
@@ -182,10 +228,10 @@ public class MockBukkitFactory {
      */
     public static void setUpBukkitMocks() {
         try {
-            // Use reflection to set static Bukkit mocks
+            // Use reflection to set static Bukkit mocks with player registry
             var serverField = Bukkit.class.getDeclaredField("server");
             serverField.setAccessible(true);
-            serverField.set(null, createMockServer());
+            serverField.set(null, createMockServerWithPlayerRegistry());
         } catch (Exception e) {
             throw new RuntimeException("Failed to set up Bukkit mocks", e);
         }
