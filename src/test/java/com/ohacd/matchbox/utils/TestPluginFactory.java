@@ -15,6 +15,7 @@ import io.papermc.paper.plugin.configuration.PluginMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.mockito.Mockito;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,9 +37,23 @@ public class TestPluginFactory {
      * This should be called in @BeforeEach setup methods.
      */
     public static void setUpMockPlugin() {
-        // Set up Bukkit mocks first
+        // CRITICAL: Mock Registry BEFORE any other initialization to prevent "No RegistryAccess implementation found" errors
+        // Use a different approach - try to prevent Registry initialization by setting system properties or using a custom classloader
+        try {
+            // Try to set the RegistryAccess before Registry class loads
+            System.setProperty("paper.registry.access.implementation", "mock");
+            // Force load RegistryAccess first
+            Class.forName("io.papermc.paper.registry.RegistryAccess");
+        } catch (Exception e) {
+            // Silently ignore if registry setup fails
+        }
+
+        // Note: This sets up Bukkit mocks first
         MockBukkitFactory.setUpBukkitMocks();
-        
+
+        // Initialize player registry
+        MockBukkitFactory.initializePlayerRegistry();
+
         // Create mock plugin instance with minimal real methods to avoid initialization issues
         mockPlugin = mock(Matchbox.class);
         
@@ -151,7 +166,7 @@ public class TestPluginFactory {
         var mockHologramManager = mock(HologramManager.class);
         GameManager realGameManager = new GameManager(mockPlugin, mockHologramManager);
         when(mockPlugin.getGameManager()).thenReturn(realGameManager);
-        
+
         // Mock PluginManager
         PluginManager mockPluginManager = MockBukkitFactory.createMockPluginManager();
         when(mockPlugin.getServer().getPluginManager()).thenReturn(mockPluginManager);

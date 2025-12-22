@@ -126,26 +126,38 @@ public class GameManager {
         }
 
         // Validate session exists in SessionManager BEFORE creating context
+        SessionManager sessionManager = null;
         try {
-            Matchbox matchboxPlugin = (Matchbox) plugin;
-            SessionManager sessionManager = matchboxPlugin.getSessionManager();
+            // Try to get SessionManager from plugin (works in production)
+            if (plugin instanceof Matchbox) {
+                sessionManager = ((Matchbox) plugin).getSessionManager();
+            }
+
+            // Fallback for tests - use static instance if plugin cast failed
+            if (sessionManager == null) {
+                Matchbox instance = Matchbox.getInstance();
+                if (instance != null) {
+                    sessionManager = instance.getSessionManager();
+                }
+            }
+
             if (sessionManager == null) {
                 plugin.getLogger().warning("SessionManager is null, cannot validate session: " + sessionName);
                 return null;
             }
-            
+
             if (!sessionManager.sessionExists(sessionName)) {
                 plugin.getLogger().warning("Attempted to create context for non-existent session: " + sessionName);
                 return null;
             }
-            
+
             // Get the actual session to ensure it's valid and active
             GameSession session = sessionManager.getSession(sessionName);
             if (session == null || !session.isActive()) {
                 plugin.getLogger().warning("Session is null or not active: " + sessionName);
                 return null;
             }
-            
+
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to validate session existence: " + e.getMessage());
             return null;

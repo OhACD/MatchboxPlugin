@@ -223,6 +223,16 @@ public class MockBukkitFactory {
     }
     
     /**
+     * Initializes the global player registry for testing.
+     * This should be called before creating mock players.
+     */
+    public static void initializePlayerRegistry() {
+        if (globalPlayerRegistry == null) {
+            globalPlayerRegistry = new java.util.HashMap<>();
+        }
+    }
+
+    /**
      * Sets up static Bukkit mocks for testing.
      * Call this method in @BeforeEach setup methods.
      */
