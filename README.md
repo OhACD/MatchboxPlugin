@@ -32,7 +32,7 @@ Matchbox now includes a comprehensive API for minigame servers and plugin integr
 ### Quick Example
 ```java
 // Create a custom game session
-Optional<ApiGameSession> session = MatchboxAPI.createSession("arena1")
+Optional<ApiGameSession> session = MatchboxAPI.createSessionBuilder("arena1")
     .withPlayers(arena.getPlayers())
     .withSpawnPoints(arena.getSpawnPoints())
     .withDiscussionLocation(arena.getDiscussionArea())
