@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import com.ohacd.matchbox.api.annotation.Experimental;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -280,7 +281,9 @@ public final class MatchboxAPI {
      * @param processor the chat processor to register
      * @return true if the processor was registered, false if session not found
      * @throws IllegalArgumentException if sessionName or processor is null
+     * @since 0.9.5
      */
+    @Experimental
     public static boolean registerChatProcessor(@NotNull String sessionName, @NotNull ChatProcessor processor) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
             throw new IllegalArgumentException("Session name cannot be null or empty");
@@ -319,7 +322,9 @@ public final class MatchboxAPI {
      * @param processor the chat processor to unregister
      * @return true if the processor was unregistered, false if not found
      * @throws IllegalArgumentException if sessionName or processor is null
+     * @since 0.9.5
      */
+    @Experimental
     public static boolean unregisterChatProcessor(@NotNull String sessionName, @NotNull ChatProcessor processor) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
             throw new IllegalArgumentException("Session name cannot be null or empty");
@@ -355,7 +360,9 @@ public final class MatchboxAPI {
      * @param sessionName the session name to clear processors from
      * @return true if processors were cleared, false if session not found
      * @throws IllegalArgumentException if sessionName is null
+     * @since 0.9.5
      */
+    @Experimental
     public static boolean clearChatProcessors(@NotNull String sessionName) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
             throw new IllegalArgumentException("Session name cannot be null or empty");

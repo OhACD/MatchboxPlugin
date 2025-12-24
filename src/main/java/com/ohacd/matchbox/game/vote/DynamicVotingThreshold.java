@@ -34,6 +34,9 @@ public class DynamicVotingThreshold {
     /**
      * Calculates the base threshold percentage for a given number of alive players.
      * Uses logarithmic interpolation between key points.
+     *
+     * @param alivePlayerCount the number of currently alive players
+     * @return threshold percentage (0.0 - 1.0)
      */
     public double calculateBaseThreshold(int alivePlayerCount) {
         if (alivePlayerCount < 2) {

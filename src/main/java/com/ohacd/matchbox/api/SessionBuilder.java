@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import com.ohacd.matchbox.api.annotation.Experimental;
 
 import java.util.*;
 
@@ -78,6 +79,7 @@ public class SessionBuilder {
      * @param players the players to include in the session
      * @return this builder instance for method chaining
      */
+    @NotNull
     public SessionBuilder withPlayers(@Nullable Collection<Player> players) {
         this.players = players != null ? new ArrayList<>(players) : new ArrayList<>();
         return this;
@@ -89,6 +91,7 @@ public class SessionBuilder {
      * @param players the players to include in the session
      * @return this builder instance for method chaining
      */
+    @NotNull
     public SessionBuilder withPlayers(@Nullable Player... players) {
         this.players = players != null ? new ArrayList<>(Arrays.asList(players)) : new ArrayList<>();
         return this;
@@ -100,6 +103,7 @@ public class SessionBuilder {
      * @param spawnPoints list of spawn locations
      * @return this builder instance for method chaining
      */
+    @NotNull
     public SessionBuilder withSpawnPoints(@Nullable List<Location> spawnPoints) {
         this.spawnPoints = spawnPoints != null ? new ArrayList<>(spawnPoints) : new ArrayList<>();
         return this;
@@ -111,6 +115,7 @@ public class SessionBuilder {
      * @param spawnPoints array of spawn locations
      * @return this builder instance for method chaining
      */
+    @NotNull
     public SessionBuilder withSpawnPoints(@Nullable Location... spawnPoints) {
         this.spawnPoints = spawnPoints != null ? new ArrayList<>(Arrays.asList(spawnPoints)) : new ArrayList<>();
         return this;
@@ -122,6 +127,7 @@ public class SessionBuilder {
      * @param discussionLocation the location where discussions take place
      * @return this builder instance for method chaining
      */
+    @NotNull
     public SessionBuilder withDiscussionLocation(@Nullable Location discussionLocation) {
         this.discussionLocation = discussionLocation;
         return this;
@@ -133,6 +139,7 @@ public class SessionBuilder {
      * @param seatLocations map of seat numbers to locations
      * @return this builder instance for method chaining
      */
+    @NotNull
     public SessionBuilder withSeatLocations(@Nullable Map<Integer, Location> seatLocations) {
         this.seatLocations = seatLocations != null ? new HashMap<>(seatLocations) : new HashMap<>();
         return this;
@@ -144,6 +151,7 @@ public class SessionBuilder {
      * @param gameConfig the game configuration to use
      * @return this builder instance for method chaining
      */
+    @NotNull
     public SessionBuilder withCustomConfig(@Nullable GameConfig gameConfig) {
         this.gameConfig = gameConfig != null ? gameConfig : new GameConfig.Builder().build();
         return this;
@@ -155,6 +163,7 @@ public class SessionBuilder {
      * @param gameConfig the game configuration to use
      * @return this builder instance for method chaining
      */
+    @NotNull
     public SessionBuilder withConfig(@Nullable GameConfig gameConfig) {
         return withCustomConfig(gameConfig);
     }
@@ -213,8 +222,9 @@ public class SessionBuilder {
      *
      * @return Optional containing the created session, empty if creation failed
      */
+    @NotNull
     public Optional<ApiGameSession> start() {
-        return startWithResult().toOptional();
+        return startWithResult().getSession();
     }
 
     /**
@@ -223,7 +233,10 @@ public class SessionBuilder {
      * but don't want to trigger full game initialization.
      *
      * @return Optional containing the created session, empty if creation failed
+     * @since 0.9.5 (experimental)
      */
+    @NotNull
+    @Experimental
     public Optional<ApiGameSession> createSessionOnly() {
         // Validate configuration first
         Optional<String> validationError = validate();

@@ -21,12 +21,23 @@ public class ChatListener implements Listener {
     private final HologramManager hologramManager;
     private final GameManager gameManager;
 
+    /**
+     * Creates a chat listener that integrates chat pipeline and holograms.
+     *
+     * @param manager hologram manager used for in-game messages
+     * @param gameManager central game manager for session lookups
+     */
     public ChatListener(HologramManager manager, GameManager gameManager) {
         this.hologramManager = manager;
         this.gameManager = gameManager;
     }
 
     @EventHandler
+    /**
+     * Handles asynchronous chat events and routes them through the chat pipeline.
+     *
+     * @param event the asynchronous chat event
+     */
     public void onChat(AsyncChatEvent event) {
         // Only handle asynchronous chat events
         if (!event.isAsynchronous()) {

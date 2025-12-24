@@ -77,3 +77,29 @@ processResources {
         expand props
     }
 }
+
+// Configure Javadoc to generate public-facing API docs only (com.ohacd.matchbox.api)
+tasks.named('javadoc', Javadoc) {
+    description = 'Generates Javadoc for the public API (com.ohacd.matchbox.api) only'
+    group = 'Documentation'
+    // Limit sources to API package to avoid internal implementation warnings
+    source = fileTree('src/main/java') { include 'com/ohacd/matchbox/api/**' }
+    // Make sure referenced internal types are resolvable by depending on compilation output
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.output + sourceSets.main.compileClasspath
+    options.encoding = 'UTF-8'
+    // External links disabled to avoid network fetch errors during build
+    // If desired, add stable links manually after verifying package-list availability
+
+}
+
+// Javadoc JAR for distribution
+tasks.register('javadocJar', Jar) {
+    dependsOn tasks.named('javadoc')
+    archiveClassifier.set('javadoc')
+    from tasks.named('javadoc').get().destinationDir
+}
+
+artifacts {
+    archives tasks.named('javadocJar')
+}

@@ -22,20 +22,40 @@ public class AbilityManager {
     private final GameManager gameManager;
     private final List<AbilityHandler> abilities = new ArrayList<>();
 
+    /**
+     * Creates a manager responsible for routing ability events.
+     *
+     * @param gameManager the central {@link GameManager} used to obtain contexts
+     */
     public AbilityManager(GameManager gameManager) {
         this.gameManager = gameManager;
     }
 
+    /**
+     * Registers an ability handler to receive routed events.
+     *
+     * @param ability the ability handler to register (ignored if null)
+     */
     public void registerAbility(AbilityHandler ability) {
         if (ability != null) {
             abilities.add(ability);
         }
     }
 
+    /**
+     * Returns an unmodifiable list of registered ability handlers.
+     *
+     * @return list of registered {@link AbilityHandler} instances
+     */
     public List<AbilityHandler> getAbilities() {
         return Collections.unmodifiableList(abilities);
     }
 
+    /**
+     * Routes an inventory click event to registered abilities when applicable.
+     *
+     * @param event the inventory click event from Bukkit
+     */
     public void handleInventoryClick(InventoryClickEvent event) {
         Player player = getPlayer(event.getWhoClicked());
         if (player == null) {
@@ -53,6 +73,11 @@ public class AbilityManager {
         }
     }
 
+    /**
+     * Routes a player interact event to registered abilities when applicable.
+     *
+     * @param event the player interact event from Bukkit
+     */
     public void handlePlayerInteract(PlayerInteractEvent event) {
         Player player = getPlayer(event.getPlayer());
         if (player == null) {
@@ -70,6 +95,11 @@ public class AbilityManager {
         }
     }
 
+    /**
+     * Routes a player-interact-entity event to registered abilities when applicable.
+     *
+     * @param event the player interact entity event from Bukkit
+     */
     public void handlePlayerInteractEntity(PlayerInteractEntityEvent event) {
         Player player = getPlayer(event.getPlayer());
         if (player == null) {

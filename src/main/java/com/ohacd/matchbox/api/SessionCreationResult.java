@@ -67,6 +67,11 @@ public final class SessionCreationResult {
             this.defaultMessage = defaultMessage;
         }
         
+        /**
+         * Gets the default human-readable message associated with this error type.
+         *
+         * @return default error message suitable for logging or display
+         */
         public String getDefaultMessage() {
             return defaultMessage;
         }

@@ -18,6 +18,11 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 public class DamageProtectionListener implements Listener {
     private final GameManager gameManager;
 
+    /**
+     * Creates a listener that prevents damage/hunger/death during active games.
+     *
+     * @param gameManager the game manager used to check active sessions
+     */
     public DamageProtectionListener(GameManager gameManager) {
         this.gameManager = gameManager;
     }
@@ -27,6 +32,11 @@ public class DamageProtectionListener implements Listener {
      * Arrow damage is allowed for nametag revelation.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
+    /**
+     * Prevents damage to players during active games (arrow damage is allowed/handled).
+     *
+     * @param event the entity damage event
+     */
     public void onEntityDamage(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof Player)) {
             return;
@@ -58,6 +68,11 @@ public class DamageProtectionListener implements Listener {
      * Prevents player death during active games.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
+    /**
+     * Prevents player death during active games.
+     *
+     * @param event the player death event
+     */
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
         
@@ -77,6 +92,11 @@ public class DamageProtectionListener implements Listener {
      * Prevents hunger loss during active games.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
+    /**
+     * Prevents hunger loss during active games.
+     *
+     * @param event the food level change event
+     */
     public void onFoodLevelChange(FoodLevelChangeEvent event) {
         if (!(event.getEntity() instanceof Player)) {
             return;
