@@ -17,6 +17,11 @@ import org.bukkit.event.player.PlayerInteractEvent;
 public class BlockInteractionProtectionListener implements Listener {
     private final GameManager gameManager;
 
+    /**
+     * Creates a listener that prevents block interactions during active games.
+     *
+     * @param gameManager the game manager used to check active sessions
+     */
     public BlockInteractionProtectionListener(GameManager gameManager) {
         this.gameManager = gameManager;
     }

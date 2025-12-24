@@ -4,6 +4,7 @@ import com.ohacd.matchbox.api.MatchboxEvent;
 import com.ohacd.matchbox.api.MatchboxEventListener;
 import com.ohacd.matchbox.game.utils.Role;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.Map;
@@ -47,8 +48,8 @@ public class GameEndEvent extends MatchboxEvent {
      * @param finalRoles mapping of players to their final roles
      * @param totalRounds total number of rounds played
      */
-    public GameEndEvent(String sessionName, EndReason reason, Collection<Player> remainingPlayers, 
-                     Map<Player, Role> finalRoles, int totalRounds) {
+    public GameEndEvent(@NotNull String sessionName, @NotNull EndReason reason, @NotNull Collection<Player> remainingPlayers, 
+                     @NotNull Map<Player, Role> finalRoles, int totalRounds) {
         this.sessionName = sessionName;
         this.reason = reason;
         this.remainingPlayers = remainingPlayers;
@@ -57,7 +58,7 @@ public class GameEndEvent extends MatchboxEvent {
     }
     
     @Override
-    public void dispatch(MatchboxEventListener listener) {
+    public void dispatch(@NotNull MatchboxEventListener listener) {
         listener.onGameEnd(this);
     }
     
@@ -66,6 +67,7 @@ public class GameEndEvent extends MatchboxEvent {
      * 
      * @return the session name
      */
+    @NotNull
     public String getSessionName() {
         return sessionName;
     }
@@ -75,6 +77,7 @@ public class GameEndEvent extends MatchboxEvent {
      * 
      * @return the end reason
      */
+    @NotNull
     public EndReason getReason() {
         return reason;
     }
@@ -84,6 +87,7 @@ public class GameEndEvent extends MatchboxEvent {
      * 
      * @return collection of remaining players
      */
+    @NotNull
     public Collection<Player> getRemainingPlayers() {
         return remainingPlayers;
     }
@@ -93,6 +97,7 @@ public class GameEndEvent extends MatchboxEvent {
      * 
      * @return mapping of players to their final roles
      */
+    @NotNull
     public Map<Player, Role> getFinalRoles() {
         return finalRoles;
     }

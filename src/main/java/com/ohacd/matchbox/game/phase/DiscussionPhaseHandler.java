@@ -26,6 +26,13 @@ public class DiscussionPhaseHandler {
     private final Map<String, Collection<UUID>> currentPlayerIds = new ConcurrentHashMap<>();
     private final int DEFAULT_DISCUSSION_SECONDS = 30; // 30 seconds discussion
 
+    /**
+     * Creates a handler for discussion phase logic.
+     *
+     * @param plugin Bukkit plugin instance
+     * @param messageUtils helper used to send messages and titles
+     * @param configManager configuration provider
+     */
     public DiscussionPhaseHandler(Plugin plugin, MessageUtils messageUtils, ConfigManager configManager) {
         this.plugin = plugin;
         this.messageUtils = messageUtils;
@@ -34,6 +41,11 @@ public class DiscussionPhaseHandler {
 
     /**
      * Starts the discussion phase with a countdown timer for a specific session.
+     *
+     * @param sessionName the session name to start the discussion for
+     * @param seconds duration in seconds for the discussion phase
+     * @param alivePlayerIds collection of alive player UUIDs participating in the phase
+     * @param onPhaseEnd callback to execute when the phase ends
      */
     public void startDiscussionPhase(String sessionName, int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd) {
         startDiscussionPhase(sessionName, seconds, alivePlayerIds, onPhaseEnd, null);
@@ -41,7 +53,12 @@ public class DiscussionPhaseHandler {
 
     /**
      * Starts the discussion phase with a countdown timer for a specific session.
-     * @param seatLocations Map of seat numbers to locations for teleporting players
+     *
+     * @param sessionName the session name to start the discussion for
+     * @param seconds duration in seconds for the discussion phase
+     * @param alivePlayerIds collection of alive player UUIDs participating in the phase
+     * @param onPhaseEnd callback to execute when the phase ends
+     * @param seatLocations Map of seat numbers to locations for teleporting players (optional)
      */
     public void startDiscussionPhase(String sessionName, int seconds, Collection<UUID> alivePlayerIds, Runnable onPhaseEnd, Map<Integer, Location> seatLocations) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
@@ -145,6 +162,8 @@ public class DiscussionPhaseHandler {
 
     /**
      * Cancels the discussion phase task for a specific session.
+     *
+     * @param sessionName the session name whose task should be cancelled
      */
     public void cancelDiscussionTask(String sessionName) {
         if (sessionName == null) {
@@ -193,11 +212,20 @@ public class DiscussionPhaseHandler {
 
     /**
      * Checks if discussion phase is currently active for a session.
+     *
+     * @param sessionName the session name to check
+     * @return true if a discussion task exists for the session
      */
     public boolean isActive(String sessionName) {
         return discussionTasks.containsKey(sessionName);
     }
 
+    /**
+     * Returns online Player objects for the provided player UUIDs.
+     *
+     * @param playerIds collection of player UUIDs
+     * @return collection of online {@link Player} objects
+     */
     public Collection<Player> getAlivePlayerObjects(Collection<UUID> playerIds) {
         return playerIds.stream()
                 .map(Bukkit::getPlayer)

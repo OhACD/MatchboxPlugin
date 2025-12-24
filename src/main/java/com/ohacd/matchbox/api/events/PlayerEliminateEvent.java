@@ -53,12 +53,13 @@ public class PlayerEliminateEvent extends MatchboxEvent {
     }
     
     /**
-     * Creates a new player elimination event with current timestamp.
+     * Creates a new player elimination event with explicit timestamp.
      * 
      * @param sessionName the session where elimination occurred
      * @param eliminatedPlayer the player who was eliminated
      * @param role the role of the eliminated player
      * @param reason the reason for elimination
+     * @param timestamp epoch millis when the event occurred
      */
     public PlayerEliminateEvent(String sessionName, Player eliminatedPlayer, Role role, EliminationReason reason, long timestamp) {
         super(timestamp);

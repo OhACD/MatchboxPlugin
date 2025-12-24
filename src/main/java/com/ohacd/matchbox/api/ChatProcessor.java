@@ -45,11 +45,17 @@ public interface ChatProcessor {
 
     /**
      * Result of chat processing with optional modified message.
+     *
+     * @param result the processing result enum
+     * @param message the (possibly modified) message
      */
     record ChatProcessingResult(@NotNull ChatResult result, @NotNull ChatMessage message) {
 
         /**
          * Creates an ALLOW result with the original message.
+         *
+         * @param message original chat message
+         * @return a ChatProcessingResult indicating ALLOW with the provided message
          */
         public static ChatProcessingResult allow(@NotNull ChatMessage message) {
             return new ChatProcessingResult(ChatResult.ALLOW, message);
@@ -57,6 +63,9 @@ public interface ChatProcessor {
 
         /**
          * Creates an ALLOW result with a modified message.
+         *
+         * @param modifiedMessage modified chat message
+         * @return a ChatProcessingResult indicating ALLOW with the modified message
          */
         public static ChatProcessingResult allowModified(@NotNull ChatMessage modifiedMessage) {
             return new ChatProcessingResult(ChatResult.ALLOW, modifiedMessage);
@@ -64,6 +73,9 @@ public interface ChatProcessor {
 
         /**
          * Creates a DENY result.
+         *
+         * @param message original chat message
+         * @return a ChatProcessingResult indicating DENY
          */
         public static ChatProcessingResult deny(@NotNull ChatMessage message) {
             return new ChatProcessingResult(ChatResult.DENY, message);
@@ -71,6 +83,9 @@ public interface ChatProcessor {
 
         /**
          * Creates a CANCEL result.
+         *
+         * @param message original chat message
+         * @return a ChatProcessingResult indicating CANCEL
          */
         public static ChatProcessingResult cancel(@NotNull ChatMessage message) {
             return new ChatProcessingResult(ChatResult.CANCEL, message);

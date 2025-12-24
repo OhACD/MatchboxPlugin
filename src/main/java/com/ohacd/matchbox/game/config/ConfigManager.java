@@ -156,6 +156,8 @@ public class ConfigManager {
 
     /**
      * Gets the FileConfiguration object.
+     *
+     * @return the loaded {@link FileConfiguration}
      */
     public FileConfiguration getConfig() {
         return config;
@@ -164,6 +166,8 @@ public class ConfigManager {
     /**
      * Gets the list of valid seat numbers for discussion phase spawns.
      * Returns a list of integers representing seat numbers (1-indexed).
+     *
+     * @return a list of valid seat numbers
      */
     public List<Integer> getDiscussionSeatSpawns() {
         List<?> rawList = config.getList("discussion.seat-spawns");
@@ -189,6 +193,8 @@ public class ConfigManager {
     /**
      * Gets the discussion phase duration in seconds.
      * Validates and clamps to reasonable range (5-300 seconds).
+     *
+     * @return discussion duration in seconds
      */
     public int getDiscussionDuration() {
         int duration = config.getInt("discussion.duration", 30);
@@ -206,6 +212,8 @@ public class ConfigManager {
     /**
      * Gets the swipe phase duration in seconds.
      * Validates and clamps to reasonable range (30-600 seconds).
+     *
+     * @return swipe duration in seconds
      */
     public int getSwipeDuration() {
         int duration = config.getInt("swipe.duration", 180);
@@ -223,6 +231,8 @@ public class ConfigManager {
     /**
      * Gets the voting phase duration in seconds.
      * Validates and clamps to reasonable range (5-120 seconds).
+     *
+     * @return voting duration in seconds
      */
     public int getVotingDuration() {
         int duration = config.getInt("voting.duration", 15);
@@ -240,6 +250,8 @@ public class ConfigManager {
     /**
      * Gets the minimum number of players required to start a game.
      * Validates and clamps to reasonable range (2-7).
+     *
+     * @return minimum number of players
      */
     public int getMinPlayers() {
         int min = config.getInt("session.min-players", 2);
@@ -264,6 +276,8 @@ public class ConfigManager {
     /**
      * Gets the maximum number of players allowed per session.
      * Validates and clamps to reasonable range (2-20).
+     *
+     * @return maximum number of players
      */
     public int getMaxPlayers() {
         int max = config.getInt("session.max-players", 7);
@@ -288,6 +302,8 @@ public class ConfigManager {
     /**
      * Gets the minimum number of spawn locations required before starting a game.
      * Validates and clamps to reasonable range (1-50).
+     *
+     * @return minimum number of spawn locations
      */
     public int getMinSpawnLocations() {
         int min = config.getInt("session.min-spawn-locations", 1);
@@ -304,6 +320,8 @@ public class ConfigManager {
 
     /**
      * Gets whether random skins are enabled.
+     *
+     * @return true if random skins are enabled
      */
     public boolean isRandomSkinsEnabled() {
         return config.getBoolean("cosmetics.random-skins-enabled", true);
@@ -312,6 +330,8 @@ public class ConfigManager {
     /**
      * Gets whether Steve skins should be used for all players.
      * When enabled, all players will have the default Steve skin regardless of random-skins-enabled setting.
+     *
+     * @return true if Steve skins should be used
      */
     public boolean isUseSteveSkins() {
         return config.getBoolean("cosmetics.use-steve-skins", false);
@@ -320,6 +340,8 @@ public class ConfigManager {
     /**
      * Gets the voting threshold percentage at 20 players.
      * Validates and clamps to reasonable range (0.05-1.0).
+     *
+     * @return threshold percentage for 20 players (0.0 - 1.0)
      */
     public double getVotingThresholdAt20Players() {
         double threshold = config.getDouble("voting.threshold.at-20-players", 0.20);
@@ -337,6 +359,8 @@ public class ConfigManager {
     /**
      * Gets the voting threshold percentage at 7 players.
      * Validates and clamps to reasonable range (0.05-1.0).
+     *
+     * @return threshold percentage for 7 players (0.0 - 1.0)
      */
     public double getVotingThresholdAt7Players() {
         double threshold = config.getDouble("voting.threshold.at-7-players", 0.30);
@@ -354,6 +378,8 @@ public class ConfigManager {
     /**
      * Gets the voting threshold percentage at 3 players and below.
      * Validates and clamps to reasonable range (0.05-1.0).
+     *
+     * @return threshold percentage for 3 players (0.0 - 1.0)
      */
     public double getVotingThresholdAt3Players() {
         double threshold = config.getDouble("voting.threshold.at-3-players", 0.50);
@@ -371,6 +397,8 @@ public class ConfigManager {
     /**
      * Gets the penalty percentage applied per voting phase without elimination.
      * Validates and clamps to reasonable range (0.0-0.5).
+     *
+     * @return penalty percentage applied per phase (0.0 - 1.0)
      */
     public double getVotingPenaltyPerPhase() {
         double penalty = config.getDouble("voting.penalty.per-phase", 0.0333);
@@ -388,6 +416,8 @@ public class ConfigManager {
     /**
      * Gets the maximum number of phases that can accumulate penalty.
      * Validates and clamps to reasonable range (1-10).
+     *
+     * @return maximum penalty phases
      */
     public int getVotingMaxPenaltyPhases() {
         int maxPhases = config.getInt("voting.penalty.max-phases", 3);
@@ -405,6 +435,8 @@ public class ConfigManager {
     /**
      * Gets the maximum penalty reduction percentage.
      * Validates and clamps to reasonable range (0.0-0.5).
+     *
+     * @return maximum penalty reduction (0.0 - 1.0)
      */
     public double getVotingMaxPenalty() {
         double maxPenalty = config.getDouble("voting.penalty.max-reduction", 0.10);
@@ -458,6 +490,8 @@ public class ConfigManager {
     /**
      * Loads seat locations from config.
      * Returns a map of seat numbers to locations.
+     *
+     * @return map of seat number -> {@link Location}
      */
     public Map<Integer, Location> loadSeatLocations() {
         Map<Integer, Location> seatLocations = new HashMap<>();
@@ -491,6 +525,9 @@ public class ConfigManager {
 
     /**
      * Saves a seat location to config.
+     *
+     * @param seatNumber the seat number to save
+     * @param location the location to store for the seat
      */
     public void saveSeatLocation(int seatNumber, Location location) {
         if (location == null || location.getWorld() == null) {
@@ -504,6 +541,8 @@ public class ConfigManager {
 
     /**
      * Removes a seat location from config.
+     *
+     * @param seatNumber the seat number to remove
      */
     public void removeSeatLocation(int seatNumber) {
         config.set("discussion.seat-locations." + seatNumber, null);
@@ -513,6 +552,8 @@ public class ConfigManager {
     /**
      * Loads spawn locations from config.
      * Returns a list of locations.
+     *
+     * @return list of spawn {@link Location}s
      */
     public List<Location> loadSpawnLocations() {
         List<Location> spawnLocations = new ArrayList<>();
@@ -541,8 +582,8 @@ public class ConfigManager {
     }
 
     /**
-     * Adds a spawn location to config.
-     */
+     * Adds a spawn location to config.     *
+     * @param location location to add to the spawn list     */
     public void addSpawnLocation(Location location) {
         if (location == null || location.getWorld() == null) {
             return;
@@ -572,8 +613,9 @@ public class ConfigManager {
     }
 
     /**
-     * Removes a spawn location from config by index.
-     */
+     * Removes a spawn location from config by index.     *
+     * @param index index of the spawn location to remove
+     * @return true if the location was removed, false otherwise     */
     public boolean removeSpawnLocation(int index) {
         List<?> rawList = config.getList("session.spawn-locations");
         if (rawList == null || rawList.isEmpty()) {

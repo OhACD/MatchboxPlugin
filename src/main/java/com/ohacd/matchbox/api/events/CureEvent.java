@@ -3,6 +3,7 @@ package com.ohacd.matchbox.api.events;
 import com.ohacd.matchbox.api.MatchboxEvent;
 import com.ohacd.matchbox.api.MatchboxEventListener;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Event fired when a cure action is performed (Medic cures an infected player).
@@ -25,7 +26,7 @@ public class CureEvent extends MatchboxEvent {
      * @param target the player being cured
      * @param realInfection whether the target had a real infection (false if it was delusion)
      */
-    public CureEvent(String sessionName, Player medic, Player target, boolean realInfection) {
+    public CureEvent(@NotNull String sessionName, @NotNull Player medic, @NotNull Player target, boolean realInfection) {
         this.sessionName = sessionName;
         this.medic = medic;
         this.target = target;
@@ -33,7 +34,7 @@ public class CureEvent extends MatchboxEvent {
     }
     
     @Override
-    public void dispatch(MatchboxEventListener listener) {
+    public void dispatch(@NotNull MatchboxEventListener listener) {
         listener.onCure(this);
     }
     

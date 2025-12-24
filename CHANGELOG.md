@@ -43,6 +43,11 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - Integration testing for complex game lifecycle scenarios
 
 ### Changed
+- **API annotations and stability markers**: Added explicit nullability and API status annotations across the `com.ohacd.matchbox.api` module
+  - Introduced `@com.ohacd.matchbox.api.annotation.Internal` and `@com.ohacd.matchbox.api.annotation.Experimental` to mark implementation and unstable APIs
+  - Adopted JetBrains `@NotNull/@Nullable` consistently on public API surfaces and added `@since` Javadoc where appropriate
+  - Updated `GameConfig` nullability for optional settings and annotated event classes and listeners
+- **API documentation**: Added focused API Javadoc generation and a `javadocJar` artifact for distribution; added missing `@since` tags to experimental methods and performed minor doc cleanups to improve clarity and usability
 - **Default Configuration**: Updated default config with optimized phase durations
   - Discussion phase duration set to 60 seconds by default (was 30 seconds)
   - Voting phase duration set to 30 seconds by default (was 15 seconds)

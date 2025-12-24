@@ -3,6 +3,7 @@ package com.ohacd.matchbox.api.events;
 import com.ohacd.matchbox.api.MatchboxEvent;
 import com.ohacd.matchbox.api.MatchboxEventListener;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Event fired when a player casts a vote during the voting phase.
@@ -23,14 +24,14 @@ public class PlayerVoteEvent extends MatchboxEvent {
      * @param voter the player who voted
      * @param target the player who was voted for
      */
-    public PlayerVoteEvent(String sessionName, Player voter, Player target) {
+    public PlayerVoteEvent(@NotNull String sessionName, @NotNull Player voter, @NotNull Player target) {
         this.sessionName = sessionName;
         this.voter = voter;
         this.target = target;
     }
     
     @Override
-    public void dispatch(MatchboxEventListener listener) {
+    public void dispatch(@NotNull MatchboxEventListener listener) {
         listener.onPlayerVote(this);
     }
     
@@ -39,6 +40,7 @@ public class PlayerVoteEvent extends MatchboxEvent {
      * 
      * @return the session name
      */
+    @NotNull
     public String getSessionName() {
         return sessionName;
     }
@@ -48,6 +50,7 @@ public class PlayerVoteEvent extends MatchboxEvent {
      * 
      * @return the voter
      */
+    @NotNull
     public Player getVoter() {
         return voter;
     }
@@ -57,6 +60,7 @@ public class PlayerVoteEvent extends MatchboxEvent {
      * 
      * @return the voted target
      */
+    @NotNull
     public Player getTarget() {
         return target;
     }

@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import com.ohacd.matchbox.api.annotation.Experimental;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,6 +43,7 @@ public final class MatchboxAPI {
      * @return a new SessionBuilder instance
      * @throws IllegalArgumentException if name is null or empty
      */
+    @NotNull
     public static SessionBuilder createSessionBuilder(@NotNull String name) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("Session name cannot be null or empty");
@@ -55,6 +57,7 @@ public final class MatchboxAPI {
      * @param name the session name (case-insensitive)
      * @return Optional containing the session if found, empty otherwise
      */
+    @NotNull
     public static Optional<ApiGameSession> getSession(@Nullable String name) {
         if (name == null || name.trim().isEmpty()) {
             return Optional.empty();
@@ -170,6 +173,7 @@ public final class MatchboxAPI {
      * @param player the player to check
      * @return Optional containing the session if the player is in one, empty otherwise
      */
+    @NotNull
     public static Optional<ApiGameSession> getPlayerSession(@Nullable Player player) {
         if (player == null) return Optional.empty();
         
@@ -195,6 +199,7 @@ public final class MatchboxAPI {
      * @param player the player to check
      * @return Optional containing the player's role if in a game, empty otherwise
      */
+    @NotNull
     public static Optional<Role> getPlayerRole(@Nullable Player player) {
         if (player == null) return Optional.empty();
         
@@ -217,6 +222,7 @@ public final class MatchboxAPI {
      * @param sessionName the session name
      * @return Optional containing the current phase if session exists, empty otherwise
      */
+    @NotNull
     public static Optional<GamePhase> getCurrentPhase(@Nullable String sessionName) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
             return Optional.empty();
@@ -275,7 +281,9 @@ public final class MatchboxAPI {
      * @param processor the chat processor to register
      * @return true if the processor was registered, false if session not found
      * @throws IllegalArgumentException if sessionName or processor is null
+     * @since 0.9.5
      */
+    @Experimental
     public static boolean registerChatProcessor(@NotNull String sessionName, @NotNull ChatProcessor processor) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
             throw new IllegalArgumentException("Session name cannot be null or empty");
@@ -314,7 +322,9 @@ public final class MatchboxAPI {
      * @param processor the chat processor to unregister
      * @return true if the processor was unregistered, false if not found
      * @throws IllegalArgumentException if sessionName or processor is null
+     * @since 0.9.5
      */
+    @Experimental
     public static boolean unregisterChatProcessor(@NotNull String sessionName, @NotNull ChatProcessor processor) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
             throw new IllegalArgumentException("Session name cannot be null or empty");
@@ -350,7 +360,9 @@ public final class MatchboxAPI {
      * @param sessionName the session name to clear processors from
      * @return true if processors were cleared, false if session not found
      * @throws IllegalArgumentException if sessionName is null
+     * @since 0.9.5
      */
+    @Experimental
     public static boolean clearChatProcessors(@NotNull String sessionName) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
             throw new IllegalArgumentException("Session name cannot be null or empty");
@@ -383,6 +395,7 @@ public final class MatchboxAPI {
      *
      * @param event the event to fire
      */
+    @com.ohacd.matchbox.api.annotation.Internal
     static void fireEvent(@NotNull MatchboxEvent event) {
         if (event == null) return;
 
