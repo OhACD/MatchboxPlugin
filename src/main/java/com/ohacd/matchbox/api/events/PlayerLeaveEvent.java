@@ -3,6 +3,7 @@ package com.ohacd.matchbox.api.events;
 import com.ohacd.matchbox.api.MatchboxEvent;
 import com.ohacd.matchbox.api.MatchboxEventListener;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Event fired when a player leaves a game session.
@@ -39,14 +40,14 @@ public class PlayerLeaveEvent extends MatchboxEvent {
      * @param player the player who left
      * @param reason the reason for leaving
      */
-    public PlayerLeaveEvent(String sessionName, Player player, LeaveReason reason) {
+    public PlayerLeaveEvent(@NotNull String sessionName, @NotNull Player player, @NotNull LeaveReason reason) {
         this.sessionName = sessionName;
         this.player = player;
         this.reason = reason;
     }
     
     @Override
-    public void dispatch(MatchboxEventListener listener) {
+    public void dispatch(@NotNull MatchboxEventListener listener) {
         listener.onPlayerLeave(this);
     }
     
@@ -55,7 +56,7 @@ public class PlayerLeaveEvent extends MatchboxEvent {
      * 
      * @return the session name
      */
-    public String getSessionName() {
+    public @NotNull String getSessionName() {
         return sessionName;
     }
     
@@ -64,6 +65,7 @@ public class PlayerLeaveEvent extends MatchboxEvent {
      * 
      * @return the player
      */
+    @NotNull
     public Player getPlayer() {
         return player;
     }
@@ -73,6 +75,7 @@ public class PlayerLeaveEvent extends MatchboxEvent {
      * 
      * @return the leave reason
      */
+    @NotNull
     public LeaveReason getReason() {
         return reason;
     }

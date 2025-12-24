@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import com.ohacd.matchbox.api.annotation.Internal;
 
 import java.util.*;
 
@@ -390,6 +391,7 @@ public class ApiGameSession {
      * @return the wrapped GameSession
      * @deprecated This method exposes internal implementation details. Use the provided API methods instead.
      */
+    @Internal
     @Deprecated
     public GameSession getInternalSession() {
         return session;

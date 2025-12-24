@@ -3,6 +3,7 @@ package com.ohacd.matchbox.api.events;
 import com.ohacd.matchbox.api.MatchboxEvent;
 import com.ohacd.matchbox.api.MatchboxEventListener;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Event fired when a player joins a game session.
@@ -21,13 +22,13 @@ public class PlayerJoinEvent extends MatchboxEvent {
      * @param sessionName the session name
      * @param player the player who joined
      */
-    public PlayerJoinEvent(String sessionName, Player player) {
+    public PlayerJoinEvent(@NotNull String sessionName, @NotNull Player player) {
         this.sessionName = sessionName;
         this.player = player;
     }
     
     @Override
-    public void dispatch(MatchboxEventListener listener) {
+    public void dispatch(@NotNull MatchboxEventListener listener) {
         listener.onPlayerJoin(this);
     }
     
@@ -36,6 +37,7 @@ public class PlayerJoinEvent extends MatchboxEvent {
      * 
      * @return the session name
      */
+    @NotNull
     public String getSessionName() {
         return sessionName;
     }
@@ -45,6 +47,7 @@ public class PlayerJoinEvent extends MatchboxEvent {
      * 
      * @return the player
      */
+    @NotNull
     public Player getPlayer() {
         return player;
     }

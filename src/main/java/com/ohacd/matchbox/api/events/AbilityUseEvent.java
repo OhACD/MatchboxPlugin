@@ -3,6 +3,8 @@ package com.ohacd.matchbox.api.events;
 import com.ohacd.matchbox.api.MatchboxEvent;
 import com.ohacd.matchbox.api.MatchboxEventListener;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Event fired when a player uses a special ability.
@@ -43,7 +45,7 @@ public class AbilityUseEvent extends MatchboxEvent {
      * @param ability the type of ability used
      * @param target the target player (may be null for self-targeted abilities)
      */
-    public AbilityUseEvent(String sessionName, Player player, AbilityType ability, Player target) {
+    public AbilityUseEvent(@NotNull String sessionName, @NotNull Player player, @NotNull AbilityType ability, @Nullable Player target) {
         this.sessionName = sessionName;
         this.player = player;
         this.ability = ability;
@@ -51,7 +53,7 @@ public class AbilityUseEvent extends MatchboxEvent {
     }
     
     @Override
-    public void dispatch(MatchboxEventListener listener) {
+    public void dispatch(@NotNull MatchboxEventListener listener) {
         listener.onAbilityUse(this);
     }
     
@@ -60,6 +62,7 @@ public class AbilityUseEvent extends MatchboxEvent {
      * 
      * @return the session name
      */
+    @NotNull
     public String getSessionName() {
         return sessionName;
     }
@@ -69,6 +72,7 @@ public class AbilityUseEvent extends MatchboxEvent {
      * 
      * @return the player
      */
+    @NotNull
     public Player getPlayer() {
         return player;
     }
@@ -78,6 +82,7 @@ public class AbilityUseEvent extends MatchboxEvent {
      * 
      * @return the ability type
      */
+    @NotNull
     public AbilityType getAbility() {
         return ability;
     }
@@ -87,6 +92,7 @@ public class AbilityUseEvent extends MatchboxEvent {
      * 
      * @return the target player, or null if the ability is self-targeted
      */
+    @Nullable
     public Player getTarget() {
         return target;
     }

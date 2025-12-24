@@ -3,6 +3,7 @@ package com.ohacd.matchbox.api.events;
 import com.ohacd.matchbox.api.MatchboxEvent;
 import com.ohacd.matchbox.api.MatchboxEventListener;
 import com.ohacd.matchbox.game.utils.GamePhase;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Event fired when the game phase changes.
@@ -25,7 +26,7 @@ public class PhaseChangeEvent extends MatchboxEvent {
      * @param toPhase the new phase
      * @param currentRound the current round number
      */
-    public PhaseChangeEvent(String sessionName, GamePhase fromPhase, GamePhase toPhase, int currentRound) {
+    public PhaseChangeEvent(@NotNull String sessionName, @NotNull GamePhase fromPhase, @NotNull GamePhase toPhase, int currentRound) {
         this.sessionName = sessionName;
         this.fromPhase = fromPhase;
         this.toPhase = toPhase;
@@ -33,7 +34,7 @@ public class PhaseChangeEvent extends MatchboxEvent {
     }
     
     @Override
-    public void dispatch(MatchboxEventListener listener) {
+    public void dispatch(@NotNull MatchboxEventListener listener) {
         listener.onPhaseChange(this);
     }
     
@@ -42,6 +43,7 @@ public class PhaseChangeEvent extends MatchboxEvent {
      * 
      * @return the session name
      */
+    @NotNull
     public String getSessionName() {
         return sessionName;
     }
@@ -51,6 +53,7 @@ public class PhaseChangeEvent extends MatchboxEvent {
      * 
      * @return the previous phase
      */
+    @NotNull
     public GamePhase getFromPhase() {
         return fromPhase;
     }
@@ -60,6 +63,7 @@ public class PhaseChangeEvent extends MatchboxEvent {
      * 
      * @return the new phase
      */
+    @NotNull
     public GamePhase getToPhase() {
         return toPhase;
     }

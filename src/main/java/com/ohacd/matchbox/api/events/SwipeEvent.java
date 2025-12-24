@@ -3,6 +3,7 @@ package com.ohacd.matchbox.api.events;
 import com.ohacd.matchbox.api.MatchboxEvent;
 import com.ohacd.matchbox.api.MatchboxEventListener;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Event fired when the swipe action is performed (Spark attacks another player).
@@ -25,7 +26,7 @@ public class SwipeEvent extends MatchboxEvent {
      * @param victim the player being attacked
      * @param successful whether the swipe was successful (not blocked/cured)
      */
-    public SwipeEvent(String sessionName, Player attacker, Player victim, boolean successful) {
+    public SwipeEvent(@NotNull String sessionName, @NotNull Player attacker, @NotNull Player victim, boolean successful) {
         this.sessionName = sessionName;
         this.attacker = attacker;
         this.victim = victim;
@@ -33,7 +34,7 @@ public class SwipeEvent extends MatchboxEvent {
     }
     
     @Override
-    public void dispatch(MatchboxEventListener listener) {
+    public void dispatch(@NotNull MatchboxEventListener listener) {
         listener.onSwipe(this);
     }
     
@@ -42,6 +43,7 @@ public class SwipeEvent extends MatchboxEvent {
      * 
      * @return the session name
      */
+    @NotNull
     public String getSessionName() {
         return sessionName;
     }
@@ -51,6 +53,7 @@ public class SwipeEvent extends MatchboxEvent {
      * 
      * @return the attacker
      */
+    @NotNull
     public Player getAttacker() {
         return attacker;
     }
@@ -60,6 +63,7 @@ public class SwipeEvent extends MatchboxEvent {
      * 
      * @return the victim
      */
+    @NotNull
     public Player getVictim() {
         return victim;
     }

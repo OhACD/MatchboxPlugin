@@ -1,6 +1,7 @@
 package com.ohacd.matchbox.api;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Configuration class for game sessions.
@@ -85,7 +86,7 @@ public final class GameConfig {
      * 
      * @return spark ability setting ("random", "hunter_vision", "spark_swap", "delusion")
      */
-    @NotNull
+    @Nullable
     public String getSparkSecondaryAbility() {
         return sparkSecondaryAbility;
     }
@@ -93,9 +94,9 @@ public final class GameConfig {
     /**
      * Gets the Medic secondary ability setting.
      * 
-     * @return medic ability setting ("random", "healing_sight")
+     * @return medic ability setting ("random", "healing_sight") or null if unset
      */
-    @NotNull
+    @Nullable
     public String getMedicSecondaryAbility() {
         return medicSecondaryAbility;
     }
