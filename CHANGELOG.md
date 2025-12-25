@@ -2,84 +2,25 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
-## [0.9.5] - Latest Release (API Module & Config Updates)
+## [0.9.5] - 2025-12-25
+
+**Summary:** Stable public API release (0.9.5) — added a formal `MatchboxAPI`, improved session and chat handling, bulk session management, and expanded test coverage. Default config and phase durations were tuned for better gameplay balance, and a number of tests/session validation bugs were fixed.
 
 ### Added
-- **Matchbox Plugin API**: Complete API module for external integration
-  - `MatchboxAPI` main entry point for session management, player queries, and event registration
-  - `SessionBuilder` fluent interface for creating and configuring game sessions
-  - `ApiGameSession` wrapper for managing active game sessions with full control capabilities
-  - `GameConfig` builder for custom game configuration (phase durations, abilities, cosmetics)
-  - Comprehensive event system with 10+ events for game lifecycle integration
-  - Thread-safe design with proper resource management and error handling
-  - Parallel session support for minigame servers
-  - Event-driven architecture for seamless integration with external plugins
-  - Complete documentation with examples and best practices
-  - Future compatibility guarantees with versioned API
-- **Chat Pipeline System**: Advanced spectator chat isolation and customization
-  - Complete separation between alive players and spectators chat channels
-  - Spectators can see game chat but have isolated spectator-only communication
-  - Custom chat processors for server-specific chat filtering and routing
-  - `ChatChannel` enum for GAME, SPECTATOR, and GLOBAL chat routing
-  - `ChatProcessor` interface for implementing custom chat logic
-  - `ChatMessage` record with full metadata for advanced processing
-  - Session-scoped chat handling with proper cleanup
-  - Thread-safe pipeline processing with error isolation
-- **Bulk Session Management**: New `endAllSessions()` API method
-  - Ends all active game sessions gracefully in one operation
-  - Returns count of successfully ended sessions
-  - Perfect for server maintenance, emergency shutdowns, and cleanup operations
-  - Thread-safe and handles errors gracefully per session
-- **Enterprise-Grade Testing Suite**: Comprehensive performance and load testing framework
-  - `SessionStressTest.java` - Tests concurrent session creation limits and performance characteristics
-  - `PerformanceMetricsCollector.java` - Advanced metrics collection and analysis system
-  - Real-time performance monitoring with detailed console output and file reports
-  - Automated performance regression detection and bottleneck identification
-  - Configurable load testing with gradual concurrency scaling (5-200+ sessions)
-- **Complete API Test Coverage**: Replaced placeholder tests with comprehensive real-world scenarios
-  - `ApiGameSessionTest.java` - Complete testing of all 25+ API methods and edge cases
-  - Thread-safety validation under concurrent load conditions
-  - Error handling and null input validation across all components
-  - Integration testing for complex game lifecycle scenarios
+- Public `MatchboxAPI` (session creation/control, `SessionBuilder`, `ApiGameSession`, `GameConfig` builder)
+- Chat pipeline for GAME/SPECTATOR/GLOBAL routing and extension points
+- `endAllSessions()` for graceful bulk shutdowns
+- Performance and API test suites (stress tests, improved coverage)
 
 ### Changed
-- **API annotations and stability markers**: Added explicit nullability and API status annotations across the `com.ohacd.matchbox.api` module
-  - Introduced `@com.ohacd.matchbox.api.annotation.Internal` and `@com.ohacd.matchbox.api.annotation.Experimental` to mark implementation and unstable APIs
-  - Adopted JetBrains `@NotNull/@Nullable` consistently on public API surfaces and added `@since` Javadoc where appropriate
-  - Updated `GameConfig` nullability for optional settings and annotated event classes and listeners
-- **API documentation**: Added focused API Javadoc generation and a `javadocJar` artifact for distribution; added missing `@since` tags to experimental methods and performed minor doc cleanups to improve clarity and usability
-- **Default Configuration**: Updated default config with optimized phase durations
-  - Discussion phase duration set to 60 seconds by default (was 30 seconds)
-  - Voting phase duration set to 30 seconds by default (was 15 seconds)
-  - Provides more balanced gameplay experience with adequate discussion and voting time
-- **Session Creation Error Handling**: Improved error type mapping in SessionBuilder
-  - Validation errors now properly map to specific ErrorType enums
-  - Better error reporting for debugging session creation failures
-  - Enhanced error messages for different failure scenarios
-- **Thread Safety Architecture**: Enhanced `SessionManager` with `ConcurrentHashMap`
-  - Replaced standard `HashMap` with thread-safe concurrent collection
-  - Improved performance under concurrent access patterns
-  - Maintains backward compatibility while adding thread safety
-  - Eliminated race conditions in session operations
-- **Test Infrastructure Modernization**: Upgraded testing framework to enterprise standards
-  - Replaced placeholder tests with comprehensive real-world scenarios
-  - Added performance baselines and regression testing capabilities
-  - Enhanced error reporting with detailed failure analysis
-  - Implemented automated test result validation and alerting
-  - Added concurrent test execution with race condition detection
+- API annotations and Javadoc improvements
+- Default config: discussion/voting durations increased for balance
+- Session manager and concurrency improvements for thread-safety
 
 ### Fixed
-- **API Testing Issues**: Resolved comprehensive test suite problems
-  - Fixed mock player UUID conflicts causing session interference
-  - Corrected SessionBuilder validation error type mapping
-  - Fixed concurrent session creation test isolation
-  - Resolved Collection casting issues in integration tests
-  - Added proper mock player creation with unique identifiers
-  - Enhanced session cleanup between test executions
-- **Session Validation**: Improved session existence checking in API methods
-  - `endSession()` now properly validates session existence before attempting to end
-  - Prevents false positive returns when ending non-existent sessions
-  - Better error handling in bulk operations
+- Various test flakiness and session validation bugs
+
+(For full historical details see older releases below.)
 
 ---
 
