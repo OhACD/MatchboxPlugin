@@ -7,6 +7,8 @@ import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.hologram.HologramManager;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -70,10 +72,16 @@ public class ChatListener implements Listener {
             // Determine player's alive status for routing
             boolean isAlivePlayer = context.getGameState().isAlive(player.getUniqueId());
 
+            // Create formatted message with player name prefix (using display name for nick plugin support)
+            Component formattedMessageWithName = Component.text("<", NamedTextColor.WHITE)
+                .append(Component.text(player.getDisplayName(), NamedTextColor.WHITE))
+                .append(Component.text("> ", NamedTextColor.WHITE))
+                .append(event.message());
+
             // Create chat message for pipeline processing
             ChatMessage chatMessage = new ChatMessage(
                 event.originalMessage(),
-                event.message(),
+                formattedMessageWithName,
                 player,
                 ChatChannel.GAME, // Default to game channel, pipeline will route appropriately
                 context.getSessionName(),

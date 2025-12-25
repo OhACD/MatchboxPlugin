@@ -1934,6 +1934,13 @@ public class GameManager {
         return chatPipelineManager;
     }
 
+    /**
+     * Gets the plugin instance.
+     */
+    public Plugin getPlugin() {
+        return plugin;
+    }
+
     private SparkSecondaryAbility selectSparkSecondaryAbility(GameState gameState) {
         if (gameState == null) {
             return SparkSecondaryAbility.HUNTER_VISION;
