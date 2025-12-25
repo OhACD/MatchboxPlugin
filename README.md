@@ -1,11 +1,11 @@
-# Matchbox 🔥
+# Matchbox 
 
 A lightweight social deduction minigame plugin for Minecraft (2–20 players).
 
 ---
 
 ## Quick links
-- Documentation (user guide): `docs/README.md` ✅
+- Documentation (user guide): `docs/README.md` 
 - API docs: `MatchboxAPI_Docs.md` (detailed examples and reference)
 - Changelog: `CHANGELOG.md`
 - Support: https://discord.gg/BTDP3APfq8
