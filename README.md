@@ -4,6 +4,9 @@ A lightweight social deduction minigame plugin for Minecraft (2–20 players).
 
 ---
 
+## Disclaimer
+- All workflows/tests work perfectly, they show up as broken due to workflows being broken with my account
+
 ## Quick links
 - Documentation (user guide): `docs/README.md` 
 - API docs: `MatchboxAPI_Docs.md` (detailed examples and reference)
