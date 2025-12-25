@@ -5,6 +5,9 @@ import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.session.GameSession;
 import com.ohacd.matchbox.game.utils.GamePhase;
+
+import java.util.Optional;
+
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -270,7 +273,7 @@ public final class PhaseController {
     /**
      * Gets the game context for this session.
      */
-    private java.util.Optional<SessionGameContext> getGameContext() {
+    private Optional<SessionGameContext> getGameContext() {
         Matchbox plugin = Matchbox.getInstance();
         if (plugin == null) {
             return java.util.Optional.empty();

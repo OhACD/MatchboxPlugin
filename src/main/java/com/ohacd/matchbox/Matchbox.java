@@ -23,6 +23,7 @@ import com.ohacd.matchbox.game.utils.listeners.BlockInteractionProtectionListene
 import com.ohacd.matchbox.game.utils.listeners.DamageProtectionListener;
 import com.ohacd.matchbox.game.utils.listeners.GameItemProtectionListener;
 import com.ohacd.matchbox.game.utils.listeners.HitRevealListener;
+import com.ohacd.matchbox.game.utils.listeners.PotBreakProtectionListener;
 import com.ohacd.matchbox.game.utils.listeners.PlayerJoinListener;
 import com.ohacd.matchbox.game.utils.listeners.PlayerQuitListener;
 import com.ohacd.matchbox.game.utils.listeners.VoteItemListener;
@@ -39,7 +40,7 @@ import java.util.Set;
 public final class Matchbox extends JavaPlugin {
     // Project status, versioning and update name
     private static final ProjectStatus projectStatus = ProjectStatus.DEVELOPMENT; // Main toggle for project status
-    private String updateName = "API Module & Config Updates";
+    private String updateName = "API Module & Testing Suite";
     private String currentVersion;
     private CheckProjectVersion versionChecker;
 
@@ -66,6 +67,7 @@ public final class Matchbox extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new GameItemProtectionListener(gameManager), this);
         getServer().getPluginManager().registerEvents(new DamageProtectionListener(gameManager), this);
         getServer().getPluginManager().registerEvents(new BlockInteractionProtectionListener(gameManager), this);
+        getServer().getPluginManager().registerEvents(new PotBreakProtectionListener(gameManager), this);
 
         // Register abilities through a single event router
         abilityManager.registerAbility(new SwipeActivationListener(gameManager, this));
