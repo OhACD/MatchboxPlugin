@@ -7,6 +7,7 @@ import com.ohacd.matchbox.game.ability.ProtocolLibHunterVisionAdapter;
 import com.ohacd.matchbox.game.ability.MedicSecondaryAbility;
 import com.ohacd.matchbox.game.ability.SparkSecondaryAbility;
 import com.ohacd.matchbox.game.action.PlayerActionHandler;
+import com.ohacd.matchbox.game.chat.ChatPipelineManager;
 import com.ohacd.matchbox.game.config.ConfigManager;
 import com.ohacd.matchbox.game.cosmetic.SkinManager;
 import com.ohacd.matchbox.game.hologram.HologramManager;
@@ -65,6 +66,7 @@ public class GameManager {
     private final PlayerActionHandler actionHandler;
     private final SkinManager skinManager;
     private final HunterVisionAdapter hunterVisionAdapter;
+    private final ChatPipelineManager chatPipelineManager;
 
     // Active game sessions - each session has its own game state and context
     private final Map<String, SessionGameContext> activeSessions = new ConcurrentHashMap<>();
@@ -96,6 +98,7 @@ public class GameManager {
         // Initialize helper classes
         this.lifecycleManager = new GameLifecycleManager(plugin, messageUtils, swipePhaseHandler, inventoryManager, playerBackups);
         this.actionHandler = new PlayerActionHandler(plugin);
+        this.chatPipelineManager = new ChatPipelineManager(plugin, this);
 
         skinManager.preloadDefaultSkins();
     }
@@ -115,26 +118,57 @@ public class GameManager {
 
     /**
      * Gets the game context for a session, creating it if it doesn't exist.
-     * Also validates that the session exists in SessionManager.
+     * Also validates that the Session exists in SessionManager.
      */
     private SessionGameContext getOrCreateContext(String sessionName) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
             throw new IllegalArgumentException("Session name cannot be null or empty");
         }
 
-        // Validate session exists in SessionManager
+        // Validate session exists in SessionManager BEFORE creating context
+        SessionManager sessionManager = null;
         try {
-            Matchbox matchboxPlugin = (Matchbox) plugin;
-            SessionManager sessionManager = matchboxPlugin.getSessionManager();
-            if (sessionManager != null && !sessionManager.sessionExists(sessionName)) {
+            // Try to get SessionManager from plugin (works in production)
+            if (plugin instanceof Matchbox) {
+                sessionManager = ((Matchbox) plugin).getSessionManager();
+            }
+
+            // Fallback for tests - use static instance if plugin cast failed
+            if (sessionManager == null) {
+                Matchbox instance = Matchbox.getInstance();
+                if (instance != null) {
+                    sessionManager = instance.getSessionManager();
+                }
+            }
+
+            if (sessionManager == null) {
+                plugin.getLogger().warning("SessionManager is null, cannot validate session: " + sessionName);
+                return null;
+            }
+
+            if (!sessionManager.sessionExists(sessionName)) {
                 plugin.getLogger().warning("Attempted to create context for non-existent session: " + sessionName);
                 return null;
             }
+
+            // Get the actual session to ensure it's valid and active
+            GameSession session = sessionManager.getSession(sessionName);
+            if (session == null || !session.isActive()) {
+                plugin.getLogger().warning("Session is null or not active: " + sessionName);
+                return null;
+            }
+
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to validate session existence: " + e.getMessage());
+            return null;
         }
 
-        return activeSessions.computeIfAbsent(sessionName, name -> new SessionGameContext(plugin, name));
+        // Only create context if Session validation passed
+        return activeSessions.computeIfAbsent(sessionName, name -> {
+            SessionGameContext context = new SessionGameContext(plugin, name);
+            plugin.getLogger().info("Created new game context for session: " + name);
+            return context;
+        });
     }
 
     /**
@@ -1891,6 +1925,20 @@ public class GameManager {
 
     public ConfigManager getConfigManager() {
         return configManager;
+    }
+
+    /**
+     * Gets the chat pipeline manager for handling session-scoped chat processing.
+     */
+    public ChatPipelineManager getChatPipelineManager() {
+        return chatPipelineManager;
+    }
+
+    /**
+     * Gets the plugin instance.
+     */
+    public Plugin getPlugin() {
+        return plugin;
     }
 
     private SparkSecondaryAbility selectSparkSecondaryAbility(GameState gameState) {

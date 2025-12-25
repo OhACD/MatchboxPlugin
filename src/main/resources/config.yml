@@ -111,7 +111,7 @@ discussion:
   #   pitch: 0.0
 
     # Discussion phase duration in seconds
-  duration: 30
+  duration: 60
   seat-locations:
     '1':
       world: m4tchb0x
@@ -185,7 +185,7 @@ medic:
 # Voting Phase Settings
 voting:
   # Voting phase duration in seconds
-  duration: 15
+  duration: 30
   
   # Dynamic voting threshold settings
   # Thresholds are calculated logarithmically between these key points

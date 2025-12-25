@@ -2,7 +2,93 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
-## [0.9.4] - Latest Release (Ability System)
+## [0.9.5] - Latest Release (API Module & Testing Suite)
+
+### Added
+- **Matchbox Plugin API**: Complete API module for external integration
+  - MatchboxAPI main entry point for session management, player queries, and event registration
+  - SessionBuilder fluent interface for creating and configuring game sessions
+  - ApiGameSession wrapper for managing active game sessions with full control capabilities
+  - GameConfig builder for custom game configuration (phase durations, abilities, cosmetics)
+  - Comprehensive event system with 10+ events for game lifecycle integration
+  - Thread-safe design with proper resource management and error handling
+  - Parallel session support for minigame servers
+  - Event-driven architecture for seamless integration with external plugins
+  - Complete documentation with examples and best practices
+  - Future compatibility guarantees with versioned API
+- **Chat Pipeline System**: Advanced spectator chat isolation and customization
+  - Complete separation between alive players and spectators chat channels
+  - Spectators can see game chat but have isolated spectator-only communication
+  - Custom chat processors for server-specific chat filtering and routing
+  - ChatChannel enum for GAME, SPECTATOR, and GLOBAL chat routing
+  - ChatProcessor interface for implementing custom chat logic
+  - ChatMessage record with full metadata for advanced processing
+  - Session-scoped chat handling with proper cleanup
+  - Thread-safe pipeline processing with error isolation
+- **Bulk Session Management**: New endAllSessions() API method
+  - Ends all active game sessions gracefully in one operation
+  - Returns count of successfully ended sessions
+  - Perfect for server maintenance, emergency shutdowns, and cleanup operations
+  - Thread-safe and handles errors gracefully per session
+- **Enterprise-Grade Testing Suite**: Comprehensive performance and load testing framework
+  - SessionStressTest.java - Tests concurrent session creation limits and performance characteristics
+  - PerformanceMetricsCollector.java - Advanced metrics collection and analysis system
+  - Real-time performance monitoring with detailed console output and file reports
+  - Automated performance regression detection and bottleneck identification
+  - Configurable load testing with gradual concurrency scaling (5-200+ sessions)
+- **Complete API Test Coverage**: Replaced placeholder tests with comprehensive real-world scenarios
+  - ApiGameSessionTest.java - Complete testing of all 25+ API methods and edge cases
+  - Thread-safety validation under concurrent load conditions
+  - Error handling and null input validation across all components
+  - Integration testing for complex game lifecycle scenarios
+
+### Changed
+- **API annotations and stability markers**: Added explicit nullability and API status annotations across the com.ohacd.matchbox.api module
+  - Introduced @Internal and @Experimental to mark implementation and unstable APIs
+  - Adopted JetBrains @NotNull/@Nullable consistently on public API surfaces and added @since Javadoc where appropriate
+  - Updated GameConfig nullability for optional settings and annotated event classes and listeners
+- **Default Configuration**: Updated default config with optimized phase durations
+  - Discussion phase duration set to 60 seconds by default (was 30 seconds)
+  - Voting phase duration set to 30 seconds by default (was 15 seconds)
+  - Provides more balanced gameplay experience with adequate discussion and voting time
+- **Session Creation Error Handling**: Improved error type mapping in SessionBuilder
+  - Validation errors now properly map to specific ErrorType enums
+  - Better error reporting for debugging session creation failures
+  - Enhanced error messages for different failure scenarios
+- **Thread Safety Architecture**: Enhanced SessionManager with ConcurrentHashMap
+  - Replaced standard HashMap with thread-safe concurrent collection
+  - Improved performance under concurrent access patterns
+  - Maintains backward compatibility while adding thread safety
+  - Eliminated race conditions in session operations
+- **Test Infrastructure Modernization**: Upgraded testing framework to enterprise standards
+  - Replaced placeholder tests with comprehensive real-world scenarios
+  - Added performance baselines and regression testing capabilities
+  - Enhanced error reporting with detailed failure analysis
+  - Implemented automated test result validation and alerting
+  - Added concurrent test execution with race condition detection
+
+### Fixed
+- **API Testing Issues**: Resolved comprehensive test suite problems
+  - Fixed mock player UUID conflicts causing session interference
+  - Corrected SessionBuilder validation error type mapping
+  - Fixed concurrent session creation test isolation
+  - Resolved Collection casting issues in integration tests
+  - Added proper mock player creation with unique identifiers
+  - Enhanced session cleanup between test executions
+- **Session Validation**: Improved session existence checking in API methods
+  - endSession() now properly validates session existence before attempting to end
+  - Prevents false positive returns when ending non-existent sessions
+  - Better error handling in bulk operations
+- **Pot Break Protection**: Fixed bug where decorated pots could break when hit by arrows during active games
+  - Added PotBreakProtectionListener to prevent pot destruction during gameplay
+  - Protects game environment integrity by canceling arrow hits on decorated pots
+  - Maintains consistent protection system alongside other block interaction protections
+
+(For full historical details see older releases below.)
+
+---
+
+## [0.9.4] - Ability System
 
 ### Added
 - **Medic Secondary Ability System**: Medic now uses the same ability system as Spark
@@ -38,7 +124,7 @@ All notable changes to the Matchbox plugin will be documented in this file.
   - All players now consistently receive steve skins when enabled
   - Skins are reapplied at the start of each new round to ensure consistency
   - Fixed issue where some players would get alex or random skins instead of steve
-- **Invalid default seat locations**: Fixed an error where default seatlocations weren't loading correctly when used with the `m4tchb0x` map
+- **Invalid default seat locations**: Fixed an error where default seat locations weren't loading correctly when used with the `m4tchb0x` map
   - Default Spawn/Seat locations are no longer linked to a world folder named `world` 
   - Now linked to a world folder named `m4tchb0x`
 

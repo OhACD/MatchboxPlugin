@@ -4,19 +4,42 @@ plugins {
 }
 
 group = 'com.ohacd'
-version = '0.9.4'
+version = '0.9.5'
 
 repositories {
     mavenCentral()
-    maven {
-        name = "papermc-repo"
-        url = "https://repo.papermc.io/repository/maven-public/"
-    }
+    maven { url 'https://repo.papermc.io/repository/maven-public/' }
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT")
     compileOnly ("net.dmulloy2:ProtocolLib:5.4.0")
+    
+    // Testing dependencies
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+    testImplementation("org.mockito:mockito-core:5.5.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.5.0")
+    testImplementation("org.assertj:assertj-core:3.24.2")
+    // Add main classes to test classpath for Bukkit imports
+    testImplementation("io.papermc.paper:paper-api:1.21.10-R0.1-SNAPSHOT")
+}
+
+test {
+    useJUnitPlatform()
+    
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+    }
+    
+    // Configure test resources
+    sourceSets {
+        test {
+            resources {
+                srcDirs = ["src/test/resources"]
+            }
+        }
+    }
 }
 
 tasks {
@@ -53,4 +76,30 @@ processResources {
     filesMatching('plugin.yml') {
         expand props
     }
+}
+
+// Configure Javadoc to generate public-facing API docs only (com.ohacd.matchbox.api)
+tasks.named('javadoc', Javadoc) {
+    description = 'Generates Javadoc for the public API (com.ohacd.matchbox.api) only'
+    group = 'Documentation'
+    // Limit sources to API package to avoid internal implementation warnings
+    source = fileTree('src/main/java') { include 'com/ohacd/matchbox/api/**' }
+    // Make sure referenced internal types are resolvable by depending on compilation output
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.output + sourceSets.main.compileClasspath
+    options.encoding = 'UTF-8'
+    // External links disabled to avoid network fetch errors during build
+    // If desired, add stable links manually after verifying package-list availability
+
+}
+
+// Javadoc JAR for distribution
+tasks.register('javadocJar', Jar) {
+    dependsOn tasks.named('javadoc')
+    archiveClassifier.set('javadoc')
+    from tasks.named('javadoc').get().destinationDir
+}
+
+artifacts {
+    archives tasks.named('javadocJar')
 }

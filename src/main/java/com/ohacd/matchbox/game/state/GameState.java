@@ -363,7 +363,7 @@ public class GameState {
     }
 
     /**
-     * Returns a snapshot of player UUIDs whose pending death time is <= provided epoch millis.
+     * Returns a snapshot of player UUIDs whose pending death time is {@code <=} provided epoch millis.
      * Useful for processing due pending deaths.
      */
     public Set<UUID> getPendingDeathsDueAt(long epochMillis) {

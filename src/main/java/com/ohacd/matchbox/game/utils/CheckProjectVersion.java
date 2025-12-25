@@ -19,10 +19,20 @@ import java.util.function.Consumer;
 public class CheckProjectVersion {
     private final Matchbox plugin;
 
+    /**
+     * Creates the version checker for the plugin.
+     *
+     * @param plugin plugin instance used for scheduling and logging
+     */
     public CheckProjectVersion(Matchbox plugin) {
         this.plugin = plugin;
     }
 
+    /**
+     * Asynchronously checks the latest project version from the remote API and invokes the callback.
+     *
+     * @param callback consumer receiving the latest version string when available
+     */
     public void checkLatestVersion(Consumer<String> callback) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
