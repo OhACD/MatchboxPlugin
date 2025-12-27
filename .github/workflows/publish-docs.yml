@@ -31,6 +31,9 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*','**/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
       - name: Build Javadoc
         run: ./gradlew javadoc --no-daemon --console=plain
 
