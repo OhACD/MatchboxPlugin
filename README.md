@@ -104,11 +104,24 @@ Paper 1.21.10 · Java 21+ · 2–20 players
 
 Aliases: `/mb`, `/mbox`
 
-(Full command & configuration reference available in the repository.)
+(Full command & configuration reference available in the [`docs/`](docs/) directory.)
 
 ---
 
-## Documentation & Source
+## Documentation
+
+- **[Getting Started Guide](docs/GettingStarted.md)** — Installation and setup
+- **[Commands Reference](docs/Commands.md)** — All commands with examples
+- **[Configuration Guide](docs/Configuration.md)** — Complete config options
+- **[API Documentation](docs/API.md)** — For developers integrating with Matchbox
+- **[Contributing Guide](docs/Contributing.md)** — How to contribute to the project
+
+For detailed API documentation, see [MatchboxAPI_Docs.md](MatchboxAPI_Docs.md).
+
+---
+
+## Links & Support
 
 - **Modrinth Page:** https://modrinth.com/plugin/matchboxplugin
 - **Discord Support:** https://discord.gg/BTDP3APfq8
+- **GitHub Wiki:** https://github.com/OhACD/MatchboxPlugin/wiki
