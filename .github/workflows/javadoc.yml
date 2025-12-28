@@ -19,8 +19,11 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
       - name: Build Javadoc
-        run: ./gradlew.bat javadoc javadocJar --no-daemon
+        run: ./gradlew javadoc javadocJar --no-daemon
 
       - name: Upload Javadoc artifact
         uses: actions/upload-artifact@v4
