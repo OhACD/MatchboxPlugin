@@ -25,7 +25,7 @@ jobs:
         distribution: 'temurin'
 
     - name: Cache Gradle packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
@@ -52,7 +52,7 @@ jobs:
       if: always()
 
     - name: Upload test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results-java-${{ matrix.java-version }}
@@ -86,7 +86,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Download performance reports
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: test-results-java-17
         path: build/reports/
@@ -141,7 +141,7 @@ jobs:
         distribution: 'temurin'
 
     - name: Cache Gradle packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
@@ -162,7 +162,7 @@ jobs:
         ls -la build/libs/
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: matchbox-plugin
         path: build/libs/Matchbox-*.jar
@@ -177,18 +177,18 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Download build artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: matchbox-plugin
         path: build/libs/
 
     - name: Create release
-      uses: actions/create-release@v1
+      uses: softprops/action-gh-release@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: v${{ github.run_number }}
-        release_name: Matchbox v${{ github.run_number }}
+        name: Matchbox v${{ github.run_number }}
         body: |
           ## 🚀 Automated Release
 
@@ -208,16 +208,7 @@ jobs:
           - [API Documentation](MatchboxAPI_Docs.md)
         draft: false
         prerelease: false
-
-    - name: Upload release asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build/libs/Matchbox-*.jar
-        asset_name: Matchbox-${{ github.run_number }}.jar
-        asset_content_type: application/java-archive
+        files: build/libs/Matchbox-*.jar
 
   # Performance regression detection for PRs
   performance-regression-check:
