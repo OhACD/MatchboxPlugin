@@ -61,7 +61,7 @@ swipe:
 
 ```yaml
 discussion:
-  duration: 60  # seconds (5-300)
+  duration: 180  # seconds (5-300)
   seat-locations:
     1:
       world: m4tchb0x
@@ -82,7 +82,7 @@ voting:
   duration: 30  # seconds (5-120)
 ```
 
-**Default**: 30 seconds  
+**Default**: 60 seconds  
 **Range**: 5-120 seconds  
 **Description**: Time for players to vote on who to eliminate
 
