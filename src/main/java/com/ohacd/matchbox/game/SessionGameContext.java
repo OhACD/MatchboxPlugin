@@ -7,6 +7,7 @@ import com.ohacd.matchbox.game.vote.VoteManager;
 import com.ohacd.matchbox.game.win.WinConditionChecker;
 import org.bukkit.Location;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +45,9 @@ public class SessionGameContext {
     
     /** Number of consecutive voting phases that ended without elimination */
     private int consecutiveNoEliminationPhases = 0;
+
+    /** Scheduled tasks that should be cancelled when this session ends */
+    private final List<BukkitTask> scheduledTasks = new ArrayList<>();
     
     public SessionGameContext(Plugin plugin, String sessionName) {
         if (sessionName == null || sessionName.trim().isEmpty()) {
@@ -133,9 +137,28 @@ public class SessionGameContext {
     }
     
     /**
+     * Tracks a scheduled task so it is cancelled when this session ends.
+     */
+    public void trackTask(BukkitTask task) {
+        if (task != null) {
+            scheduledTasks.add(task);
+        }
+    }
+
+    /**
      * Cleans up all resources for this session context.
      */
     public void cleanup() {
+        for (BukkitTask task : scheduledTasks) {
+            try {
+                if (!task.isCancelled()) {
+                    task.cancel();
+                }
+            } catch (Exception ignored) {
+                // Best-effort cancellation
+            }
+        }
+        scheduledTasks.clear();
         activeSwipeWindow.clear();
         activeCureWindow.clear();
         activeDelusionWindow.clear();

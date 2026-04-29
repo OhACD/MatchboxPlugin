@@ -1,6 +1,8 @@
 package com.ohacd.matchbox.game.utils.listeners;
 
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
+import com.ohacd.matchbox.game.utils.GamePhase;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -9,6 +11,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
 
 /**
  * Prevents players from interacting with blocks during active games.
@@ -48,6 +51,25 @@ public class BlockInteractionProtectionListener implements Listener {
         // Block all block interactions (right-click on blocks, left-click on blocks)
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK || event.getAction() == Action.LEFT_CLICK_BLOCK) {
             Block clickedBlock = event.getClickedBlock();
+
+            // Allow right-click sign placement in sign mode during SWIPE phase
+            if (event.getAction() == Action.RIGHT_CLICK_BLOCK
+                    && gameManager.isSignModeEnabled()
+                    && isInSwipePhase(player)
+                    && isHoldingSignModeSignItem(player)) {
+                return;
+            }
+
+            // Allow left-click sign breaking in sign mode during SWIPE phase
+            if (event.getAction() == Action.LEFT_CLICK_BLOCK
+                    && gameManager.isSignModeEnabled()
+                    && isInSwipePhase(player)
+                    && clickedBlock != null
+                    && clickedBlock.getType().name().contains("SIGN")
+                    && isHoldingSignModeAxe(player)) {
+                return;
+            }
+
             if (clickedBlock != null) {
                 // Specifically prevent flower pot interactions to avoid duplication bug
                 Material blockType = clickedBlock.getType();
@@ -92,12 +114,43 @@ public class BlockInteractionProtectionListener implements Listener {
             return false;
         }
 
-        com.ohacd.matchbox.game.SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
         if (context == null) {
             return false;
         }
 
         return context.getGameState().isGameActive();
+    }
+
+    /**
+     * Returns {@code true} if the player is currently in the SWIPE phase.
+     */
+    private boolean isInSwipePhase(Player player) {
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        if (context == null) return false;
+        return context.getPhaseManager().getCurrentPhase() == GamePhase.SWIPE;
+    }
+
+    /**
+     * Returns {@code true} if the item held in the player's main hand is a
+     * sign-mode sign item (i.e. an OAK_SIGN marked as a game item via the
+     * sign-mode PDC tag).
+     */
+    private boolean isHoldingSignModeSignItem(Player player) {
+        ItemStack held = player.getInventory().getItemInMainHand();
+        if (held == null || held.getType() == Material.AIR) return false;
+        // Delegate to SignModeManager via GameManager
+        return gameManager.isSignModeItem(held);
+    }
+
+    /**
+     * Returns {@code true} if the item held in the player's main hand is the
+     * sign-mode wooden axe.
+     */
+    private boolean isHoldingSignModeAxe(Player player) {
+        ItemStack held = player.getInventory().getItemInMainHand();
+        if (held == null || held.getType() != Material.WOODEN_AXE) return false;
+        return gameManager.isSignModeItem(held);
     }
 }
 

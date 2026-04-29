@@ -53,7 +53,7 @@ public class HitRevealListener implements Listener {
         }
         
         // Check if shooter has used their arrow this round
-        if (inventoryManager.hasUsedArrow(shooter.getUniqueId())) {
+        if (inventoryManager.hasUsedArrow(context.getSessionName(), shooter.getUniqueId())) {
             return; // Already used arrow this round
         }
         
@@ -68,7 +68,7 @@ public class HitRevealListener implements Listener {
         }
         
         // Mark arrow as used
-        inventoryManager.markArrowUsed(shooter.getUniqueId());
+        inventoryManager.markArrowUsed(context.getSessionName(), shooter.getUniqueId());
         
         // Reveal player identity for 10 seconds (200 ticks)
         hologramManager.showTextAbove(target, com.ohacd.matchbox.game.utils.PlayerNameUtils.displayName(target), 200);

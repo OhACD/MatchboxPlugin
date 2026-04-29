@@ -3,6 +3,8 @@ package com.ohacd.matchbox.command;
 import com.ohacd.matchbox.Matchbox;
 import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
+import com.ohacd.matchbox.game.nick.NickManager;
+import com.ohacd.matchbox.game.nick.RandomNickGenerator;
 import com.ohacd.matchbox.game.session.GameSession;
 import com.ohacd.matchbox.game.session.SessionManager;
 import com.ohacd.matchbox.game.utils.GamePhase;
@@ -19,6 +21,7 @@ import org.bukkit.Bukkit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,10 +35,11 @@ import java.util.stream.Collectors;
 public class MatchboxCommand implements CommandExecutor, TabCompleter {
     private final SessionManager sessionManager;
     private final GameManager gameManager;
+    private final NickManager nickManager;
     // Track pending confirmations for destructive commands
     private final Map<UUID, String> pendingConfirmations = new ConcurrentHashMap<>();
 
-    public MatchboxCommand(Matchbox plugin, SessionManager sessionManager, GameManager gameManager) {
+    public MatchboxCommand(Matchbox plugin, SessionManager sessionManager, GameManager gameManager, NickManager nickManager) {
         if (sessionManager == null) {
             throw new IllegalArgumentException("SessionManager cannot be null");
         }
@@ -44,6 +48,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         }
         this.sessionManager = sessionManager;
         this.gameManager = gameManager;
+        this.nickManager = nickManager;
     }
 
     @Override
@@ -96,6 +101,8 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 return handleDebug(sender);
             case "skip":
                 return handleSkip(sender);
+            case "nick":
+                return handleNick(sender, args);
             default:
                 sendHelp(sender);
                 return true;
@@ -960,6 +967,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/matchbox join <name> §7- Join a game session");
         sender.sendMessage("§e/matchbox remove <name> §7- Remove a session (deprecated, use stop)");
         sender.sendMessage("§e/matchbox leave <name> §7- Leave a game session");
+        sender.sendMessage("§e/matchbox nick [name|random|reset] §7- Manage your in-game nick");
         sender.sendMessage("§e/matchbox setdiscussion <name> §7- Set discussion location");
         sender.sendMessage("§e/matchbox setspawn §7- Add a spawn location to config");
         sender.sendMessage("§e/matchbox setseat <number> §7- Set a seat location to config");
@@ -979,7 +987,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            List<String> subCommands = Arrays.asList("start", "begin", "debugstart", "stop", "join", "leave", "setdiscussion", "setspawn", "setseat", "list", "listspawns", "listseatspawns", "removespawn", "removeseat", "clearspawns", "clearseats", "remove", "cleanup", "debug", "skip");
+            List<String> subCommands = Arrays.asList("start", "begin", "debugstart", "stop", "join", "leave", "nick", "setdiscussion", "setspawn", "setseat", "list", "listspawns", "listseatspawns", "removespawn", "removeseat", "clearspawns", "clearseats", "remove", "cleanup", "debug", "skip");
             return subCommands.stream()
                     .filter(cmd -> cmd.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
@@ -987,6 +995,12 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 2) {
             String subCommand = args[0].toLowerCase();
+            if (subCommand.equals("nick")) {
+                List<String> nickSubs = Arrays.asList("reset", "random");
+                return nickSubs.stream()
+                        .filter(s -> s.startsWith(args[1].toLowerCase()))
+                        .collect(Collectors.toList());
+            }
             if (subCommand.equals("begin") || subCommand.equals("debugstart") || subCommand.equals("stop") || subCommand.equals("join") ||
                     subCommand.equals("leave") || subCommand.equals("setdiscussion") ||
                     subCommand.equals("setspawn") || subCommand.equals("setseat") || subCommand.equals("remove")) {
@@ -996,6 +1010,192 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             }
         }
 
+        if (args.length == 3 && args[0].equalsIgnoreCase("nick")) {
+            // /mb nick reset <player> or /mb nick random <player> or /mb nick <player> <nick>
+            String arg1 = args[1].toLowerCase();
+            if (arg1.equals("reset") || arg1.equals("random") || sender.hasPermission("matchbox.admin")) {
+                return Bukkit.getOnlinePlayers().stream()
+                        .map(Player::getName)
+                        .filter(n -> n.toLowerCase().startsWith(args[2].toLowerCase()))
+                        .collect(Collectors.toList());
+            }
+        }
+
         return Collections.emptyList();
+    }
+
+    // =========================================================
+    // /mb nick handler
+    // =========================================================
+
+    private boolean handleNick(CommandSender sender, String[] args) {
+        if (nickManager == null) {
+            sender.sendMessage("§cNick system is not available.");
+            return true;
+        }
+
+        // /mb nick  — show current nick
+        if (args.length == 1) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage("§cThis command can only be used by players.");
+                return true;
+            }
+            String current = nickManager.getNick(player.getUniqueId());
+            if (current == null) {
+                sender.sendMessage("§7You have no nick set. Use §e/mb nick <name>§7 to set one, or §e/mb nick random§7 to get one.");
+            } else {
+                sender.sendMessage("§7Your current nick: " + current + "§7. Use §e/mb nick reset§7 to remove it.");
+            }
+            return true;
+        }
+
+        String arg1 = args[1];
+
+        // /mb nick reset [player]  — remove nick
+        if (arg1.equalsIgnoreCase("reset")) {
+            if (args.length >= 3) {
+                // Admin: reset another player's nick
+                if (!sender.hasPermission("matchbox.admin")) {
+                    sender.sendMessage("§cYou don't have permission to reset other players' nicks.");
+                    return true;
+                }
+                Player target = Bukkit.getPlayer(args[2]);
+                if (target == null) {
+                    sender.sendMessage("§cPlayer '§e" + args[2] + "§c' not found or is offline.");
+                    return true;
+                }
+                nickManager.removeNick(target.getUniqueId());
+                applyOrRestoreNickInSession(target);
+                sender.sendMessage("§aNick reset for §e" + target.getName() + "§a.");
+                target.sendMessage("§7Your nick has been reset by an admin.");
+            } else {
+                // Self: reset own nick
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage("§cThis command can only be used by players.");
+                    return true;
+                }
+                nickManager.removeNick(player.getUniqueId());
+                applyOrRestoreNickInSession(player);
+                sender.sendMessage("§aYour nick has been reset.");
+            }
+            return true;
+        }
+
+        // /mb nick random [player]  — generate a random nick
+        if (arg1.equalsIgnoreCase("random")) {
+            if (args.length >= 3) {
+                // Admin: random nick for another player
+                if (!sender.hasPermission("matchbox.admin")) {
+                    sender.sendMessage("§cYou don't have permission to set nicks for other players.");
+                    return true;
+                }
+                Player target = Bukkit.getPlayer(args[2]);
+                if (target == null) {
+                    sender.sendMessage("§cPlayer '§e" + args[2] + "§c' not found or is offline.");
+                    return true;
+                }
+                String nick = RandomNickGenerator.generateUnique(buildGlobalTakenNicks(target.getUniqueId()));
+                nickManager.setNick(target.getUniqueId(), nick, true);
+                applyOrRestoreNickInSession(target);
+                sender.sendMessage("§aGenerated nick §e" + nick + "§a for §e" + target.getName() + "§a.");
+                target.sendMessage("§7Your nick has been set to §e" + nick + "§7 by an admin.");
+            } else {
+                // Self: random nick
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage("§cThis command can only be used by players.");
+                    return true;
+                }
+                String nick = RandomNickGenerator.generateUnique(buildGlobalTakenNicks(player.getUniqueId()));
+                nickManager.setNick(player.getUniqueId(), nick, player.hasPermission("matchbox.admin"));
+                applyOrRestoreNickInSession(player);
+                sender.sendMessage("§aYour nick has been set to §e" + nick + "§a.");
+            }
+            return true;
+        }
+
+        // /mb nick <player> <nick>  — admin set nick for another player (3 args)
+        if (args.length >= 3 && sender.hasPermission("matchbox.admin")) {
+            Player target = Bukkit.getPlayer(arg1);
+            if (target != null) {
+                String nick = args[2];
+                NickManager.NickResult result = nickManager.setNick(target.getUniqueId(), nick, true);
+                if (result != NickManager.NickResult.SUCCESS) {
+                    sendNickError(sender, result);
+                    return true;
+                }
+                applyOrRestoreNickInSession(target);
+                sender.sendMessage("§aSet nick §e" + nick + "§a for §e" + target.getName() + "§a.");
+                target.sendMessage("§7Your nick has been set to §e" + nick + "§7 by an admin.");
+                return true;
+            }
+        }
+
+        // /mb nick <nickname>  — set own nick
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§cThis command can only be used by players.");
+            return true;
+        }
+        boolean isAdmin = player.hasPermission("matchbox.admin");
+        NickManager.NickResult result = nickManager.setNick(player.getUniqueId(), arg1, isAdmin);
+        if (result != NickManager.NickResult.SUCCESS) {
+            sendNickError(sender, result);
+            return true;
+        }
+        applyOrRestoreNickInSession(player);
+        sender.sendMessage("§aYour nick has been set to §e" + arg1 + "§a.");
+        return true;
+    }
+
+    /**
+     * If the player is currently in an active game session, applies (or restores) their
+     * nick immediately so the change is visible without waiting for the next game start.
+     */
+    private void applyOrRestoreNickInSession(Player player) {
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        if (context == null || !context.getGameState().isGameActive()) return;
+
+        String nick = nickManager.getNick(player.getUniqueId());
+        if (nick == null) {
+            // Nick was removed — restore real name
+            nickManager.restoreNick(player);
+            return;
+        }
+
+        // Restore first to release any previously held nick slot, then re-apply
+        nickManager.restoreNick(player);
+        Set<String> taken = nickManager.getTakenNicksInSession(
+                context.getGameState().getAllParticipatingPlayerIds());
+        taken.remove(nick.toLowerCase()); // allow the player to (re-)claim their own nick
+        if (!nickManager.applyNick(player, taken)) {
+            player.sendMessage("§cThat nick is already used by another player in this session. Use §e/mb nick random§c for a unique one.");
+            nickManager.removeNick(player.getUniqueId());
+        }
+    }
+
+    /**
+     * Builds a lower-case set of all nicks currently in use across every active session,
+     * excluding the given UUID (so a player can re-nick themselves without self-conflict).
+     */
+    private Set<String> buildGlobalTakenNicks(UUID exclude) {
+        Set<String> taken = new HashSet<>();
+        for (String sessionName : gameManager.getActiveSessionNames()) {
+            SessionGameContext ctx = gameManager.getContext(sessionName);
+            if (ctx == null) continue;
+            for (UUID id : ctx.getGameState().getAllParticipatingPlayerIds()) {
+                if (id.equals(exclude)) continue;
+                String nick = nickManager.getNick(id);
+                if (nick != null) taken.add(nick.toLowerCase());
+            }
+        }
+        return taken;
+    }
+
+    private void sendNickError(CommandSender sender, NickManager.NickResult result) {
+        switch (result) {
+            case TOO_SHORT  -> sender.sendMessage("§cNick too short. Minimum 3 characters.");
+            case TOO_LONG   -> sender.sendMessage("§cNick too long. Maximum 16 characters.");
+            case INVALID_CHARS -> sender.sendMessage("§cInvalid characters. Use only letters, numbers, §e_§c and §e-§c.");
+            default         -> sender.sendMessage("§cFailed to set nick.");
+        }
     }
 }

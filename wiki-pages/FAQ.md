@@ -4,7 +4,7 @@
 
 ### Q: What are the requirements to run Matchbox?
 **A:** You need:
-- Paper server 1.21.10 or higher
+- Paper server 1.21.11 or higher
 - Java 21 or higher
 - ProtocolLib 5.4.0 or higher
 - The M4tchb0x map (optional but recommended)
@@ -72,7 +72,7 @@ Player permissions:
 
 ### Q: The plugin isn't loading
 **A:** Check:
-1. You're running Paper 1.21.10+ (not Spigot or Bukkit)
+1. You're running Paper 1.21.11+ (not Spigot or Bukkit)
 2. You have Java 21 or higher
 3. Check server logs for error messages
 

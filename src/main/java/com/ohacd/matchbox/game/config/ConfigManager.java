@@ -131,6 +131,11 @@ public class ConfigManager {
         if (!config.contains("cosmetics.use-steve-skins")) {
             config.set("cosmetics.use-steve-skins", true);
         }
+
+        // Sign mode settings
+        if (!config.contains("sign-mode.enabled")) {
+            config.set("sign-mode.enabled", true);
+        }
     }
 
     /**
@@ -249,7 +254,7 @@ public class ConfigManager {
 
     /**
      * Gets the minimum number of players required to start a game.
-     * Validates and clamps to reasonable range (2-7).
+     * Validates and clamps to reasonable range (2-20).
      *
      * @return minimum number of players
      */
@@ -259,9 +264,9 @@ public class ConfigManager {
             plugin.getLogger().warning("Min players too low (" + min + "), using minimum 2");
             return 2;
         }
-        if (min > 7) {
-            plugin.getLogger().warning("Min players too high (" + min + "), using maximum 7");
-            return 7;
+        if (min > 20) {
+            plugin.getLogger().warning("Min players too high (" + min + "), using maximum 20");
+            return 20;
         }
         // Ensure min doesn't exceed max (read max directly to avoid recursion)
         int maxRaw = config.getInt("session.max-players", 7);
@@ -291,7 +296,7 @@ public class ConfigManager {
         }
         // Ensure max is at least equal to min (read min directly to avoid recursion)
         int minRaw = config.getInt("session.min-players", 2);
-        int min = Math.max(2, Math.min(minRaw, 7));
+        int min = Math.max(2, Math.min(minRaw, 20));
         if (max < min) {
             plugin.getLogger().warning("Max players (" + max + ") is less than min players (" + min + "), adjusting max to " + min);
             return Math.max(min, 2);
@@ -335,6 +340,18 @@ public class ConfigManager {
      */
     public boolean isUseSteveSkins() {
         return config.getBoolean("cosmetics.use-steve-skins", false);
+    }
+
+    /**
+     * Gets whether sign mode is enabled.
+     * When enabled, players receive a wooden axe and two stacks of oak signs at the start
+     * of the swipe phase and can use signs to chat instead of normal text chat.
+     * All signs placed during swipe phase are removed when discussion starts.
+     *
+     * @return true if sign mode is enabled
+     */
+    public boolean isSignModeEnabled() {
+        return config.getBoolean("sign-mode.enabled", true);
     }
     
     /**

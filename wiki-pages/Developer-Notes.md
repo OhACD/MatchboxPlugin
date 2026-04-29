@@ -119,7 +119,7 @@ See [Contributing](Contributing) for more details.
 - **Development Policy**: `DEVELOPMENT_POLICY.md` (in repository)
 
 ### External Dependencies
-- **Paper API**: MC 1.21.10 (build against latest)
+- **Paper API**: MC 1.21.11 (build against latest)
 - **ProtocolLib**: 5.4.0+ (for Hunter Vision packet manipulation)
 
 ### Useful Links
