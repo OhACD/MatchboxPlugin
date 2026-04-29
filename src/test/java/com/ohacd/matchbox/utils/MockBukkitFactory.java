@@ -132,7 +132,7 @@ public class MockBukkitFactory {
     public static Server createMockServer() {
         Server server = mock(Server.class);
         when(server.getLogger()).thenReturn(Logger.getAnonymousLogger());
-        when(server.getBukkitVersion()).thenReturn("1.21.10-R0.1-SNAPSHOT");
+        when(server.getBukkitVersion()).thenReturn("1.21.11-R0.1-SNAPSHOT");
 
         // Mock Scheduler
         BukkitScheduler scheduler = mock(BukkitScheduler.class);

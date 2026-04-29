@@ -27,7 +27,18 @@ public class WinConditionChecker {
         if (sparkPlayer != null && sparkPlayer.isOnline()) {
             return sparkPlayer.getName();
         }
-        // Fallback: try to get name from offline player or return UUID string
+        // Fallback: use last-known name from offline player data
+        try {
+            org.bukkit.OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(sparkUUID);
+            if (offlinePlayer != null) {
+                String offlineName = offlinePlayer.getName();
+                if (offlineName != null) {
+                    return offlineName;
+                }
+            }
+        } catch (Exception ignored) {
+            // If offline player lookup fails, fall through to UUID string
+        }
         return sparkUUID.toString();
     }
 

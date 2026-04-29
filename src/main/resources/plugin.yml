@@ -1,7 +1,7 @@
 name: Matchbox
 version: '${version}'
 main: com.ohacd.matchbox.Matchbox
-api-version: '1.21.10'
+api-version: '1.21.11'
 authors: [ OhACD ]
 description: A Minecraft Social Minigame
 softdepend: [ ProtocolLib ]

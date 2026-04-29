@@ -15,8 +15,10 @@ import org.bukkit.plugin.Plugin;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -72,7 +74,8 @@ public class GameLifecycleManager {
         // Store session name
         gameState.setActiveSessionName(sessionName);
         
-        // Backup player states before game starts
+        // Backup player states before game starts; build a filtered list excluding backup failures
+        Set<UUID> failedBackups = new HashSet<>();
         for (Player player : players) {
             if (player == null || !player.isOnline()) {
                 plugin.getLogger().warning("Skipping null or offline player during backup");
@@ -83,29 +86,44 @@ public class GameLifecycleManager {
                 // Set gamemode to adventure mode for gameplay
                 player.setGameMode(org.bukkit.GameMode.ADVENTURE);
             } catch (Exception e) {
-                plugin.getLogger().severe("Failed to backup player " + (player != null ? player.getName() : "null") + ": " + e.getMessage());
+                plugin.getLogger().severe("Failed to backup player " + player.getName() + ": " + e.getMessage());
                 e.printStackTrace();
+                failedBackups.add(player.getUniqueId());
             }
         }
-        
+
+        // Build effective player list, excluding those whose backups failed
+        List<Player> playerList = new ArrayList<>();
+        for (Player player : players) {
+            if (player != null && player.isOnline() && !failedBackups.contains(player.getUniqueId())) {
+                playerList.add(player);
+            }
+        }
+
+        if (!failedBackups.isEmpty()) {
+            plugin.getLogger().warning("Excluding " + failedBackups.size() + " player(s) with failed backups from session '" + sessionName + "'");
+        }
+
+        if (playerList.isEmpty()) {
+            plugin.getLogger().severe("No valid players remain after backup failures for session '" + sessionName + "' — aborting game start");
+            return;
+        }
+
         // Add players to alive set
-        gameState.addAlivePlayers(players);
-        
-        // Assign roles (only once per game, not per round)
-        List<Player> playerList = new ArrayList<>(players);
+        gameState.addAlivePlayers(playerList);
         context.getRoleAssigner().assignRoles(playerList);
         
         // Validate state after initialization
         if (!gameState.validateState()) {
             plugin.getLogger().severe("Game state invalid after initialization: " + gameState.getDebugInfo());
-            plugin.getLogger().severe("Players: " + players.size() + ", Roles assigned: " + gameState.getAllParticipatingPlayerIds().size());
+            plugin.getLogger().severe("Players: " + playerList.size() + ", Roles assigned: " + gameState.getAllParticipatingPlayerIds().size());
             // Attempt cleanup
             gameState.clearGameState();
             context.getPhaseManager().reset();
             return;
         }
         
-        plugin.getLogger().info("Game started successfully for session '" + sessionName + "' with " + players.size() + " players. Roles: " + 
+        plugin.getLogger().info("Game started successfully for session '" + sessionName + "' with " + playerList.size() + " players. Roles: " + 
             gameState.getAllParticipatingPlayerIds().stream()
                 .map(id -> {
                     Role role = gameState.getRole(id);
@@ -173,7 +191,7 @@ public class GameLifecycleManager {
         // Clear per-round state (swipes, cures, votes) but keep roles and players
         gameState.clearRoundState();
         voteManager.clearVotes();
-        inventoryManager.resetArrowUsage();
+        inventoryManager.resetArrowUsage(sessionName);
         
         // Clear all inventories for all alive players before new round
         if (alivePlayers != null) {

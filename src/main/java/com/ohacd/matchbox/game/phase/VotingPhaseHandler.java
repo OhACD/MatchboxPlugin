@@ -93,7 +93,7 @@ public class VotingPhaseHandler {
                 player.sendMessage("§e§lHow to Vote:");
                 player.sendMessage("§7- Right-click a voting paper in your inventory");
                 player.sendMessage("§7- Left-click a voting paper in your inventory");
-                player.sendMessage("§7- You can choose to not vote");
+                player.sendMessage("§e§l- You can choose to not vote");
                 if (requiredVotes > 0 && alivePlayerCount > 0) {
                     player.sendMessage("§7- Threshold: §e" + requiredVotes + "/" + alivePlayerCount + " §7votes required to eliminate a player");
                     player.sendMessage("§7- If threshold isn't met, no elimination will occur");

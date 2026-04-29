@@ -6,7 +6,7 @@ This guide will help you install and set up Matchbox on your server.
 
 Before you begin, make sure you have:
 
-- **Minecraft Server**: Paper 1.21.10 or higher ([Download Paper](https://papermc.io/downloads))
+- **Minecraft Server**: Paper 1.21.11 or higher ([Download Paper](https://papermc.io/downloads))
 - **Java**: Version 21 or higher
 - **Dependencies**: ProtocolLib 5.4.0 or higher ([Download](https://www.spigotmc.org/resources/protocollib.1997/))
 - **Map** (Optional): M4tchb0x official map ([Download](https://www.planetminecraft.com/project/m4tchb0x-maps/))

@@ -18,6 +18,8 @@ import com.ohacd.matchbox.game.phase.SwipePhaseHandler;
 import com.ohacd.matchbox.game.phase.VotingPhaseHandler;
 import com.ohacd.matchbox.game.session.GameSession;
 import com.ohacd.matchbox.game.session.SessionManager;
+import com.ohacd.matchbox.game.nick.NickManager;
+import com.ohacd.matchbox.game.sign.SignModeManager;
 import com.ohacd.matchbox.game.state.GameState;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.MessageUtils;
@@ -67,6 +69,12 @@ public class GameManager {
     private final SkinManager skinManager;
     private final HunterVisionAdapter hunterVisionAdapter;
     private final ChatPipelineManager chatPipelineManager;
+
+    // Sign mode — injected after construction via setSignModeManager()
+    private SignModeManager signModeManager;
+
+    // Nick system — injected after construction via setNickManager()
+    private NickManager nickManager;
 
     // Active game sessions - each session has its own game state and context
     private final Map<String, SessionGameContext> activeSessions = new ConcurrentHashMap<>();
@@ -284,6 +292,15 @@ public class GameManager {
         // Clear all player backups
         playerBackups.clear();
 
+        // Clear all tracked signs
+        if (signModeManager != null) {
+            try {
+                signModeManager.clearAll();
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to clear sign mode manager during emergency cleanup: " + e.getMessage());
+            }
+        }
+
         plugin.getLogger().info("Emergency cleanup completed. Removed " + sessionNames.size() + " session(s).");
     }
 
@@ -375,6 +392,21 @@ public class GameManager {
         } else if (configManager.isRandomSkinsEnabled()) {
             // Apply random skins if enabled
             skinManager.applyRandomSkins(players);
+        }
+
+        // Apply nicks for all session players (session-scoped, uniqueness enforced)
+        if (nickManager != null) {
+            java.util.Set<String> takenNicks = new java.util.HashSet<>();
+            for (Player player : players) {
+                if (player == null || !player.isOnline()) continue;
+                String nick = nickManager.getNick(player.getUniqueId());
+                if (nick == null) continue;
+                if (!nickManager.applyNick(player, takenNicks)) {
+                    player.sendMessage("§eYour nick §7" + nick + "§e is already taken in this session. You'll play as your real name.");
+                } else {
+                    takenNicks.add(nick.toLowerCase());
+                }
+            }
         }
 
         // Start first round (teleport players and begin swipe phase)
@@ -491,6 +523,12 @@ public class GameManager {
                 }
             }
             inventoryManager.setupInventories(alivePlayers, roleMap, sparkAbility, medicAbility);
+
+            // Give sign-mode items after normal inventory setup if sign mode is enabled
+            if (isSignModeEnabled() && signModeManager != null) {
+                signModeManager.giveSignItems(alivePlayers);
+                plugin.getLogger().info("Sign mode is active for session '" + sessionName + "' — gave sign items to " + alivePlayers.size() + " player(s)");
+            }
         }
 
         // Hide the name tag for all alive players on phase start
@@ -626,6 +664,56 @@ public class GameManager {
 
     public HunterVisionAdapter getHunterVisionAdapter() {
         return hunterVisionAdapter;
+    }
+
+    /**
+     * Injects the {@link SignModeManager} after construction.
+     * Called from {@link com.ohacd.matchbox.Matchbox#onEnable()}.
+     */
+    public void setSignModeManager(SignModeManager signModeManager) {
+        this.signModeManager = signModeManager;
+    }
+
+    /**
+     * Injects the {@link NickManager} after construction.
+     * Called from {@link com.ohacd.matchbox.Matchbox#onEnable()}.
+     */
+    public void setNickManager(NickManager nickManager) {
+        this.nickManager = nickManager;
+    }
+
+    /**
+     * Restores a player's nick visuals (display name, tab name, custom name).
+     * Safe to call even if NickManager has not been injected.
+     */
+    public void restorePlayerNick(Player player) {
+        if (nickManager != null) {
+            nickManager.restoreNick(player);
+        }
+    }
+
+    /**
+     * Returns {@code true} if sign mode is enabled in the config.
+     * Safe to call from any listener; returns {@code false} if ConfigManager is unavailable.
+     */
+    public boolean isSignModeEnabled() {
+        return configManager != null && configManager.isSignModeEnabled();
+    }
+
+    /**
+     * Returns {@code true} if the given item is a sign-mode item created by
+     * {@link SignModeManager} (identified by its PDC tag).
+     * Returns {@code false} if SignModeManager has not been injected yet.
+     */
+    public boolean isSignModeItem(org.bukkit.inventory.ItemStack item) {
+        return signModeManager != null && signModeManager.isSignModeItem(item);
+    }
+
+    /**
+     * Returns the {@link SignModeManager}, or {@code null} if not yet injected.
+     */
+    public SignModeManager getSignModeManager() {
+        return signModeManager;
     }
 
     /**
@@ -859,6 +947,15 @@ public class GameManager {
         if (context == null) {
             plugin.getLogger().warning("Cannot start discussion phase - no context for session: " + sessionName);
             return;
+        }
+
+        // Clean up all signs placed during the swipe phase before discussion begins
+        if (isSignModeEnabled() && signModeManager != null) {
+            try {
+                signModeManager.clearSessionSigns(sessionName);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to clear session signs for '" + sessionName + "': " + e.getMessage());
+            }
         }
 
         GameState gameState = context.getGameState();
@@ -1524,9 +1621,24 @@ public class GameManager {
         // Remove from alive set
         gameState.removeAlivePlayer(playerId);
 
-        // when a player gets eliminated they show their name tag
+        // Invalidate alive-status cache in the chat pipeline so the eliminated
+        // player's messages are routed to the spectator channel, not game chat
         try {
-            NameTagManager.showNameTag(player);
+            com.ohacd.matchbox.game.chat.SessionChatHandler chatHandler =
+                chatPipelineManager.getSessionHandler(sessionName);
+            if (chatHandler != null) {
+                chatHandler.invalidateCache(playerId);
+            }
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to invalidate chat cache for eliminated player: " + e.getMessage());
+        }
+
+        // when a player gets eliminated: if they have a nick the custom-name is already
+        // visible above their head (real nametag stays hidden), otherwise reveal it normally
+        try {
+            if (nickManager == null || nickManager.getNick(playerId) == null) {
+                NameTagManager.showNameTag(player);
+            }
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to show nametag for eliminated player " + player.getName() + ": " + e.getMessage());
         }
@@ -1616,6 +1728,7 @@ public class GameManager {
 
         // Restore nametag and cosmetic overrides
         try {
+            if (nickManager != null) nickManager.restoreNick(player);
             NameTagManager.showNameTag(player);
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to restore nametag for " + player.getName() + ": " + e.getMessage());
@@ -1736,6 +1849,15 @@ public class GameManager {
             return;
         }
 
+        // Clean up any signs remaining from the current round before ending
+        if (signModeManager != null) {
+            try {
+                signModeManager.clearSessionSigns(sessionName);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to clear session signs during endGame for '" + sessionName + "': " + e.getMessage());
+            }
+        }
+
         GameState gameState = context.getGameState();
         PhaseManager phaseManager = context.getPhaseManager();
 
@@ -1760,7 +1882,8 @@ public class GameManager {
                     }
 
                     try {
-                        // Show nametag
+                        // Restore nick visuals then show real nametag
+                        if (nickManager != null) nickManager.restoreNick(player);
                         NameTagManager.showNameTag(player);
                     } catch (Exception e) {
                         plugin.getLogger().warning("Failed to restore nametag for " + player.getName() + ": " + e.getMessage());

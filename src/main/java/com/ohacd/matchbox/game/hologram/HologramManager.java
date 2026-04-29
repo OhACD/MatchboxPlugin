@@ -38,6 +38,14 @@ public class HologramManager {
     }
 
     public void showTextAbove(Player player, String text, int ticks) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        if (!plugin.isEnabled()) {
+            return;
+        }
+
         // Run on main thread
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             UUID id = player.getUniqueId();
@@ -94,7 +102,7 @@ public class HologramManager {
     }
 
     public void clearAll() {
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
+        Runnable clearTask = () -> {
             for (HologramEntry entry : active.values()) {
                 try {
                     if (entry.task != null) entry.task.cancel();
@@ -104,6 +112,19 @@ public class HologramManager {
                 } catch (Exception ignored) {}
             }
             active.clear();
-        });
+        };
+
+        if (plugin.getServer().isPrimaryThread()) {
+            clearTask.run();
+            return;
+        }
+
+        if (plugin.isEnabled()) {
+            plugin.getServer().getScheduler().runTask(plugin, clearTask);
+            return;
+        }
+
+        // Plugin is disabled and this is async; best-effort cleanup without touching entities off-thread.
+        active.clear();
     }
 }

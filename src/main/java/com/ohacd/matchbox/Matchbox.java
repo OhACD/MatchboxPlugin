@@ -28,6 +28,9 @@ import com.ohacd.matchbox.game.utils.listeners.PlayerJoinListener;
 import com.ohacd.matchbox.game.utils.listeners.PlayerQuitListener;
 import com.ohacd.matchbox.game.utils.listeners.VoteItemListener;
 import com.ohacd.matchbox.game.utils.listeners.VotePaperListener;
+import com.ohacd.matchbox.game.nick.NickManager;
+import com.ohacd.matchbox.game.sign.SignModeManager;
+import com.ohacd.matchbox.game.sign.SignModeListener;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -40,7 +43,7 @@ import java.util.Set;
 public final class Matchbox extends JavaPlugin {
     // Project status, versioning and update name
     private static final ProjectStatus projectStatus = ProjectStatus.STABLE; // Main toggle for project status
-    private String updateName = "API Module & Testing Suite";
+    private String updateName = "QOL Improvements"; 
     private String currentVersion;
     private CheckProjectVersion versionChecker;
 
@@ -60,6 +63,29 @@ public final class Matchbox extends JavaPlugin {
         this.versionChecker = new CheckProjectVersion(this);
         this.currentVersion = getInstance().getPluginMeta().getVersion();
 
+        // Initialise sign mode (inject into GameManager so it can use it)
+        SignModeManager signModeManager = new SignModeManager(this);
+        gameManager.setSignModeManager(signModeManager);
+
+        // Initialise nick system (inject into GameManager so it can apply/restore nicks)
+        NickManager nickManager = new NickManager(this);
+        gameManager.setNickManager(nickManager);
+
+        // Repeating task: show action bar reminder to any player who has a nick stored.
+        // Suppressed while the player is inside an active game session (phases have their own action bar).
+        getServer().getScheduler().runTaskTimer(this, () -> {
+            for (org.bukkit.entity.Player p : getServer().getOnlinePlayers()) {
+                String nick = nickManager.getNick(p.getUniqueId());
+                if (nick == null) continue;
+                // Don't show while a game session is active for this player
+                com.ohacd.matchbox.game.SessionGameContext ctx =
+                        gameManager.getContextForPlayer(p.getUniqueId());
+                if (ctx != null && ctx.getGameState().isGameActive()) continue;
+                p.sendActionBar(net.kyori.adventure.text.Component.text(
+                        "§7Currently Nicked as: §a" + nick));
+            }
+        }, 40L, 40L); // start after 2 s, repeat every 2 s (action bar fades after ~3 s)
+
         // Register event listeners
         getServer().getPluginManager().registerEvents(new ChatListener(hologramManager, gameManager), this);
         getServer().getPluginManager().registerEvents(
@@ -68,6 +94,7 @@ public final class Matchbox extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new DamageProtectionListener(gameManager), this);
         getServer().getPluginManager().registerEvents(new BlockInteractionProtectionListener(gameManager), this);
         getServer().getPluginManager().registerEvents(new PotBreakProtectionListener(gameManager), this);
+        getServer().getPluginManager().registerEvents(new SignModeListener(gameManager, signModeManager), this);
 
         // Register abilities through a single event router
         abilityManager.registerAbility(new SwipeActivationListener(gameManager, this));
@@ -90,7 +117,7 @@ public final class Matchbox extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this, versionChecker), this);
 
         // Register command handler
-        MatchboxCommand commandHandler = new MatchboxCommand(this, sessionManager, gameManager);
+        MatchboxCommand commandHandler = new MatchboxCommand(this, sessionManager, gameManager, nickManager);
         getCommand("matchbox").setExecutor(commandHandler);
         getCommand("matchbox").setTabCompleter(commandHandler);
 

@@ -11,55 +11,55 @@ session:
   # Minimum number of spawn locations required before starting a game
   min-spawn-locations: 1
   spawn-locations:
-  - world: m4tchb0x
+  - world: m4tchbox
     x: -51.473426361396264
     y: -28.0
     z: 62.99461190591391
     pitch: 0.69033235
     yaw: 0.1887207
-  - world: m4tchb0x
+  - world: m4tchbox
     x: -150.17946738772446
     y: -28.0
     z: 56.40573214795135
     pitch: 5.9847145
     yaw: -29.963623
-  - world: m4tchb0x
+  - world: m4tchbox
     x: -148.54268372924275
     y: -28.0
     z: 157.59044118502777
     pitch: 0.69035906
     yaw: -92.0
-  - world: m4tchb0x
+  - world: m4tchbox
     x: -51.739567395775154
     y: -28.0
     z: 255.41098517125434
     pitch: 4.488498
     yaw: -177.7445
-  - world: m4tchb0x
+  - world: m4tchbox
     x: -4.691513152574944
     y: -28.0
     z: 208.96547601851555
     pitch: 4.258306
     yaw: 90.31067
-  - world: m4tchb0x
+  - world: m4tchbox
     x: 34.49659508040274
     y: -28.0
     z: 156.4157398922256
     pitch: 6.560222
     yaw: 90.77466
-  - world: m4tchb0x
+  - world: m4tchbox
     x: -0.5183775312148339
     y: -28.0
     z: 113.5868217210009
     pitch: 3.1073725
     yaw: 1.0196533
-  - world: m4tchb0x
+  - world: m4tchbox
     x: 34.3062856383851
     y: -28.0
     z: 98.9279350023729
     pitch: 5.1790857
     yaw: 6.4093018
-  - world: m4tchb0x
+  - world: m4tchbox
     x: 12.167055671992346
     y: -28.0
     z: 70.27321679178925
@@ -73,6 +73,15 @@ session:
 #   z: 0.5
 #   yaw: 0.0
 #   pitch: 0.0
+
+# Sign Mode Settings
+# When enabled, players receive a wooden axe and two stacks of oak signs at the start
+# of the swipe phase. Placing a sign broadcasts its text to all alive players as
+# in-game chat, replacing the normal hologram-based chat for that message.
+# Placed signs are automatically removed from the world when discussion starts.
+sign-mode:
+  # Whether sign mode is enabled (default: true)
+  enabled: true
 
 # Swipe Phase Settings
 swipe:
@@ -114,56 +123,56 @@ discussion:
   duration: 60
   seat-locations:
     '1':
-      world: m4tchb0x
+      world: m4tchbox
       x: -129.16343439943907
       y: -26.5
       z: 251.55774675779458
       yaw: -89.37445
       pitch: 1.611053
     '2':
-      world: m4tchb0x
+      world: m4tchbox
       x: -129.1864844318363
       y: -26.5
       z: 254.36611360150775
       yaw: -90.75531
       pitch: 1.7261552
     '3':
-      world: m4tchb0x
+      world: m4tchbox
       x: -125.52719780180495
       y: -26.5
       z: 257.0771164995616
       yaw: 179.12561
       pitch: 4.143142
     '4':
-      world: m4tchb0x
+      world: m4tchbox
       x: -122.25339360180097
       y: -26.5
       z: 257.0268930333515
       yaw: 179.12561
       pitch: 4.143142
     '5':
-      world: m4tchb0x
+      world: m4tchbox
       x: -119.0030134337861
       y: -26.5
       z: 254.59310772635314
       yaw: 90.84845
       pitch: 1.265751
     '6':
-      world: m4tchb0x
+      world: m4tchbox
       x: -118.96102588929145
       y: -26.5
       z: 251.74950939174357
       yaw: 90.84845
       pitch: 1.265751
     '7':
-      world: m4tchb0x
+      world: m4tchbox
       x: -122.2330839151841
       y: -26.5
       z: 248.93487004108408
       yaw: 1.9953613
       pitch: 0.11480462
     '8':
-      world: m4tchb0x
+      world: m4tchbox
       x: -125.51700092500927
       y: -26.5
       z: 248.82053637494593
@@ -205,6 +214,12 @@ voting:
     max-phases: 3
     # Maximum penalty reduction percentage (0.10 = 10%)
     max-reduction: 0.1
+
+# Join Message Settings
+join-message:
+  # Whether to show the welcome message and title to players when they join the server (default: false)
+  # The update notification message is always shown regardless of this setting
+  enabled: false
 
 # Cosmetic Settings
 cosmetics:

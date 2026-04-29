@@ -42,8 +42,8 @@ public class InventoryManager {
 
     private static NamespacedKey VOTE_TARGET_KEY;
     
-    // Track players who have used their arrow this round
-    private final Set<UUID> usedArrowThisRound = new HashSet<>();
+    // Track players who have used their arrow this round, keyed by session name
+    private final Map<String, Set<UUID>> usedArrowBySession = new HashMap<>();
     
     // Track voting papers (player UUID -> voting paper item)
     private final Map<UUID, ItemStack> votingPapers = new HashMap<>();
@@ -269,10 +269,12 @@ public class InventoryManager {
     }
     
     /**
-     * Resets arrow usage for a new round.
+     * Resets arrow usage for a new round for the given session.
      */
-    public void resetArrowUsage() {
-        usedArrowThisRound.clear();
+    public void resetArrowUsage(String sessionName) {
+        if (sessionName != null) {
+            usedArrowBySession.remove(sessionName);
+        }
     }
     
     /**
@@ -478,34 +480,35 @@ public class InventoryManager {
     }
     
     /**
-     * Marks that a player has used their arrow this round.
+     * Marks that a player has used their arrow this round in a given session.
      */
-    public void markArrowUsed(UUID playerId) {
-        if (playerId != null) {
-            usedArrowThisRound.add(playerId);
+    public void markArrowUsed(String sessionName, UUID playerId) {
+        if (sessionName != null && playerId != null) {
+            usedArrowBySession.computeIfAbsent(sessionName, k -> new HashSet<>()).add(playerId);
         }
     }
     
     /**
-     * Checks if a player has used their arrow this round.
+     * Checks if a player has used their arrow this round in a given session.
      */
-    public boolean hasUsedArrow(UUID playerId) {
-        if (playerId == null) {
+    public boolean hasUsedArrow(String sessionName, UUID playerId) {
+        if (sessionName == null || playerId == null) {
             return false;
         }
-        return usedArrowThisRound.contains(playerId);
+        Set<UUID> sessionSet = usedArrowBySession.get(sessionName);
+        return sessionSet != null && sessionSet.contains(playerId);
     }
     
     /**
      * Gives a new arrow to the player if they haven't used it this round.
      */
-    public void giveArrowIfNeeded(Player player) {
+    public void giveArrowIfNeeded(String sessionName, Player player) {
         if (player == null || !player.isOnline()) {
             return;
         }
         
         UUID playerId = player.getUniqueId();
-        if (hasUsedArrow(playerId)) {
+        if (hasUsedArrow(sessionName, playerId)) {
             return; // Already used arrow this round
         }
         

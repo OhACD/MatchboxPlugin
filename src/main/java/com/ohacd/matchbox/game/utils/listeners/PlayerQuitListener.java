@@ -38,6 +38,7 @@ public class PlayerQuitListener implements Listener {
         String sessionName = context.getSessionName();
         GameState gameState = context.getGameState();
 
+        gameManager.restorePlayerNick(player);
         NameTagManager.showNameTag(player);
         gameManager.getSkinManager().restoreOriginalSkin(player);
         gameManager.getHunterVisionAdapter().stopVision(playerId);

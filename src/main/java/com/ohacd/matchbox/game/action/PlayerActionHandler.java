@@ -289,7 +289,7 @@ public class PlayerActionHandler {
         // Close the delusion window
         activeDelusionWindow.remove(sparkId);
         
-        // Schedule decay after 1 minute (60 seconds)
+        // Schedule decay after 30 seconds; track the task so it is cancelled if the session ends early
         final UUID targetIdFinal = targetId;
         final String sessionName = context.getSessionName();
         final SessionGameContext contextFinal = context;
@@ -303,13 +303,12 @@ public class PlayerActionHandler {
                 
                 GameState state = contextFinal.getGameState();
                 if (state.isDelusionInfected(targetIdFinal)) {
-                    // Remove delusion infection after 30 seconds
                     state.removeDelusionInfection(targetIdFinal);
                     plugin.getLogger().info("Delusion infection decayed for player " + targetIdFinal + " in session '" + sessionName + "'");
                 }
             }
         };
-        decayTask.runTaskLater(plugin, 20L * 30); // 30 seconds = 600 ticks
+        context.trackTask(decayTask.runTaskLater(plugin, 20L * 30)); // 30 seconds = 600 ticks
         
         plugin.getLogger().info("Delusion registered in session '" + context.getSessionName() + "': " + spark.getName() + " applied delusion to " + target.getName() + " (will decay in 1 minute)");
     }

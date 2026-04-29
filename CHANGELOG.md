@@ -2,6 +2,57 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
+## [0.9.6] - Development (Nick System, Sign Mode, Skin & Stability)
+
+Players can now compete under custom nicknames, communicate via signs during the swipe phase, and benefit from a more consistent and reliable game experience.
+
+### Nick System
+
+- **Set a nick** — pick any name (3–16 characters, letters/numbers/`_`/`-`) and it becomes your identity for the duration of the game. Your nick shows in chat, the player list, and above your head.
+- **Random nick** — generates a realistic-looking username from a curated word list in styles like `FrostWolf`, `frost_wolf`, `FROST_Wolf`, or `frostWolf`. A numeric suffix is added automatically if the generated name is already taken.
+- **Session-scoped** — nicks activate when a game starts and are removed the moment the game ends, you leave, or you disconnect. No carry-over between games.
+- **Unique per session** — no two players in the same game can share a nick. The second player to claim a taken nick is blocked and told to pick another.
+- **Persistent preference** — your chosen nick is saved across restarts. You only need to set it once.
+- **Action bar reminder** — while outside a game, a subtle `Currently Nicked as: [Nick]` message sits above your hotbar so you always know what name you're carrying.
+- **Admins** (`matchbox.admin`) can set, randomise, or reset any player's nick.
+
+| Command | Who | What it does |
+|---|---|---|
+| `/mb nick` | anyone | See your current nick |
+| `/mb nick <name>` | anyone | Set your nick |
+| `/mb nick random` | anyone | Get a randomly generated nick |
+| `/mb nick reset` | anyone | Remove your nick |
+| `/mb nick <player> <name>` | admin | Set another player's nick |
+| `/mb nick reset <player>` | admin | Remove another player's nick |
+| `/mb nick random <player>` | admin | Generate a random nick for another player |
+
+### Sign Mode
+
+- **Signs as communication** — when `sign-mode.enabled: true`, players communicate by placing signs during the swipe phase instead of typing in chat. Each player receives a sign kit at the start of swipe.
+- **Automatic cleanup** — all placed signs are removed when discussion begins or the game ends. Nothing is left behind in the world.
+- **Chat bypass** — normal in-game chat is suppressed when sign mode is on, so signs are the only intended channel.
+- **Join message toggle** (`join-message.enabled`) — server owners can disable the welcome title/message shown on join without affecting version notifications.
+
+### Skin & Visual Changes
+
+- Skin rendering upgraded to use ProtocolLib player-info packet rewrites for more consistent updates across clients.
+- Steve fallback improved — when skin lookups fail (offline mode or API unavailable), all players receive a consistent classic Steve skin rather than a mix of random fallbacks.
+- Paper compatibility raised to **1.21.11**.
+
+### Bug Fixes
+
+- **Eliminated players no longer appear in game chat** — they were being cached as alive in the chat pipeline after death. The cache is now cleared on elimination.
+- **Arrow tracking is now per-session** — a round reset in one game no longer clears arrow-used state for players in a different concurrent session.
+- **Players with failed state backups are excluded from the game** — previously, if saving a player's inventory or location failed, they were still added to the alive roster and couldn't be restored at game end.
+- **Win screen shows the Spark's name, not their UUID** — when the Spark disconnects and the game ends, the win announcement now resolves their name correctly.
+- **Delusion decay timer now cancels on session end** — the 30-second task scheduled when Delusion was used was not being tracked. It is now cancelled alongside other session tasks on cleanup.
+- **Random skin preloading no longer silently fails** — UUID format issues during cached skin loading are handled correctly.
+- **Hologram cleanup is safe during shutdown** — no new scheduler tasks are created while the plugin is disabling.
+- **Session player limit fixed** — min/max validation now correctly accepts the full `2–20` range.
+- **Default spawn world corrected** — default config now references `m4tchbox` instead of the old typo `m4tchb0x`.
+
+
+
 ## [0.9.5] - Latest Release (API Module & Testing Suite)
 
 ### Added

@@ -58,6 +58,15 @@ public class ChatListener implements Listener {
             return;
         }
 
+        // Sign mode sessions intentionally avoid the chat pipeline during active games.
+        // Swipe chat remains blocked so players use signs for communication.
+        if (context.getGameState().isGameActive() && gameManager.isSignModeEnabled()) {
+            if (context.getPhaseManager().getCurrentPhase() == GamePhase.SWIPE) {
+                event.setCancelled(true);
+            }
+            return;
+        }
+
         // Handle SWIPE phase specially - always show holograms
         if (context.getPhaseManager().getCurrentPhase() == GamePhase.SWIPE) {
             // Cancel normal chat and show hologram instead

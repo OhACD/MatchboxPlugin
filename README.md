@@ -1,4 +1,4 @@
-**Tags:** Paper, Minecraft 1.21.10, Minigame, Social Deduction, Plugin
+**Tags:** Paper, Minecraft 1.21.11, Minigame, Social Deduction, Plugin
 
 # Matchbox — Social Deduction Minigame for Paper
 
@@ -62,6 +62,7 @@ The game repeats until either:
 - Drop-in ready — ships with a complete default config for the official map
 - Highly configurable — phases, abilities, voting, cosmetics, chat routing
 - Nickname-friendly UI — titles, holograms, voting papers use display names
+- Built-in nick system — players compete under custom aliases with session-scoped uniqueness enforcement
 
 ---
 
@@ -80,11 +81,12 @@ The plugin ships with a fully pre-configured default setup for the M4tchb0x map:
 - Discussion seats
 - Phase timings
 - Player limits
+- Sign mode enabled by default (`sign-mode.enabled: true`)
 
 You can start playing immediately or customize everything in-game.
 
 **Requirements:**  
-Paper 1.21.10 · Java 21+ · 2–20 players
+Paper 1.21.11 · Java 21+ · 2–20 players
 
 ---
 
@@ -94,6 +96,7 @@ Paper 1.21.10 · Java 21+ · 2–20 players
 - `/matchbox join <session>`
 - `/matchbox leave`
 - `/matchbox list`
+- `/matchbox nick [name|random|reset]`
 
 **Admins**
 - `/matchbox start <session>`
