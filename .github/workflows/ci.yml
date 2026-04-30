@@ -2,26 +2,30 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ main, master, dev ]
+    tags: [ 'v*' ]
   pull_request:
-    branches: [ main, dev ]
+    branches: [ main, master, dev ]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        java-version: [17, 21]
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up JDK ${{ matrix.java-version }}
+    - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
-        java-version: ${{ matrix.java-version }}
+        java-version: '21'
         distribution: 'temurin'
 
     - name: Cache Gradle packages
@@ -37,44 +41,23 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x ./gradlew
 
-    - name: Run unit tests
-      run: ./gradlew test --info
-
-    - name: Run integration tests
-      run: ./gradlew test --tests "*IntegrationTest*"
+    - name: Run verification suite
+      run: ./gradlew clean check jacocoTestReport --warning-mode all --info
 
     - name: Run performance tests
       run: ./gradlew test --tests "*StressTest*" --info
       continue-on-error: true  # Performance tests may have timing variations
 
-    - name: Generate test report
-      run: ./gradlew test jacocoTestReport
-      if: always()
-
     - name: Upload test results
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: test-results-java-${{ matrix.java-version }}
+        name: test-results-java-21
         path: |
           build/reports/tests/
           build/reports/jacoco/
           build/test-results/
           build/reports/performance/
-
-    - name: Check test coverage
-      run: |
-        # Extract coverage percentage from JaCoCo report
-        COVERAGE=$(grep -oP 'Total.*?instruction.*?>\K\d+(?:\.\d+)?' build/reports/jacoco/test/html/index.html | head -1)
-        echo "Test coverage: $COVERAGE%"
-
-        # Fail if coverage is below 80%
-        if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-          echo "❌ Test coverage too low: $COVERAGE% (minimum: 80%)"
-          exit 1
-        else
-          echo "✅ Test coverage acceptable: $COVERAGE%"
-        fi
 
   performance-analysis:
     runs-on: ubuntu-latest
@@ -85,10 +68,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
+
     - name: Download performance reports
       uses: actions/download-artifact@v4
       with:
-        name: test-results-java-17
+        name: test-results-java-21
         path: build/reports/
 
     - name: Analyze performance metrics
@@ -134,10 +126,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up JDK 17
+    - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: '21'
         distribution: 'temurin'
 
     - name: Cache Gradle packages
@@ -149,6 +141,9 @@ jobs:
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
+
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
 
     - name: Build plugin JAR
       run: ./gradlew build -x test  # Skip tests since we already ran them
@@ -170,7 +165,10 @@ jobs:
   release:
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout code
@@ -182,23 +180,26 @@ jobs:
         name: matchbox-plugin
         path: build/libs/
 
+    - name: Resolve release version
+      id: version
+      run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
     - name: Create release
       uses: softprops/action-gh-release@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v${{ github.run_number }}
-        name: Matchbox v${{ github.run_number }}
+        tag_name: ${{ steps.version.outputs.tag }}
+        name: Matchbox ${{ steps.version.outputs.tag }}
         body: |
-          ## 🚀 Automated Release
+          ## Release
 
-          This release has been automatically built and tested.
+          Built from a validated tag.
 
           ### ✅ Quality Assurance
-          - All unit tests passed
-          - Integration tests completed
-          - Performance tests validated
-          - Code coverage requirements met
+          - Gradle check passed
+          - JaCoCo coverage verification passed
+          - Performance smoke tests completed
 
           ### 📦 Assets
           - Plugin JAR file attached
@@ -216,10 +217,19 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
     - name: Checkout base branch
       uses: actions/checkout@v4
       with:
         ref: ${{ github.base_ref }}
+
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
 
     - name: Run baseline performance test
       run: |
@@ -234,6 +244,9 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: ${{ github.head_ref }}
+
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
 
     - name: Run PR performance test
       run: |

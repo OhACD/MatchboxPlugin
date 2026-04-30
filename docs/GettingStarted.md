@@ -57,21 +57,20 @@ The plugin ships with a **complete default configuration** for the M4tchb0x map,
 
 If you're using a custom map or want to adjust locations:
 
-#### Set Spawn Locations
-1. Stand at the desired spawn point
-2. Run `/matchbox setspawn`
-3. Repeat for each spawn point (you need at least as many spawns as max players)
+#### Initialize Map Config
+1. Join the map world
+2. Run `/mb setup init <map-id> [display name]`
 
-#### Set Discussion Seats
-1. Stand at the desired seat location
-2. Run `/matchbox setseat 1` (for seat #1)
-3. Repeat for seats 2-8
+#### Set Spawn and Seat Locations
+1. Stand at each desired spawn and run `/mb setup setspawn`
+2. Stand at each seat and run `/mb setup setseat <seat-number>`
+3. Set seat order with `/mb setup seatspawns set 1,2,3,4,5,6,7`
 
-#### View Configured Locations
-- `/matchbox listspawns` — View all spawn points
-- `/matchbox listseatspawns` — View all discussion seats
+#### Validate
+- Run `/mb setup validate` to verify map readiness
+- Run `/mb setup info` to verify metadata and config path
 
-All locations are automatically saved to `plugins/Matchbox/config.yml`.
+All map geometry is automatically saved to `<world>/matchbox-map.yml`.
 
 ## Basic Configuration
 
@@ -122,16 +121,16 @@ Shows current session information and player states.
 ## Common Issues
 
 ### "Not enough spawn locations"
-- Add more spawn points with `/matchbox setspawn`
+- Add more spawn points with `/mb setup setspawn`
 - You need at least as many spawns as your max player count
 
 ### "Not enough seat locations"
-- Add seats with `/matchbox setseat <number>`
+- Add seats with `/mb setup setseat <number>`
 - You need 8 seats for discussion phase
 
 ### World not found after restart
-- Check that your world name matches the one in `config.yml`
-- Use `/matchbox listspawns` to identify missing worlds
+- Check that your world folder contains `matchbox-map.yml`
+- Use `/mb setup info` and `/mb setup validate` in that world
 
 ## Next Steps
 

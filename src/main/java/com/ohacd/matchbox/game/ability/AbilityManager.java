@@ -1,7 +1,12 @@
 package com.ohacd.matchbox.game.ability;
 
+import com.ohacd.matchbox.api.ApiGameSession;
+import com.ohacd.matchbox.api.SessionAbilityContext;
+import com.ohacd.matchbox.api.SessionAbilityHandler;
 import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
+import com.ohacd.matchbox.game.session.GameSession;
+import com.ohacd.matchbox.game.utils.Role;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -71,6 +76,10 @@ public class AbilityManager {
                 break;
             }
         }
+
+        if (!event.isCancelled()) {
+            routeSessionInventoryHandlers(event, context);
+        }
     }
 
     /**
@@ -92,6 +101,10 @@ public class AbilityManager {
             if (event.useInteractedBlock() == Event.Result.DENY || event.useItemInHand() == Event.Result.DENY) {
                 break;
             }
+        }
+
+        if (event.useInteractedBlock() != Event.Result.DENY && event.useItemInHand() != Event.Result.DENY) {
+            routeSessionInteractHandlers(event, context);
         }
     }
 
@@ -115,6 +128,87 @@ public class AbilityManager {
                 break;
             }
         }
+
+        if (!event.isCancelled()) {
+            routeSessionInteractEntityHandlers(event, context);
+        }
+    }
+
+    private void routeSessionInventoryHandlers(InventoryClickEvent event, SessionGameContext context) {
+        SessionAbilityContext abilityContext = createAbilityContext(context, getPlayer(event.getWhoClicked()), null);
+        if (abilityContext == null) {
+            return;
+        }
+
+        for (SessionAbilityHandler handler : gameManager.getSessionAbilityHandlers(context.getSessionName())) {
+            handler.handleInventoryClick(event, abilityContext);
+            if (event.isCancelled()) {
+                break;
+            }
+        }
+    }
+
+    private void routeSessionInteractHandlers(PlayerInteractEvent event, SessionGameContext context) {
+        SessionAbilityContext abilityContext = createAbilityContext(context, getPlayer(event.getPlayer()), null);
+        if (abilityContext == null) {
+            return;
+        }
+
+        for (SessionAbilityHandler handler : gameManager.getSessionAbilityHandlers(context.getSessionName())) {
+            handler.handlePlayerInteract(event, abilityContext);
+            if (event.useInteractedBlock() == Event.Result.DENY || event.useItemInHand() == Event.Result.DENY) {
+                break;
+            }
+        }
+    }
+
+    private void routeSessionInteractEntityHandlers(PlayerInteractEntityEvent event, SessionGameContext context) {
+        SessionAbilityContext abilityContext = createAbilityContext(
+            context,
+            getPlayer(event.getPlayer()),
+            getPlayer(event.getRightClicked())
+        );
+        if (abilityContext == null) {
+            return;
+        }
+
+        for (SessionAbilityHandler handler : gameManager.getSessionAbilityHandlers(context.getSessionName())) {
+            handler.handlePlayerInteractEntity(event, abilityContext);
+            if (event.isCancelled()) {
+                break;
+            }
+        }
+    }
+
+    private SessionAbilityContext createAbilityContext(SessionGameContext context, Player actor, Player target) {
+        if (actor == null) {
+            return null;
+        }
+
+        ApiGameSession session = getApiSession(context.getSessionName());
+        if (session == null) {
+            return null;
+        }
+
+        Role actorRole = context.getGameState().getRole(actor.getUniqueId());
+        var phaseManager = context.getPhaseManager();
+        return new SessionAbilityContext(
+            session,
+            actor,
+            target,
+            phaseManager != null ? phaseManager.getCurrentPhase() : null,
+            context.getGameState().getCurrentRound(),
+            actorRole,
+            context.getGameState().isAlive(actor.getUniqueId())
+        );
+    }
+
+    private ApiGameSession getApiSession(String sessionName) {
+        GameSession session = gameManager.getSessionForAbilityRouting(sessionName);
+        if (session == null) {
+            return null;
+        }
+        return new ApiGameSession(session);
     }
 
     private SessionGameContext getContext(UUID playerId) {

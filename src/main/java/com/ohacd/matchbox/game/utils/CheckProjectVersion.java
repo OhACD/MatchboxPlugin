@@ -10,7 +10,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
 import java.util.function.Consumer;
 
 /**
@@ -36,8 +36,10 @@ public class CheckProjectVersion {
     public void checkLatestVersion(Consumer<String> callback) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
-                URL url = new URL("https://api.modrinth.com/v2/project/umketzP5/version");
-                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                HttpURLConnection connection = (HttpURLConnection) URI
+                    .create("https://api.modrinth.com/v2/project/umketzP5/version")
+                    .toURL()
+                    .openConnection();
                 connection.setRequestMethod("GET");
 
                 BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));

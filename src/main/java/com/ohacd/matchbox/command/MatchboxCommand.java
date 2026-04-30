@@ -11,12 +11,15 @@ import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.Managers.NameTagManager;
 
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.Bukkit;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,6 +64,8 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         String subCommand = args[0].toLowerCase();
 
         switch (subCommand) {
+            case "setup":
+                return handleSetup(sender, args);
             case "start":
                 return handleStart(sender, args);
             case "begin":
@@ -75,22 +80,6 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 return handleLeave(sender, args);
             case "setdiscussion":
                 return handleSetDiscussion(sender, args);
-            case "setspawn":
-                return handleSetSpawn(sender, args);
-            case "setseat":
-                return handleSetSeat(sender, args);
-            case "clearspawns":
-                return handleClearSpawns(sender, args);
-            case "clearseats":
-                return handleClearSeats(sender, args);
-            case "listseatspawns":
-                return handleListSeatSpawns(sender);
-            case "listspawns":
-                return handleListSpawns(sender);
-            case "removeseat":
-                return handleRemoveSeat(sender, args);
-            case "removespawn":
-                return handleRemoveSpawn(sender, args);
             case "list":
                 return handleList(sender);
             case "remove":
@@ -107,6 +96,221 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 sendHelp(sender);
                 return true;
         }
+    }
+
+    private boolean handleSetup(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("matchbox.admin")) {
+            sender.sendMessage("§cYou don't have permission to use setup tools.");
+            return true;
+        }
+
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cSetup tools can only be used by players.");
+            return true;
+        }
+
+        Player player = (Player) sender;
+        World world = player.getWorld();
+        com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
+
+        if (args.length < 2) {
+            sendSetupHelp(sender);
+            return true;
+        }
+
+        String setupCommand = args[1].toLowerCase();
+        switch (setupCommand) {
+            case "help":
+                sendSetupHelp(sender);
+                return true;
+            case "init": {
+                String mapId = args.length >= 3 ? args[2] : world.getName();
+                String displayName = args.length >= 4 ? String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : world.getName();
+                configManager.initializeWorldMapMetadata(world, mapId, displayName, player.getName());
+                sender.sendMessage("§aInitialized map config for world '" + world.getName() + "'.");
+                sender.sendMessage("§7Map ID: §e" + mapId.toLowerCase() + "§7, Display Name: §e" + displayName);
+                sender.sendMessage("§7Config Path: §e" + configManager.getWorldMapConfigPath(world));
+                return true;
+            }
+            case "info": {
+                Map<String, String> metadata = configManager.getWorldMapMetadata(world);
+                if (metadata.isEmpty()) {
+                    sender.sendMessage("§cNo world map config found for '" + world.getName() + "'. Use /mb setup init first.");
+                    return true;
+                }
+                sender.sendMessage("§6=== Map Setup Info (" + world.getName() + ") ===");
+                sender.sendMessage("§7Map ID: §e" + metadata.getOrDefault("id", ""));
+                sender.sendMessage("§7Display Name: §e" + metadata.getOrDefault("display-name", ""));
+                sender.sendMessage("§7Creator: §e" + metadata.getOrDefault("creator", ""));
+                sender.sendMessage("§7Schema Version: §e" + metadata.getOrDefault("schema-version", ""));
+                sender.sendMessage("§7Plugin Version: §e" + metadata.getOrDefault("plugin-version", ""));
+                sender.sendMessage("§7Config Path: §e" + configManager.getWorldMapConfigPath(world));
+                return true;
+            }
+            case "validate": {
+                List<String> issues = configManager.validateWorldMapConfig(world);
+                if (issues.isEmpty()) {
+                    sender.sendMessage("§aMap config validation passed for world '" + world.getName() + "'.");
+                } else {
+                    sender.sendMessage("§cMap config validation failed for world '" + world.getName() + "':");
+                    for (String issue : issues) {
+                        sender.sendMessage("§7- §c" + issue);
+                    }
+                }
+                return true;
+            }
+            case "importlegacy": {
+                boolean overwrite = args.length >= 3 && args[2].equalsIgnoreCase("overwrite");
+                boolean changed = configManager.importLegacyGlobalConfigToWorld(world, overwrite);
+                if (changed) {
+                    sender.sendMessage("§aImported legacy global config into world map config for '" + world.getName() + "'.");
+                    sender.sendMessage("§7Config Path: §e" + configManager.getWorldMapConfigPath(world));
+                    if (!overwrite) {
+                        sender.sendMessage("§7Tip: use §e/mb setup importlegacy overwrite §7to force replace existing world-local values.");
+                    }
+                } else {
+                    sender.sendMessage("§eNo changes were made during import. World map config already had values.");
+                }
+                return true;
+            }
+            case "setspawn":
+                return handleSetSpawn(sender, new String[]{"setspawn"});
+            case "setseat": {
+                if (args.length < 3) {
+                    sender.sendMessage("§cUsage: /mb setup setseat <seat-number>");
+                    return true;
+                }
+                return handleSetSeat(sender, new String[]{"setseat", args[2]});
+            }
+            case "listspawns":
+                return handleListSpawns(sender);
+            case "listseats":
+            case "listseatspawns":
+                return handleListSeatSpawns(sender);
+            case "removespawn": {
+                if (args.length < 3) {
+                    sender.sendMessage("§cUsage: /mb setup removespawn <index>");
+                    return true;
+                }
+                return handleRemoveSpawn(sender, new String[]{"removespawn", args[2]});
+            }
+            case "removeseat": {
+                if (args.length < 3) {
+                    sender.sendMessage("§cUsage: /mb setup removeseat <seat-number>");
+                    return true;
+                }
+                return handleRemoveSeat(sender, new String[]{"removeseat", args[2]});
+            }
+            case "clearspawns": {
+                String confirm = args.length >= 3 ? args[2] : "";
+                return handleClearSpawns(sender, new String[]{"clearspawns", confirm});
+            }
+            case "clearseats": {
+                String confirm = args.length >= 3 ? args[2] : "";
+                return handleClearSeats(sender, new String[]{"clearseats", confirm});
+            }
+            case "seatspawns":
+                return handleSetupSeatSpawns(sender, args, world, configManager);
+            default:
+                sendSetupHelp(sender);
+                return true;
+        }
+    }
+
+    private boolean handleSetupSeatSpawns(CommandSender sender, String[] args, World world, com.ohacd.matchbox.game.config.ConfigManager configManager) {
+        if (args.length < 3) {
+            sender.sendMessage("§cUsage: /mb setup seatspawns <list|add|remove|set>");
+            return true;
+        }
+
+        String action = args[2].toLowerCase();
+        switch (action) {
+            case "list": {
+                List<Integer> seats = configManager.getDiscussionSeatSpawns(world);
+                sender.sendMessage("§6Seat Spawn Order (" + world.getName() + "): §e" + seats);
+                return true;
+            }
+            case "add": {
+                if (args.length < 4) {
+                    sender.sendMessage("§cUsage: /mb setup seatspawns add <seat-number>");
+                    return true;
+                }
+                Integer seat = parsePositiveInt(args[3]);
+                if (seat == null) {
+                    sender.sendMessage("§cInvalid seat number: " + args[3]);
+                    return true;
+                }
+                configManager.addDiscussionSeatSpawn(world, seat);
+                sender.sendMessage("§aAdded seat " + seat + " to discussion.seat-spawns for world '" + world.getName() + "'.");
+                return true;
+            }
+            case "remove": {
+                if (args.length < 4) {
+                    sender.sendMessage("§cUsage: /mb setup seatspawns remove <seat-number>");
+                    return true;
+                }
+                Integer seat = parsePositiveInt(args[3]);
+                if (seat == null) {
+                    sender.sendMessage("§cInvalid seat number: " + args[3]);
+                    return true;
+                }
+                configManager.removeDiscussionSeatSpawn(world, seat);
+                sender.sendMessage("§aRemoved seat " + seat + " from discussion.seat-spawns for world '" + world.getName() + "'.");
+                return true;
+            }
+            case "set": {
+                if (args.length < 4) {
+                    sender.sendMessage("§cUsage: /mb setup seatspawns set <comma-separated-seat-numbers>");
+                    sender.sendMessage("§7Example: /mb setup seatspawns set 1,2,3,4,5,6,7");
+                    return true;
+                }
+
+                String joined = String.join("", Arrays.copyOfRange(args, 3, args.length));
+                String[] rawSeats = joined.split(",");
+                List<Integer> seats = new ArrayList<>();
+                for (String raw : rawSeats) {
+                    Integer seat = parsePositiveInt(raw.trim());
+                    if (seat == null) {
+                        sender.sendMessage("§cInvalid seat number in list: " + raw.trim());
+                        return true;
+                    }
+                    seats.add(seat);
+                }
+
+                configManager.setDiscussionSeatSpawns(world, seats);
+                sender.sendMessage("§aUpdated discussion.seat-spawns for world '" + world.getName() + "' to §e" + seats + "§a.");
+                return true;
+            }
+            default:
+                sender.sendMessage("§cUnknown seatspawns action. Use list, add, remove, or set.");
+                return true;
+        }
+    }
+
+    private Integer parsePositiveInt(String value) {
+        try {
+            int parsed = Integer.parseInt(value);
+            return parsed > 0 ? parsed : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private void sendSetupHelp(CommandSender sender) {
+        sender.sendMessage("§6=== Matchbox Setup Tools ===");
+        sender.sendMessage("§e/mb setup init <map-id> [display name] §7- Initialize baked map config in current world");
+        sender.sendMessage("§e/mb setup info §7- Show map metadata for current world");
+        sender.sendMessage("§e/mb setup validate §7- Validate map config for drop-and-play readiness");
+        sender.sendMessage("§e/mb setup importlegacy [overwrite] §7- Import legacy global seat/spawn config into this world");
+        sender.sendMessage("§e/mb setup setspawn §7- Add spawn point to current world map config");
+        sender.sendMessage("§e/mb setup setseat <seat> §7- Add/update seat location in current world map config");
+        sender.sendMessage("§e/mb setup listspawns §7- List spawn points in current world map config");
+        sender.sendMessage("§e/mb setup listseats §7- List seat locations in current world map config");
+        sender.sendMessage("§e/mb setup removespawn <index> §7- Remove spawn point by index");
+        sender.sendMessage("§e/mb setup removeseat <seat> §7- Remove seat location by seat number");
+        sender.sendMessage("§e/mb setup seatspawns <list|add|remove|set> ... §7- Manage discussion seat order");
+        sender.sendMessage("§e/mb setup clearspawns [confirm] §7- Clear all spawns in current world map config");
+        sender.sendMessage("§e/mb setup clearseats [confirm] §7- Clear all seats in current world map config");
     }
 
     private boolean handleSkip(CommandSender sender) {
@@ -321,8 +525,8 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         
         // Broadcast to all players that a new session was created
         String creatorName = sender.getName();
-        Bukkit.broadcastMessage("§6§l[Matchbox] §e" + creatorName + " §7created a new game session: §a" + sessionName);
-        Bukkit.broadcastMessage("§7Join with: §e/matchbox join " + sessionName);
+        Bukkit.broadcast(LegacyComponentSerializer.legacySection().deserialize("§6§l[Matchbox] §e" + creatorName + " §7created a new game session: §a" + sessionName));
+        Bukkit.broadcast(LegacyComponentSerializer.legacySection().deserialize("§7Join with: §e/matchbox join " + sessionName));
         
         return true;
     }
@@ -392,13 +596,14 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // Load locations from config first
+        // Load locations from world-local map config first (fallback to global config)
         com.ohacd.matchbox.game.config.ConfigManager configMgr = gameManager.getConfigManager();
+        World targetWorld = resolveSessionTargetWorld(session, players);
         
         // Load spawn locations from config if session has none
         boolean usingConfigSpawns = session.getSpawnLocations().isEmpty();
         if (usingConfigSpawns) {
-            List<Location> configSpawns = configMgr.loadSpawnLocations();
+            List<Location> configSpawns = configMgr.loadSpawnLocations(targetWorld);
             int validSpawns = 0;
             for (Location loc : configSpawns) {
                 if (loc != null && loc.getWorld() != null) {
@@ -421,7 +626,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         
         // Load seat locations from config if session has none
         boolean usingConfigSeats = true;
-        Map<Integer, Location> configSeats = configMgr.loadSeatLocations();
+        Map<Integer, Location> configSeats = configMgr.loadSeatLocations(targetWorld);
         int validSeats = 0;
         for (Map.Entry<Integer, Location> entry : configSeats.entrySet()) {
             Location seatLoc = entry.getValue();
@@ -440,7 +645,11 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         
         // Notify if using config defaults
         if (usingConfigSpawns || (usingConfigSeats && !configSeats.isEmpty())) {
-            sender.sendMessage("§7Starting game using config defaults (no session-specific locations set).");
+            if (targetWorld != null && configMgr.hasWorldMapConfig(targetWorld)) {
+                sender.sendMessage("§7Starting game using map config from world '" + targetWorld.getName() + "'.");
+            } else {
+                sender.sendMessage("§7Starting game using global config defaults (no map config found).");
+            }
             if (usingConfigSpawns && session.getSpawnLocations().size() > 0) {
                 sender.sendMessage("§7  Using " + session.getSpawnLocations().size() + " spawn location(s) from config.");
             }
@@ -660,8 +869,8 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
         configManager.addSpawnLocation(location);
         
-        List<Location> allSpawns = configManager.loadSpawnLocations();
-        sender.sendMessage("§aSpawn location added to config! (Total: " + allSpawns.size() + ")");
+        List<Location> allSpawns = configManager.loadSpawnLocations(location.getWorld());
+        sender.sendMessage("§aSpawn location added to world map config ('" + location.getWorld().getName() + "')! (Total: " + allSpawns.size() + ")");
         return true;
     }
 
@@ -702,7 +911,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
         configManager.saveSeatLocation(seatNumber, location);
         
-        sender.sendMessage("§aSeat " + seatNumber + " location set in config!");
+        sender.sendMessage("§aSeat " + seatNumber + " location set in world map config ('" + location.getWorld().getName() + "')!");
         return true;
     }
 
@@ -712,16 +921,24 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cThis command can only be used by players so Matchbox can resolve your current world map config.");
+            return true;
+        }
+
+        Player player = (Player) sender;
+        World world = player.getWorld();
+
         com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
-        List<String> display = configManager.getSeatLocationsDisplay();
+        List<String> display = configManager.getSeatLocationsDisplay(world);
         
-        sender.sendMessage("§6=== Seat Spawns (Config) ===");
+        sender.sendMessage("§6=== Seat Spawns (" + world.getName() + ") ===");
         for (String line : display) {
             sender.sendMessage(line);
         }
         
         // Also show valid seat spawn numbers
-        List<Integer> validSeats = configManager.getDiscussionSeatSpawns();
+        List<Integer> validSeats = configManager.getDiscussionSeatSpawns(world);
         if (!validSeats.isEmpty()) {
             sender.sendMessage("§6Valid Seat Numbers: §e" + validSeats.toString());
         }
@@ -735,10 +952,18 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cThis command can only be used by players so Matchbox can resolve your current world map config.");
+            return true;
+        }
+
+        Player player = (Player) sender;
+        World world = player.getWorld();
+
         com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
-        List<String> display = configManager.getSpawnLocationsDisplay();
+        List<String> display = configManager.getSpawnLocationsDisplay(world);
         
-        sender.sendMessage("§6=== Spawn Locations (Config) ===");
+        sender.sendMessage("§6=== Spawn Locations (" + world.getName() + ") ===");
         for (String line : display) {
             sender.sendMessage(line);
         }
@@ -751,6 +976,14 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("§cYou don't have permission to use this command.");
             return true;
         }
+
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cThis command can only be used by players so Matchbox can resolve your current world map config.");
+            return true;
+        }
+
+        Player player = (Player) sender;
+        World world = player.getWorld();
 
         if (args.length < 2) {
             sender.sendMessage("§cUsage: /matchbox removeseat <seat-number>");
@@ -771,15 +1004,15 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         }
 
         com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
-        Map<Integer, Location> existingSeats = configManager.loadSeatLocations();
+        Map<Integer, Location> existingSeats = configManager.loadSeatLocations(world);
         
         if (!existingSeats.containsKey(seatNumber)) {
-            sender.sendMessage("§cSeat " + seatNumber + " is not configured in config.");
+            sender.sendMessage("§cSeat " + seatNumber + " is not configured for world '" + world.getName() + "'.");
             return true;
         }
 
-        configManager.removeSeatLocation(seatNumber);
-        sender.sendMessage("§aSeat " + seatNumber + " removed from config.");
+        configManager.removeSeatLocation(seatNumber, world);
+        sender.sendMessage("§aSeat " + seatNumber + " removed from world map config ('" + world.getName() + "').");
         return true;
     }
 
@@ -788,6 +1021,14 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("§cYou don't have permission to use this command.");
             return true;
         }
+
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cThis command can only be used by players so Matchbox can resolve your current world map config.");
+            return true;
+        }
+
+        Player player = (Player) sender;
+        World world = player.getWorld();
 
         if (args.length < 2) {
             sender.sendMessage("§cUsage: /matchbox removespawn <index>");
@@ -809,7 +1050,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         }
 
         com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
-        List<Location> existingSpawns = configManager.loadSpawnLocations();
+        List<Location> existingSpawns = configManager.loadSpawnLocations(world);
         
         if (index > existingSpawns.size()) {
             sender.sendMessage("§cIndex " + index + " is out of range. There are only " + existingSpawns.size() + " spawn location(s).");
@@ -819,10 +1060,10 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
 
         // Convert to 0-based index
         int actualIndex = index - 1;
-        boolean removed = configManager.removeSpawnLocation(actualIndex);
+        boolean removed = configManager.removeSpawnLocation(actualIndex, world);
         
         if (removed) {
-            sender.sendMessage("§aSpawn location #" + index + " removed from config.");
+            sender.sendMessage("§aSpawn location #" + index + " removed from world map config ('" + world.getName() + "').");
         } else {
             sender.sendMessage("§cFailed to remove spawn location.");
         }
@@ -849,10 +1090,10 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         if (pending != null && pending.equals("clearspawns")) {
             if (args.length >= 2 && args[1].equalsIgnoreCase("confirm")) {
                 com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
-                int count = configManager.loadSpawnLocations().size();
-                configManager.clearSpawnLocations();
+                int count = configManager.loadSpawnLocations(player.getWorld()).size();
+                configManager.clearSpawnLocations(player.getWorld());
                 pendingConfirmations.remove(playerId);
-                sender.sendMessage("§aCleared all " + count + " spawn location(s) from config.");
+                sender.sendMessage("§aCleared all " + count + " spawn location(s) from world map config ('" + player.getWorld().getName() + "').");
                 return true;
             } else {
                 pendingConfirmations.remove(playerId);
@@ -863,7 +1104,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
 
         // First time - request confirmation
         com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
-        int count = configManager.loadSpawnLocations().size();
+        int count = configManager.loadSpawnLocations(player.getWorld()).size();
         if (count == 0) {
             sender.sendMessage("§cNo spawn locations to clear.");
             return true;
@@ -894,14 +1135,14 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         if (pending != null && pending.equals("clearseats")) {
             if (args.length >= 2 && args[1].equalsIgnoreCase("confirm")) {
                 com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
-                int count = configManager.loadSeatLocations().size();
+                int count = configManager.loadSeatLocations(player.getWorld()).size();
                 // Remove all seat locations
-                Map<Integer, Location> seats = configManager.loadSeatLocations();
+                Map<Integer, Location> seats = configManager.loadSeatLocations(player.getWorld());
                 for (Integer seatNum : new ArrayList<>(seats.keySet())) {
-                    configManager.removeSeatLocation(seatNum);
+                    configManager.removeSeatLocation(seatNum, player.getWorld());
                 }
                 pendingConfirmations.remove(playerId);
-                sender.sendMessage("§aCleared all " + count + " seat location(s) from config.");
+                sender.sendMessage("§aCleared all " + count + " seat location(s) from world map config ('" + player.getWorld().getName() + "').");
                 return true;
             } else {
                 pendingConfirmations.remove(playerId);
@@ -912,7 +1153,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
 
         // First time - request confirmation
         com.ohacd.matchbox.game.config.ConfigManager configManager = gameManager.getConfigManager();
-        int count = configManager.loadSeatLocations().size();
+        int count = configManager.loadSeatLocations(player.getWorld()).size();
         if (count == 0) {
             sender.sendMessage("§cNo seat locations to clear.");
             return true;
@@ -961,6 +1202,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
 
     private void sendHelp(CommandSender sender) {
         sender.sendMessage("§6=== Matchbox Commands ===");
+        sender.sendMessage("§e/matchbox setup ... §7- Map maker tools for baked world map configs");
         sender.sendMessage("§e/matchbox start <name> §7- Create a new game session");
         sender.sendMessage("§e/matchbox begin <name> §7- Begin the game for a session");
         sender.sendMessage("§e/matchbox stop <name> §7- Stop and remove a session");
@@ -969,14 +1211,6 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("§e/matchbox leave <name> §7- Leave a game session");
         sender.sendMessage("§e/matchbox nick [name|random|reset] §7- Manage your in-game nick");
         sender.sendMessage("§e/matchbox setdiscussion <name> §7- Set discussion location");
-        sender.sendMessage("§e/matchbox setspawn §7- Add a spawn location to config");
-        sender.sendMessage("§e/matchbox setseat <number> §7- Set a seat location to config");
-        sender.sendMessage("§e/matchbox listspawns §7- List spawn locations (config)");
-        sender.sendMessage("§e/matchbox listseatspawns §7- List seat locations (config)");
-        sender.sendMessage("§e/matchbox removespawn <index> §7- Remove spawn location (config)");
-        sender.sendMessage("§e/matchbox removeseat <seat> §7- Remove seat location (config)");
-        sender.sendMessage("§e/matchbox clearspawns §7- Clear all spawn locations (config, requires confirm)");
-        sender.sendMessage("§e/matchbox clearseats §7- Clear all seat locations (config, requires confirm)");
         sender.sendMessage("§e/matchbox list §7- List all sessions");
         sender.sendMessage("§e/matchbox cleanup §7- Emergency nametag restore (admin only)");
         sender.sendMessage("§e/matchbox debug §7- Show debug info (admin only)");
@@ -987,9 +1221,40 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            List<String> subCommands = Arrays.asList("start", "begin", "debugstart", "stop", "join", "leave", "nick", "setdiscussion", "setspawn", "setseat", "list", "listspawns", "listseatspawns", "removespawn", "removeseat", "clearspawns", "clearseats", "remove", "cleanup", "debug", "skip");
+            List<String> subCommands = Arrays.asList("setup", "start", "begin", "debugstart", "stop", "join", "leave", "nick", "setdiscussion", "list", "remove", "cleanup", "debug", "skip");
             return subCommands.stream()
                     .filter(cmd -> cmd.startsWith(args[0].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("setup")) {
+            List<String> setupSubCommands = Arrays.asList(
+                "help", "init", "info", "validate", "importlegacy",
+                    "setspawn", "setseat", "listspawns", "listseats",
+                    "removespawn", "removeseat", "clearspawns", "clearseats", "seatspawns"
+            );
+            return setupSubCommands.stream()
+                    .filter(cmd -> cmd.startsWith(args[1].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+
+        if (args.length == 3 && args[0].equalsIgnoreCase("setup") && args[1].equalsIgnoreCase("importlegacy")) {
+            return List.of("overwrite").stream()
+                .filter(cmd -> cmd.startsWith(args[2].toLowerCase()))
+                .collect(Collectors.toList());
+        }
+
+        if (args.length == 3 && args[0].equalsIgnoreCase("setup") && args[1].equalsIgnoreCase("seatspawns")) {
+            List<String> seatSpawnActions = Arrays.asList("list", "add", "remove", "set");
+            return seatSpawnActions.stream()
+                    .filter(cmd -> cmd.startsWith(args[2].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+
+        if (args.length == 3 && args[0].equalsIgnoreCase("setup") &&
+                (args[1].equalsIgnoreCase("clearspawns") || args[1].equalsIgnoreCase("clearseats"))) {
+            return List.of("confirm").stream()
+                    .filter(cmd -> cmd.startsWith(args[2].toLowerCase()))
                     .collect(Collectors.toList());
         }
 
@@ -1066,6 +1331,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 }
                 nickManager.removeNick(target.getUniqueId());
                 applyOrRestoreNickInSession(target);
+                refreshNickReminderActionBar(target);
                 sender.sendMessage("§aNick reset for §e" + target.getName() + "§a.");
                 target.sendMessage("§7Your nick has been reset by an admin.");
             } else {
@@ -1076,6 +1342,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 }
                 nickManager.removeNick(player.getUniqueId());
                 applyOrRestoreNickInSession(player);
+                refreshNickReminderActionBar(player);
                 sender.sendMessage("§aYour nick has been reset.");
             }
             return true;
@@ -1097,6 +1364,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 String nick = RandomNickGenerator.generateUnique(buildGlobalTakenNicks(target.getUniqueId()));
                 nickManager.setNick(target.getUniqueId(), nick, true);
                 applyOrRestoreNickInSession(target);
+                refreshNickReminderActionBar(target);
                 sender.sendMessage("§aGenerated nick §e" + nick + "§a for §e" + target.getName() + "§a.");
                 target.sendMessage("§7Your nick has been set to §e" + nick + "§7 by an admin.");
             } else {
@@ -1108,6 +1376,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                 String nick = RandomNickGenerator.generateUnique(buildGlobalTakenNicks(player.getUniqueId()));
                 nickManager.setNick(player.getUniqueId(), nick, player.hasPermission("matchbox.admin"));
                 applyOrRestoreNickInSession(player);
+                refreshNickReminderActionBar(player);
                 sender.sendMessage("§aYour nick has been set to §e" + nick + "§a.");
             }
             return true;
@@ -1124,6 +1393,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 applyOrRestoreNickInSession(target);
+                refreshNickReminderActionBar(target);
                 sender.sendMessage("§aSet nick §e" + nick + "§a for §e" + target.getName() + "§a.");
                 target.sendMessage("§7Your nick has been set to §e" + nick + "§7 by an admin.");
                 return true;
@@ -1142,8 +1412,28 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         applyOrRestoreNickInSession(player);
+        refreshNickReminderActionBar(player);
         sender.sendMessage("§aYour nick has been set to §e" + arg1 + "§a.");
         return true;
+    }
+
+    /**
+     * Refreshes the nick reminder action bar immediately after a successful nick command,
+     * so players do not wait for the scheduled 2-second ticker.
+     */
+    private void refreshNickReminderActionBar(Player player) {
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        if (context != null && context.getGameState().isGameActive()) {
+            return;
+        }
+
+        String nick = nickManager.getNick(player.getUniqueId());
+        if (nick == null) {
+            player.sendActionBar(Component.text(""));
+            return;
+        }
+
+        player.sendActionBar(Component.text("§7Currently Nicked as: §a" + nick));
     }
 
     /**
@@ -1161,13 +1451,13 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
-        // Restore first to release any previously held nick slot, then re-apply
-        nickManager.restoreNick(player);
+        // Re-apply in-place so there is no visual "blank" frame between old/new nick.
         Set<String> taken = nickManager.getTakenNicksInSession(
                 context.getGameState().getAllParticipatingPlayerIds());
         taken.remove(nick.toLowerCase()); // allow the player to (re-)claim their own nick
         if (!nickManager.applyNick(player, taken)) {
             player.sendMessage("§cThat nick is already used by another player in this session. Use §e/mb nick random§c for a unique one.");
+            nickManager.restoreNick(player);
             nickManager.removeNick(player.getUniqueId());
         }
     }
@@ -1188,6 +1478,28 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             }
         }
         return taken;
+    }
+
+    private World resolveSessionTargetWorld(GameSession session, List<Player> players) {
+        if (session != null && session.hasDiscussionLocation() && session.getDiscussionLocation().getWorld() != null) {
+            return session.getDiscussionLocation().getWorld();
+        }
+
+        if (session != null && !session.getSpawnLocations().isEmpty()) {
+            Location firstSpawn = session.getSpawnLocations().get(0);
+            if (firstSpawn != null && firstSpawn.getWorld() != null) {
+                return firstSpawn.getWorld();
+            }
+        }
+
+        if (players != null && !players.isEmpty()) {
+            Player firstPlayer = players.get(0);
+            if (firstPlayer != null && firstPlayer.getWorld() != null) {
+                return firstPlayer.getWorld();
+            }
+        }
+
+        return null;
     }
 
     private void sendNickError(CommandSender sender, NickManager.NickResult result) {

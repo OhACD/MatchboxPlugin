@@ -6,7 +6,6 @@ import com.ohacd.matchbox.game.session.GameSession;
 import com.ohacd.matchbox.game.session.SessionManager;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import com.ohacd.matchbox.api.annotation.Experimental;
@@ -55,6 +54,8 @@ public class SessionBuilder {
     private Location discussionLocation;
     private Map<Integer, Location> seatLocations;
     private GameConfig gameConfig;
+    private RoleAssignmentStrategy roleAssignmentStrategy;
+    private List<SessionAbilityHandler> abilityHandlers;
     
     /**
      * Creates a new session builder with the specified session name.
@@ -71,6 +72,8 @@ public class SessionBuilder {
         this.spawnPoints = new ArrayList<>();
         this.seatLocations = new HashMap<>();
         this.gameConfig = new GameConfig.Builder().build();
+        this.roleAssignmentStrategy = null;
+        this.abilityHandlers = new ArrayList<>();
     }
     
     /**
@@ -167,6 +170,42 @@ public class SessionBuilder {
     public SessionBuilder withConfig(@Nullable GameConfig gameConfig) {
         return withCustomConfig(gameConfig);
     }
+
+    /**
+     * Sets a custom role assignment strategy for deterministic role ordering.
+     *
+     * @param roleAssignmentStrategy strategy that orders players for role mapping
+     * @return this builder instance for method chaining
+     */
+    @NotNull
+    public SessionBuilder withRoleAssignmentStrategy(@Nullable RoleAssignmentStrategy roleAssignmentStrategy) {
+        this.roleAssignmentStrategy = roleAssignmentStrategy;
+        return this;
+    }
+
+    /**
+     * Adds session-scoped custom ability handlers.
+     *
+     * @param abilityHandlers handlers to route for this session
+     * @return this builder instance for method chaining
+     */
+    @NotNull
+    public SessionBuilder withAbilityHandlers(@Nullable Collection<SessionAbilityHandler> abilityHandlers) {
+        this.abilityHandlers = abilityHandlers == null ? new ArrayList<>() : new ArrayList<>(abilityHandlers);
+        return this;
+    }
+
+    /**
+     * Adds session-scoped custom ability handlers.
+     *
+     * @param abilityHandlers handlers to route for this session
+     * @return this builder instance for method chaining
+     */
+    @NotNull
+    public SessionBuilder withAbilityHandlers(@Nullable SessionAbilityHandler... abilityHandlers) {
+        this.abilityHandlers = abilityHandlers == null ? new ArrayList<>() : new ArrayList<>(Arrays.asList(abilityHandlers));
+        return this;
+    }
     
     /**
      * Validates the current builder configuration.
@@ -251,6 +290,9 @@ public class SessionBuilder {
         SessionManager sessionManager = plugin.getSessionManager();
         if (sessionManager == null) return Optional.empty();
 
+        GameManager gameManager = plugin.getGameManager();
+        if (gameManager == null) return Optional.empty();
+
         GameSession session = null;
         try {
             // Create the session
@@ -287,6 +329,7 @@ public class SessionBuilder {
 
             // Mark session as active but don't start the game
             session.setActive(true);
+            gameManager.setSessionAbilityHandlers(sessionName, abilityHandlers);
 
             return Optional.of(new ApiGameSession(session));
 
@@ -299,6 +342,7 @@ public class SessionBuilder {
                     sessionManager.removeSession(sessionName);
                 } catch (Exception ignored) {}
             }
+            gameManager.setSessionAbilityHandlers(sessionName, null);
 
             return Optional.empty();
         }
@@ -399,6 +443,9 @@ public class SessionBuilder {
             
             // Mark session as active
             session.setActive(true);
+
+            gameManager.setRoleAssignmentStrategy(sessionName, roleAssignmentStrategy);
+            gameManager.setSessionAbilityHandlers(sessionName, abilityHandlers);
             
             // Start the game
             gameManager.startRound(validPlayers, validSpawnPoints, discussionLocation, sessionName);
@@ -414,6 +461,8 @@ public class SessionBuilder {
                     sessionManager.removeSession(sessionName);
                 } catch (Exception ignored) {}
             }
+            gameManager.setRoleAssignmentStrategy(sessionName, null);
+            gameManager.setSessionAbilityHandlers(sessionName, null);
             
             return SessionCreationResult.failure(
                 SessionCreationResult.ErrorType.INTERNAL_ERROR,

@@ -102,8 +102,10 @@ Paper 1.21.11 · Java 21+ · 2–20 players
 - `/matchbox start <session>`
 - `/matchbox begin <session>`
 - `/matchbox stop <session>`
-- `/matchbox setspawn`
-- `/matchbox setseat <number>`
+- `/matchbox setup init <map-id> [display name]`
+- `/matchbox setup validate`
+- `/matchbox setup setspawn`
+- `/matchbox setup setseat <number>`
 
 Aliases: `/mb`, `/mbox`
 
@@ -116,8 +118,10 @@ Aliases: `/mb`, `/mbox`
 - **[Getting Started Guide](docs/GettingStarted.md)** — Installation and setup
 - **[Commands Reference](docs/Commands.md)** — All commands with examples
 - **[Configuration Guide](docs/Configuration.md)** — Complete config options
+- **[Map Maker Guide](docs/MapMakers.md)** — World-local map packaging workflow
 - **[API Documentation](docs/API.md)** — For developers integrating with Matchbox
 - **[Contributing Guide](docs/Contributing.md)** — How to contribute to the project
+- **[Production Readiness](docs/ProductionReadiness.md)** — Release and validation gates
 
 For detailed API documentation, see [MatchboxAPI_Docs.md](MatchboxAPI_Docs.md).
 

@@ -351,6 +351,26 @@ public class ApiGameSession {
     public int getTotalPlayerCount() {
         return getPlayers().size();
     }
+
+    /**
+     * Gets a structured log snapshot for this session.
+     *
+     * @return optional log snapshot
+     */
+    @NotNull
+    public Optional<GameSessionLog> getSessionLog() {
+        return MatchboxAPI.getSessionLog(getName());
+    }
+
+    /**
+     * Gets statistics for this session.
+     *
+     * @return optional statistics snapshot
+     */
+    @NotNull
+    public Optional<GameStatistics> getStatistics() {
+        return MatchboxAPI.getSessionStatistics(getName());
+    }
     
     /**
      * Checks if the session is currently in an active game phase.

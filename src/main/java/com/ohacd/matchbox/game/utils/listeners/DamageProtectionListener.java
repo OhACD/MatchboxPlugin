@@ -1,6 +1,7 @@
 package com.ohacd.matchbox.game.utils.listeners;
 
 import com.ohacd.matchbox.game.GameManager;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -83,7 +84,7 @@ public class DamageProtectionListener implements Listener {
 
         // Prevent death during active games
         event.setCancelled(true);
-        player.setHealth(player.getMaxHealth());
+        player.setHealth(getMaxHealth(player));
         player.setFoodLevel(20);
         player.setSaturation(20);
     }
@@ -129,6 +130,11 @@ public class DamageProtectionListener implements Listener {
         }
 
         return context.getGameState().isGameActive();
+    }
+
+    private double getMaxHealth(Player player) {
+        var attribute = player.getAttribute(Attribute.MAX_HEALTH);
+        return attribute != null ? attribute.getValue() : 20.0D;
     }
 }
 

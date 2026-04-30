@@ -13,8 +13,10 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Manages the plugin configuration file.
@@ -23,6 +25,7 @@ public class ConfigManager {
     private final Plugin plugin;
     private FileConfiguration config;
     private File configFile;
+    private static final String WORLD_MAP_CONFIG_FILE = "matchbox-map.yml";
 
     public ConfigManager(Plugin plugin) {
         this.plugin = plugin;
@@ -169,15 +172,100 @@ public class ConfigManager {
     }
 
     /**
+     * Returns true if the given world has a local Matchbox map config file.
+     */
+    public boolean hasWorldMapConfig(World world) {
+        if (world == null) {
+            return false;
+        }
+        return getWorldMapConfigFile(world).exists();
+    }
+
+    private File getWorldMapConfigFile(World world) {
+        return new File(world.getWorldFolder(), WORLD_MAP_CONFIG_FILE);
+    }
+
+    private FileConfiguration loadWorldMapConfig(World world) {
+        if (world == null) {
+            return null;
+        }
+        File worldConfigFile = getWorldMapConfigFile(world);
+        if (!worldConfigFile.exists()) {
+            return null;
+        }
+        return YamlConfiguration.loadConfiguration(worldConfigFile);
+    }
+
+    private FileConfiguration getOrCreateWorldMapConfig(World world) {
+        if (world == null) {
+            return null;
+        }
+
+        File worldConfigFile = getWorldMapConfigFile(world);
+        if (!worldConfigFile.exists()) {
+            try {
+                File parent = worldConfigFile.getParentFile();
+                if (parent != null && !parent.exists()) {
+                    parent.mkdirs();
+                }
+                worldConfigFile.createNewFile();
+                plugin.getLogger().info("Created world-local Matchbox map config: " + worldConfigFile.getPath());
+            } catch (IOException e) {
+                plugin.getLogger().severe("Failed to create world-local map config for world '" + world.getName() + "': " + e.getMessage());
+                return null;
+            }
+        }
+
+        FileConfiguration worldConfig = YamlConfiguration.loadConfiguration(worldConfigFile);
+        if (!worldConfig.contains("discussion.seat-spawns")) {
+            worldConfig.set("discussion.seat-spawns", new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7)));
+        }
+        if (!worldConfig.contains("session.spawn-locations")) {
+            worldConfig.set("session.spawn-locations", new ArrayList<>());
+        }
+
+        saveWorldMapConfig(world, worldConfig);
+        return worldConfig;
+    }
+
+    private void saveWorldMapConfig(World world, FileConfiguration worldConfig) {
+        if (world == null || worldConfig == null) {
+            return;
+        }
+
+        File worldConfigFile = getWorldMapConfigFile(world);
+        try {
+            worldConfig.save(worldConfigFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to save world-local map config for world '" + world.getName() + "': " + e.getMessage());
+        }
+    }
+
+    /**
      * Gets the list of valid seat numbers for discussion phase spawns.
      * Returns a list of integers representing seat numbers (1-indexed).
      *
      * @return a list of valid seat numbers
      */
     public List<Integer> getDiscussionSeatSpawns() {
-        List<?> rawList = config.getList("discussion.seat-spawns");
+        return parseSeatSpawns(config, "global config");
+    }
+
+    /**
+     * Gets valid discussion seat numbers for a world, falling back to global config.
+     */
+    public List<Integer> getDiscussionSeatSpawns(World world) {
+        FileConfiguration worldConfig = loadWorldMapConfig(world);
+        if (worldConfig != null && worldConfig.contains("discussion.seat-spawns")) {
+            return parseSeatSpawns(worldConfig, "world map config '" + world.getName() + "'");
+        }
+        return getDiscussionSeatSpawns();
+    }
+
+    private List<Integer> parseSeatSpawns(FileConfiguration source, String sourceName) {
+        List<?> rawList = source.getList("discussion.seat-spawns");
         if (rawList == null) {
-            return new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7)); // Default
+            return new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7));
         }
 
         List<Integer> seatSpawns = new ArrayList<>();
@@ -188,11 +276,351 @@ public class ConfigManager {
                 try {
                     seatSpawns.add(Integer.parseInt((String) obj));
                 } catch (NumberFormatException e) {
-                    plugin.getLogger().warning("Invalid seat number in config: " + obj);
+                    plugin.getLogger().warning("Invalid seat number in " + sourceName + ": " + obj);
                 }
             }
         }
         return seatSpawns;
+    }
+
+    /**
+     * Gets the world-local map config path for display.
+     */
+    public String getWorldMapConfigPath(World world) {
+        if (world == null) {
+            return WORLD_MAP_CONFIG_FILE;
+        }
+        return getWorldMapConfigFile(world).getPath();
+    }
+
+    /**
+     * Initializes (or updates) metadata for a world-local map config.
+     */
+    public void initializeWorldMapMetadata(World world, String mapId, String displayName, String creator) {
+        if (world == null) {
+            return;
+        }
+
+        String normalizedMapId = mapId == null || mapId.isBlank() ? world.getName() : mapId.trim().toLowerCase();
+        String normalizedDisplayName = displayName == null || displayName.isBlank() ? world.getName() : displayName.trim();
+        String normalizedCreator = creator == null || creator.isBlank() ? "unknown" : creator.trim();
+
+        FileConfiguration worldConfig = getOrCreateWorldMapConfig(world);
+        if (worldConfig == null) {
+            return;
+        }
+
+        worldConfig.set("map.id", normalizedMapId);
+        worldConfig.set("map.display-name", normalizedDisplayName);
+        worldConfig.set("map.creator", normalizedCreator);
+        worldConfig.set("map.schema-version", 1);
+        worldConfig.set("map.plugin-version", plugin.getPluginMeta().getVersion());
+
+        saveWorldMapConfig(world, worldConfig);
+    }
+
+    /**
+     * Returns world-local map metadata for display.
+     */
+    public Map<String, String> getWorldMapMetadata(World world) {
+        Map<String, String> metadata = new HashMap<>();
+        if (world == null) {
+            return metadata;
+        }
+
+        FileConfiguration worldConfig = loadWorldMapConfig(world);
+        if (worldConfig == null) {
+            return metadata;
+        }
+
+        metadata.put("id", worldConfig.getString("map.id", ""));
+        metadata.put("display-name", worldConfig.getString("map.display-name", ""));
+        metadata.put("creator", worldConfig.getString("map.creator", ""));
+        metadata.put("schema-version", String.valueOf(worldConfig.getInt("map.schema-version", 0)));
+        metadata.put("plugin-version", worldConfig.getString("map.plugin-version", ""));
+        return metadata;
+    }
+
+    /**
+     * Validates required keys for a world-local map config.
+     */
+    public List<String> validateWorldMapConfig(World world) {
+        List<String> issues = new ArrayList<>();
+        if (world == null) {
+            issues.add("World is null.");
+            return issues;
+        }
+
+        FileConfiguration worldConfig = loadWorldMapConfig(world);
+        if (worldConfig == null) {
+            issues.add("Missing world map config file: " + getWorldMapConfigPath(world));
+            return issues;
+        }
+
+        if (!worldConfig.contains("map.id") || worldConfig.getString("map.id", "").isBlank()) {
+            issues.add("Missing required key: map.id");
+        }
+        if (!worldConfig.contains("map.display-name") || worldConfig.getString("map.display-name", "").isBlank()) {
+            issues.add("Missing required key: map.display-name");
+        }
+        if (!worldConfig.contains("map.creator") || worldConfig.getString("map.creator", "").isBlank()) {
+            issues.add("Missing required key: map.creator");
+        }
+        if (!worldConfig.contains("map.schema-version")) {
+            issues.add("Missing required key: map.schema-version");
+        }
+        if (!worldConfig.contains("map.plugin-version") || worldConfig.getString("map.plugin-version", "").isBlank()) {
+            issues.add("Missing required key: map.plugin-version");
+        }
+
+        List<Integer> seatSpawns = getDiscussionSeatSpawns(world);
+        if (seatSpawns.isEmpty()) {
+            issues.add("discussion.seat-spawns is empty.");
+        }
+
+        Map<Integer, Location> seats = loadSeatLocations(world);
+        List<Location> spawns = loadSpawnLocations(world);
+
+        if (seats.isEmpty()) {
+            issues.add("No discussion.seat-locations configured.");
+        }
+        if (spawns.isEmpty()) {
+            issues.add("No session.spawn-locations configured.");
+        }
+
+        for (Integer seat : seatSpawns) {
+            if (!seats.containsKey(seat)) {
+                issues.add("Seat " + seat + " is listed in discussion.seat-spawns but has no location.");
+            }
+        }
+
+        return issues;
+    }
+
+    /**
+     * Adds a seat number to discussion.seat-spawns for a world-local map config.
+     */
+    public void addDiscussionSeatSpawn(World world, int seatNumber) {
+        if (world == null || seatNumber < 1) {
+            return;
+        }
+
+        FileConfiguration worldConfig = getOrCreateWorldMapConfig(world);
+        if (worldConfig == null) {
+            return;
+        }
+
+        Set<Integer> uniqueSeats = new LinkedHashSet<>(getDiscussionSeatSpawns(world));
+        uniqueSeats.add(seatNumber);
+
+        List<Integer> updated = new ArrayList<>(uniqueSeats);
+        updated.sort(Integer::compareTo);
+        worldConfig.set("discussion.seat-spawns", updated);
+        saveWorldMapConfig(world, worldConfig);
+    }
+
+    /**
+     * Removes a seat number from discussion.seat-spawns for a world-local map config.
+     */
+    public void removeDiscussionSeatSpawn(World world, int seatNumber) {
+        if (world == null || seatNumber < 1) {
+            return;
+        }
+
+        FileConfiguration worldConfig = getOrCreateWorldMapConfig(world);
+        if (worldConfig == null) {
+            return;
+        }
+
+        List<Integer> seats = new ArrayList<>(getDiscussionSeatSpawns(world));
+        seats.removeIf(value -> value == seatNumber);
+        worldConfig.set("discussion.seat-spawns", seats);
+        saveWorldMapConfig(world, worldConfig);
+    }
+
+    /**
+     * Replaces discussion.seat-spawns for a world-local map config.
+     */
+    public void setDiscussionSeatSpawns(World world, List<Integer> seatNumbers) {
+        if (world == null) {
+            return;
+        }
+
+        FileConfiguration worldConfig = getOrCreateWorldMapConfig(world);
+        if (worldConfig == null) {
+            return;
+        }
+
+        List<Integer> safeSeatNumbers = new ArrayList<>();
+        if (seatNumbers != null) {
+            Set<Integer> uniqueSeats = new LinkedHashSet<>();
+            for (Integer seatNumber : seatNumbers) {
+                if (seatNumber != null && seatNumber >= 1) {
+                    uniqueSeats.add(seatNumber);
+                }
+            }
+            safeSeatNumbers.addAll(uniqueSeats);
+            safeSeatNumbers.sort(Integer::compareTo);
+        }
+
+        worldConfig.set("discussion.seat-spawns", safeSeatNumbers);
+        saveWorldMapConfig(world, worldConfig);
+    }
+
+    /**
+     * Imports legacy global seat/spawn config into a world-local map config.
+     *
+     * @param world target world
+     * @param overwrite whether existing world-local values should be replaced
+     * @return true if world config was updated, false otherwise
+     */
+    public boolean importLegacyGlobalConfigToWorld(World world, boolean overwrite) {
+        if (world == null) {
+            return false;
+        }
+
+        FileConfiguration worldConfig = getOrCreateWorldMapConfig(world);
+        if (worldConfig == null) {
+            return false;
+        }
+
+        boolean changed = false;
+
+        boolean hasSeatSpawns = worldConfig.isList("discussion.seat-spawns")
+                && !worldConfig.getIntegerList("discussion.seat-spawns").isEmpty();
+        if (overwrite || !hasSeatSpawns) {
+            List<Integer> legacySeatSpawns = getDiscussionSeatSpawns();
+            worldConfig.set("discussion.seat-spawns", new ArrayList<>(legacySeatSpawns));
+            changed = true;
+        }
+
+        org.bukkit.configuration.ConfigurationSection seatLocationsSection =
+                worldConfig.getConfigurationSection("discussion.seat-locations");
+        boolean hasSeatLocations = seatLocationsSection != null && !seatLocationsSection.getKeys(false).isEmpty();
+        if (overwrite || !hasSeatLocations) {
+            worldConfig.set("discussion.seat-locations", null);
+            Map<Integer, Location> legacySeatLocations = loadSeatLocations();
+            for (Map.Entry<Integer, Location> entry : legacySeatLocations.entrySet()) {
+                saveLocationToSection(worldConfig, "discussion.seat-locations." + entry.getKey(), entry.getValue());
+            }
+            changed = true;
+        }
+
+        boolean hasSpawnLocations = worldConfig.isList("session.spawn-locations")
+                && !worldConfig.getMapList("session.spawn-locations").isEmpty();
+        if (overwrite || !hasSpawnLocations) {
+            List<Map<String, Object>> serializedSpawns = new ArrayList<>();
+            for (Location spawn : loadSpawnLocations()) {
+                if (spawn != null && spawn.getWorld() != null) {
+                    serializedSpawns.add(locationToMap(spawn));
+                }
+            }
+            worldConfig.set("session.spawn-locations", serializedSpawns);
+            changed = true;
+        }
+
+        if (changed) {
+            saveWorldMapConfig(world, worldConfig);
+        }
+
+        return changed;
+    }
+
+    /**
+     * Automatically migrates legacy global config into loaded world-local map configs when needed.
+     * Uses non-overwrite import behavior so existing world-local values remain unchanged.
+     *
+     * @return number of worlds whose map config was updated
+     */
+    public int autoMigrateLegacyConfigsForLoadedWorlds() {
+        List<World> loadedWorlds = Bukkit.getWorlds();
+        if (loadedWorlds == null || loadedWorlds.isEmpty()) {
+            plugin.getLogger().info("Auto legacy migration skipped: no loaded worlds found.");
+            return 0;
+        }
+
+        int scanned = 0;
+        int migrated = 0;
+        int skippedWithoutMapConfig = 0;
+
+        for (World world : loadedWorlds) {
+            if (world == null) {
+                continue;
+            }
+
+            if (!hasWorldMapConfig(world)) {
+                skippedWithoutMapConfig++;
+                continue;
+            }
+
+            FileConfiguration worldConfig = loadWorldMapConfig(world);
+            if (worldConfig == null) {
+                skippedWithoutMapConfig++;
+                continue;
+            }
+
+            scanned++;
+            boolean linkedSeatReferences = hasLinkedLegacySeatReferences(worldConfig);
+            boolean shouldMigrate = shouldAutoMigrateLegacyConfig(worldConfig);
+
+            if (!shouldMigrate) {
+                continue;
+            }
+
+            if (linkedSeatReferences) {
+                plugin.getLogger().info("Detected linked legacy seat references for world '" + world.getName()
+                        + "' (seat-spawns present, seat-locations missing). Migrating legacy global config...");
+            }
+
+            boolean changed = importLegacyGlobalConfigToWorld(world, false);
+            if (changed) {
+                migrated++;
+                plugin.getLogger().info("Auto-migrated legacy global config into world map config for '"
+                        + world.getName() + "'.");
+            }
+        }
+
+        plugin.getLogger().info("Auto legacy migration complete: scanned=" + scanned
+                + ", migrated=" + migrated
+                + ", skippedWithoutMapConfig=" + skippedWithoutMapConfig + ".");
+
+        return migrated;
+    }
+
+    private boolean shouldAutoMigrateLegacyConfig(FileConfiguration worldConfig) {
+        if (worldConfig == null) {
+            return false;
+        }
+
+        boolean hasSeatSpawns = worldConfig.isList("discussion.seat-spawns")
+                && !worldConfig.getIntegerList("discussion.seat-spawns").isEmpty();
+        org.bukkit.configuration.ConfigurationSection seatLocationsSection =
+                worldConfig.getConfigurationSection("discussion.seat-locations");
+        boolean hasSeatLocations = seatLocationsSection != null && !seatLocationsSection.getKeys(false).isEmpty();
+        boolean hasSpawnLocations = worldConfig.isList("session.spawn-locations")
+                && !worldConfig.getMapList("session.spawn-locations").isEmpty();
+
+        boolean legacyHasSeatSpawns = !getDiscussionSeatSpawns().isEmpty();
+        boolean legacyHasSeatLocations = !loadSeatLocations().isEmpty();
+        boolean legacyHasSpawnLocations = !loadSpawnLocations().isEmpty();
+
+        return (!hasSeatSpawns && legacyHasSeatSpawns)
+                || (!hasSeatLocations && legacyHasSeatLocations)
+                || (!hasSpawnLocations && legacyHasSpawnLocations);
+    }
+
+    private boolean hasLinkedLegacySeatReferences(FileConfiguration worldConfig) {
+        if (worldConfig == null) {
+            return false;
+        }
+
+        boolean hasSeatSpawns = worldConfig.isList("discussion.seat-spawns")
+                && !worldConfig.getIntegerList("discussion.seat-spawns").isEmpty();
+        org.bukkit.configuration.ConfigurationSection seatLocationsSection =
+                worldConfig.getConfigurationSection("discussion.seat-locations");
+        boolean hasSeatLocations = seatLocationsSection != null && !seatLocationsSection.getKeys(false).isEmpty();
+
+        return hasSeatSpawns && !hasSeatLocations && !loadSeatLocations().isEmpty();
     }
 
     /**
@@ -511,13 +939,27 @@ public class ConfigManager {
      * @return map of seat number -> {@link Location}
      */
     public Map<Integer, Location> loadSeatLocations() {
+        return loadSeatLocations(null);
+    }
+
+    /**
+     * Loads seat locations from world-local config when available, otherwise global config.
+     */
+    public Map<Integer, Location> loadSeatLocations(World world) {
+        FileConfiguration source = config;
+        if (world != null) {
+            FileConfiguration worldConfig = loadWorldMapConfig(world);
+            if (worldConfig != null && worldConfig.contains("discussion.seat-locations")) {
+                source = worldConfig;
+            }
+        }
+
         Map<Integer, Location> seatLocations = new HashMap<>();
-        
-        if (!config.contains("discussion.seat-locations")) {
+        if (!source.contains("discussion.seat-locations")) {
             return seatLocations;
         }
-        
-        org.bukkit.configuration.ConfigurationSection seatSection = config.getConfigurationSection("discussion.seat-locations");
+
+        org.bukkit.configuration.ConfigurationSection seatSection = source.getConfigurationSection("discussion.seat-locations");
         if (seatSection == null) {
             return seatLocations;
         }
@@ -550,10 +992,24 @@ public class ConfigManager {
         if (location == null || location.getWorld() == null) {
             return;
         }
-        
+
+        World world = location.getWorld();
+        FileConfiguration worldConfig = getOrCreateWorldMapConfig(world);
+        if (worldConfig == null) {
+            return;
+        }
+
         String path = "discussion.seat-locations." + seatNumber;
-        saveLocationToSection(path, location);
-        saveConfig();
+        saveLocationToSection(worldConfig, path, location);
+
+        List<Integer> seatSpawns = getDiscussionSeatSpawns(world);
+        if (!seatSpawns.contains(seatNumber)) {
+            seatSpawns.add(seatNumber);
+            seatSpawns.sort(Integer::compareTo);
+            worldConfig.set("discussion.seat-spawns", seatSpawns);
+        }
+
+        saveWorldMapConfig(world, worldConfig);
     }
 
     /**
@@ -567,19 +1023,47 @@ public class ConfigManager {
     }
 
     /**
+     * Removes a seat location from world-local config when available, otherwise global config.
+     */
+    public void removeSeatLocation(int seatNumber, World world) {
+        FileConfiguration worldConfig = loadWorldMapConfig(world);
+        if (worldConfig != null) {
+            worldConfig.set("discussion.seat-locations." + seatNumber, null);
+            saveWorldMapConfig(world, worldConfig);
+            return;
+        }
+        removeSeatLocation(seatNumber);
+    }
+
+    /**
      * Loads spawn locations from config.
      * Returns a list of locations.
      *
      * @return list of spawn {@link Location}s
      */
     public List<Location> loadSpawnLocations() {
+        return loadSpawnLocations(null);
+    }
+
+    /**
+     * Loads spawn locations from world-local config when available, otherwise global config.
+     */
+    public List<Location> loadSpawnLocations(World world) {
+        FileConfiguration source = config;
+        if (world != null) {
+            FileConfiguration worldConfig = loadWorldMapConfig(world);
+            if (worldConfig != null && worldConfig.contains("session.spawn-locations")) {
+                source = worldConfig;
+            }
+        }
+
         List<Location> spawnLocations = new ArrayList<>();
-        
-        if (!config.contains("session.spawn-locations")) {
+
+        if (!source.contains("session.spawn-locations")) {
             return spawnLocations;
         }
-        
-        List<?> rawList = config.getList("session.spawn-locations");
+
+        List<?> rawList = source.getList("session.spawn-locations");
         if (rawList == null) {
             return spawnLocations;
         }
@@ -605,20 +1089,26 @@ public class ConfigManager {
         if (location == null || location.getWorld() == null) {
             return;
         }
-        
+
+        World world = location.getWorld();
+        FileConfiguration worldConfig = getOrCreateWorldMapConfig(world);
+        if (worldConfig == null) {
+            return;
+        }
+
         List<Map<String, Object>> spawnList = new ArrayList<>();
-        if (config.contains("session.spawn-locations")) {
+        if (worldConfig.contains("session.spawn-locations")) {
             @SuppressWarnings("unchecked")
-            List<Map<String, Object>> existing = (List<Map<String, Object>>) config.getList("session.spawn-locations");
+            List<Map<String, Object>> existing = (List<Map<String, Object>>) worldConfig.getList("session.spawn-locations");
             if (existing != null) {
                 spawnList = new ArrayList<>(existing);
             }
         }
-        
+
         Map<String, Object> locMap = locationToMap(location);
         spawnList.add(locMap);
-        config.set("session.spawn-locations", spawnList);
-        saveConfig();
+        worldConfig.set("session.spawn-locations", spawnList);
+        saveWorldMapConfig(world, worldConfig);
     }
 
     /**
@@ -630,11 +1120,41 @@ public class ConfigManager {
     }
 
     /**
+     * Clears world-local spawn locations when available, otherwise global config.
+     */
+    public void clearSpawnLocations(World world) {
+        FileConfiguration worldConfig = loadWorldMapConfig(world);
+        if (worldConfig != null) {
+            worldConfig.set("session.spawn-locations", new ArrayList<>());
+            saveWorldMapConfig(world, worldConfig);
+            return;
+        }
+        clearSpawnLocations();
+    }
+
+    /**
      * Removes a spawn location from config by index.     *
      * @param index index of the spawn location to remove
      * @return true if the location was removed, false otherwise     */
     public boolean removeSpawnLocation(int index) {
-        List<?> rawList = config.getList("session.spawn-locations");
+        return removeSpawnLocation(index, null);
+    }
+
+    /**
+     * Removes a spawn location by index from world-local config when available, otherwise global config.
+     */
+    public boolean removeSpawnLocation(int index, World world) {
+        FileConfiguration source = config;
+        boolean worldScoped = false;
+        if (world != null) {
+            FileConfiguration worldConfig = loadWorldMapConfig(world);
+            if (worldConfig != null) {
+                source = worldConfig;
+                worldScoped = true;
+            }
+        }
+
+        List<?> rawList = source.getList("session.spawn-locations");
         if (rawList == null || rawList.isEmpty()) {
             return false;
         }
@@ -647,8 +1167,12 @@ public class ConfigManager {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> spawnList = new ArrayList<>((List<Map<String, Object>>) rawList);
             spawnList.remove(index);
-            config.set("session.spawn-locations", spawnList);
-            saveConfig();
+            source.set("session.spawn-locations", spawnList);
+            if (worldScoped) {
+                saveWorldMapConfig(world, source);
+            } else {
+                saveConfig();
+            }
             return true;
         } catch (ClassCastException e) {
             plugin.getLogger().warning("Invalid spawn location format in config: " + e.getMessage());
@@ -660,8 +1184,23 @@ public class ConfigManager {
      * Gets all seat locations from config as a formatted string for display.
      */
     public List<String> getSeatLocationsDisplay() {
+        return getSeatLocationsDisplay(null);
+    }
+
+    /**
+     * Gets seat locations for display from world-local config when available, otherwise global config.
+     */
+    public List<String> getSeatLocationsDisplay(World world) {
+        FileConfiguration source = config;
+        if (world != null) {
+            FileConfiguration worldConfig = loadWorldMapConfig(world);
+            if (worldConfig != null && worldConfig.contains("discussion.seat-locations")) {
+                source = worldConfig;
+            }
+        }
+
         List<String> display = new ArrayList<>();
-        org.bukkit.configuration.ConfigurationSection seatSection = config.getConfigurationSection("discussion.seat-locations");
+        org.bukkit.configuration.ConfigurationSection seatSection = source.getConfigurationSection("discussion.seat-locations");
         
         if (seatSection == null || seatSection.getKeys(false).isEmpty()) {
             display.add("§7No seat locations configured.");
@@ -708,8 +1247,23 @@ public class ConfigManager {
      * Gets all spawn locations from config as a formatted string for display.
      */
     public List<String> getSpawnLocationsDisplay() {
+        return getSpawnLocationsDisplay(null);
+    }
+
+    /**
+     * Gets spawn locations for display from world-local config when available, otherwise global config.
+     */
+    public List<String> getSpawnLocationsDisplay(World world) {
+        FileConfiguration source = config;
+        if (world != null) {
+            FileConfiguration worldConfig = loadWorldMapConfig(world);
+            if (worldConfig != null && worldConfig.contains("session.spawn-locations")) {
+                source = worldConfig;
+            }
+        }
+
         List<String> display = new ArrayList<>();
-        List<?> rawList = config.getList("session.spawn-locations");
+        List<?> rawList = source.getList("session.spawn-locations");
         
         if (rawList == null || rawList.isEmpty()) {
             display.add("§7No spawn locations configured.");
@@ -824,17 +1378,17 @@ public class ConfigManager {
     /**
      * Helper method to save a location to a configuration section path.
      */
-    private void saveLocationToSection(String path, Location location) {
+    private void saveLocationToSection(FileConfiguration targetConfig, String path, Location location) {
         if (location == null || location.getWorld() == null) {
             plugin.getLogger().warning("Cannot save null location or location with null world");
             return;
         }
-        config.set(path + ".world", location.getWorld().getName());
-        config.set(path + ".x", location.getX());
-        config.set(path + ".y", location.getY());
-        config.set(path + ".z", location.getZ());
-        config.set(path + ".yaw", location.getYaw());
-        config.set(path + ".pitch", location.getPitch());
+        targetConfig.set(path + ".world", location.getWorld().getName());
+        targetConfig.set(path + ".x", location.getX());
+        targetConfig.set(path + ".y", location.getY());
+        targetConfig.set(path + ".z", location.getZ());
+        targetConfig.set(path + ".yaw", location.getYaw());
+        targetConfig.set(path + ".pitch", location.getPitch());
     }
 
     /**

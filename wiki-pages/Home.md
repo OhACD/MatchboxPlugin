@@ -9,6 +9,8 @@ One player is secretly the **Spark** (impostor). Everyone else must identify and
 - **[Getting Started](Getting-Started)** — Installation and setup
 - **[Commands](Commands)** — Player and admin commands reference
 - **[Configuration](Configuration)** — Config file settings and options
+- **[Map Makers](Map-Makers)** — Build and package drop-and-play worlds
+- **[Production Readiness](Production-Readiness)** — Release gates and validation checklist
 - **[FAQ](FAQ)** — Troubleshooting and common questions
 - **[API Documentation](API)** — Integration guide for developers
 - **[Contributing](Contributing)** — How to contribute to the project

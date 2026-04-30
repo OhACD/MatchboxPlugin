@@ -18,6 +18,7 @@ Files:
 - Changelog.md
 - FAQ.md
 - Developer-Notes.md
+- Production-Readiness.md
 - Roadmap.md
 - _Sidebar.md
 

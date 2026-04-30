@@ -4,6 +4,8 @@
 * [Installation & Setup](Getting-Started)
 * [Commands](Commands)
 * [Configuration](Configuration)
+* [Map Makers](Map-Makers)
+* [Production Readiness](Production-Readiness)
 * [FAQ](FAQ)
 
 ### For Developers

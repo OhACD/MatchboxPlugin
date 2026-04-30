@@ -4,15 +4,15 @@ For the complete and up-to-date changelog, see **[CHANGELOG.md](https://github.c
 
 ## Recent Releases
 
-### [0.9.5] - Latest Release
-**API Module & Testing Suite**
+### [0.9.7] - Latest Release
+**World-Local Maps, Observability, and Production Hardening**
 
 Major additions:
-- Complete Matchbox Plugin API for external integration
-- Advanced chat pipeline system with spectator isolation
-- Bulk session management capabilities
-- Enterprise-grade testing suite with performance metrics
-- Complete API test coverage
+- World-local map config workflow with `/mb setup` map tooling
+- Full session observability via structured logs and statistics API
+- Deterministic role assignment and session-scoped custom ability hooks
+- Production hardening with CI/coverage verification and release checklist
+- Expanded docs and migration guidance for map creators and admins
 
 See the [full changelog](https://github.com/OhACD/MatchboxPlugin/blob/main/CHANGELOG.md) for detailed changes, fixes, and improvements.
 

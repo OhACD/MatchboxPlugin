@@ -18,13 +18,16 @@
 ## Configuration Issues
 
 ### Q: Spawns/seats not found after restart?
-**A:** Check world folder names. The default configuration assumes a world named `m4tchb0x`. Use `/matchbox listspawns` and `/matchbox listseatspawns` to see which locations have missing worlds. Reconfigure locations for your actual world name.
+**A:** Check world folder names and make sure the target world has `matchbox-map.yml`. Use `/mb setup info` and `/mb setup validate` in that world to confirm map configuration and missing requirements.
 
 ### Q: How do I configure spawn and seat locations?
 **A:** Use in-game commands:
-- Stand at desired location and run `/matchbox setspawn`
-- For seats, run `/matchbox setseat <number>` where number is 1-8
-- These locations are automatically saved to `config.yml`
+- Run `/mb setup init <map-id> [display name]` once per map world
+- Stand at each spawn and run `/mb setup setspawn`
+- For seats, run `/mb setup setseat <number>` where number is 1-8
+- Set seat order with `/mb setup seatspawns set 1,2,3,4,5,6,7`
+- Validate with `/mb setup validate`
+- Map geometry is saved to `<world>/matchbox-map.yml`
 
 ### Q: Can I customize phase durations?
 **A:** Yes! Edit `plugins/Matchbox/config.yml` and modify:

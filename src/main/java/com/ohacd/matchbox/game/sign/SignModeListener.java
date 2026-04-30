@@ -14,6 +14,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.SignChangeEvent;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.util.UUID;
 
@@ -83,6 +85,39 @@ public class SignModeListener implements Listener {
         UUID placerId = player.getUniqueId();
 
         signModeManager.registerSignPlacement(sessionName, placed.getLocation(), placerId);
+        gameManager.logSessionEvent(sessionName, "SIGN", player.getName() + " placed a sign at "
+            + placed.getLocation().getBlockX() + ","
+            + placed.getLocation().getBlockY() + ","
+            + placed.getLocation().getBlockZ());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSignChange(SignChangeEvent event) {
+        Player player = event.getPlayer();
+        if (player == null) return;
+
+        SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+        if (context == null || !context.getGameState().isGameActive()) return;
+        if (!gameManager.isSignModeEnabled()) return;
+
+        Block block = event.getBlock();
+        if (block == null || !block.getType().name().contains("SIGN")) return;
+
+        String sessionName = context.getSessionName();
+        if (!signModeManager.isTrackedSign(sessionName, block.getLocation())) return;
+
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < event.lines().size(); i++) {
+            String line = PlainTextComponentSerializer.plainText().serialize(event.line(i));
+            if (line == null || line.isBlank()) continue;
+            if (!builder.isEmpty()) {
+                builder.append(" | ");
+            }
+            builder.append(line.trim());
+        }
+
+        String signText = builder.isEmpty() ? "<empty-sign>" : builder.toString();
+        gameManager.logSignMessage(sessionName, player.getUniqueId(), player.getName(), signText);
     }
 
     // -------------------------------------------------------------------------
@@ -127,11 +162,13 @@ public class SignModeListener implements Listener {
                 signModeManager.removeSignTracking(sessionName, block.getLocation());
                 removeSignBlockForEveryone(block);
                 event.setCancelled(true);
+                gameManager.logSessionEvent(sessionName, "SIGN", player.getName() + " removed their sign");
                 return;
             }
 
             // All other player break attempts on tracked signs are blocked
             event.setCancelled(true);
+            gameManager.logSessionEvent(sessionName, "SIGN", player.getName() + " attempted to break a protected sign");
             return;
         }
 
@@ -139,6 +176,7 @@ public class SignModeListener implements Listener {
         signModeManager.removeSignTracking(sessionName, block.getLocation());
         removeSignBlockForEveryone(block);
         event.setCancelled(true);
+        gameManager.logSessionEvent(sessionName, "SIGN", "Non-player break prevented and cleaned tracked sign");
     }
 
     // -------------------------------------------------------------------------

@@ -239,6 +239,46 @@ public final class MatchboxAPI {
         
         return Optional.ofNullable(context.getPhaseManager().getCurrentPhase());
     }
+
+    /**
+     * Returns a structured log timeline for the given session.
+     *
+     * @param sessionName session name
+     * @return optional log snapshot for that session
+     */
+    @NotNull
+    public static Optional<GameSessionLog> getSessionLog(@NotNull String sessionName) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            return Optional.empty();
+        }
+
+        Matchbox plugin = Matchbox.getInstance();
+        if (plugin == null || plugin.getGameManager() == null) {
+            return Optional.empty();
+        }
+
+        return plugin.getGameManager().getSessionLog(sessionName);
+    }
+
+    /**
+     * Returns statistics for the given session.
+     *
+     * @param sessionName session name
+     * @return optional statistics snapshot for that session
+     */
+    @NotNull
+    public static Optional<GameStatistics> getSessionStatistics(@NotNull String sessionName) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            return Optional.empty();
+        }
+
+        Matchbox plugin = Matchbox.getInstance();
+        if (plugin == null || plugin.getGameManager() == null) {
+            return Optional.empty();
+        }
+
+        return plugin.getGameManager().getSessionStatistics(sessionName);
+    }
     
     /**
      * Adds an event listener to receive game events.

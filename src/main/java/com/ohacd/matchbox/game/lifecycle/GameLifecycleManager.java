@@ -1,5 +1,6 @@
 package com.ohacd.matchbox.game.lifecycle;
 
+import com.ohacd.matchbox.api.RoleAssignmentStrategy;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.phase.SwipePhaseHandler;
 import com.ohacd.matchbox.game.state.GameState;
@@ -50,7 +51,8 @@ public class GameLifecycleManager {
      * Starts a new game for a session.
      */
     public void startGame(SessionGameContext context, Collection<Player> players, 
-                         List<Location> spawnLocations, Location discussionLocation, String sessionName) {
+                         List<Location> spawnLocations, Location discussionLocation, String sessionName,
+                         RoleAssignmentStrategy roleAssignmentStrategy) {
         if (context == null || players == null || players.isEmpty()) {
             plugin.getLogger().warning("Cannot start game - invalid parameters");
             return;
@@ -111,7 +113,7 @@ public class GameLifecycleManager {
 
         // Add players to alive set
         gameState.addAlivePlayers(playerList);
-        context.getRoleAssigner().assignRoles(playerList);
+        context.getRoleAssigner().assignRoles(playerList, roleAssignmentStrategy);
         
         // Validate state after initialization
         if (!gameState.validateState()) {
