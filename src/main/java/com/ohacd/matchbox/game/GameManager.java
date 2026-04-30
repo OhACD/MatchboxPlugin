@@ -426,6 +426,7 @@ public class GameManager {
                 } else {
                     takenNicks.add(nick.toLowerCase());
                 }
+                refreshRolePaper(player);
             }
         }
 
@@ -801,6 +802,25 @@ public class GameManager {
         if (role == Role.SPARK || role == Role.MEDIC) {
             inventoryManager.refreshSecondaryAbilityPaper(player, role, context);
         }
+    }
+
+    /**
+     * Refreshes the role paper so nickname/visible-name changes are reflected immediately.
+     */
+    public void refreshRolePaper(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        UUID id = player.getUniqueId();
+        SessionGameContext context = getContextForPlayer(id);
+        if (context == null || !context.getGameState().isGameActive()) {
+            return;
+        }
+        Role role = context.getGameState().getRole(id);
+        if (role == null) {
+            return;
+        }
+        inventoryManager.refreshRolePaper(player, role);
     }
 
     /**

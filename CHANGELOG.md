@@ -2,6 +2,19 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
+## [0.9.7.1] - 2026-04-30
+
+Hot patch release.
+
+### Fixed
+
+- **Nick-integrated inventory papers** — role papers now use nickname-aware display names instead of always showing the account name.
+- **Immediate paper refresh on nick changes** — role papers now refresh immediately when nicks are applied, reset, or changed during active sessions and on session startup.
+
+### Changed
+
+- **Mid-game nick restrictions** — non-admin players can no longer change/reset/randomize their nick during an active game. Admins can still manage nicks while a game is running.
+
 ## [0.9.7] - 2026-04-30
 
 Stable release.

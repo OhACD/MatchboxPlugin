@@ -219,6 +219,27 @@ public class InventoryManager {
             e.printStackTrace();
         }
     }
+
+    /**
+     * Refreshes the role paper (slot 17) so player-facing name changes are reflected immediately.
+     */
+    public void refreshRolePaper(Player player, Role role) {
+        if (player == null || role == null) {
+            return;
+        }
+
+        try {
+            PlayerInventory inv = player.getInventory();
+            if (inv == null) {
+                return;
+            }
+
+            inv.setItem(ROLE_PAPER_SLOT, createRolePaper(player, role));
+            player.updateInventory();
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to refresh role paper for " + player.getName() + ": " + e.getMessage());
+        }
+    }
     
     /**
      * Sets up inventories for all players in a collection.
@@ -540,7 +561,7 @@ public class InventoryManager {
             return paper;
         }
         
-        String playerName = player != null ? player.getName() : "Unknown";
+        String playerName = PlayerNameUtils.displayName(player);
         meta.setDisplayName("§6" + playerName + "'s Role");
         List<String> lore = new ArrayList<>();
         

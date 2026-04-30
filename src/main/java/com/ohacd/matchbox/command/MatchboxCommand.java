@@ -1314,6 +1314,15 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        // Non-admin players cannot modify nicks during active games.
+        if (sender instanceof Player player && !player.hasPermission("matchbox.admin")) {
+            SessionGameContext context = gameManager.getContextForPlayer(player.getUniqueId());
+            if (context != null && context.getGameState().isGameActive()) {
+                sender.sendMessage("§cYou cannot change your nick during an active game.");
+                return true;
+            }
+        }
+
         String arg1 = args[1];
 
         // /mb nick reset [player]  — remove nick
@@ -1448,6 +1457,7 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
         if (nick == null) {
             // Nick was removed — restore real name
             nickManager.restoreNick(player);
+            gameManager.refreshRolePaper(player);
             return;
         }
 
@@ -1460,6 +1470,8 @@ public class MatchboxCommand implements CommandExecutor, TabCompleter {
             nickManager.restoreNick(player);
             nickManager.removeNick(player.getUniqueId());
         }
+
+        gameManager.refreshRolePaper(player);
     }
 
     /**
