@@ -178,11 +178,11 @@ public final class NickManager {
         if (nick == null) return false;
         if (takenLower.contains(nick.toLowerCase())) return false;
 
-        player.setDisplayName(nick);
-        player.setPlayerListName(nick);
+        Component component = LegacyComponentSerializer.legacySection().deserialize(nick);
+        player.displayName(component);
+        player.playerListName(component);
 
         // Above-head custom name — visible while the real nametag is hidden by the scoreboard team
-        Component component = LegacyComponentSerializer.legacySection().deserialize(nick);
         player.customName(component);
         player.setCustomNameVisible(true);
 
@@ -194,8 +194,9 @@ public final class NickManager {
      * back to their real username.
      */
     public void restoreNick(Player player) {
-        player.setDisplayName(player.getName());
-        player.setPlayerListName(player.getName());
+        Component baseName = Component.text(player.getName());
+        player.displayName(baseName);
+        player.playerListName(baseName);
         player.customName(null);
         player.setCustomNameVisible(false);
     }

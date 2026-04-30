@@ -56,6 +56,7 @@ public class IntegrationTest {
     
     @Test
     @DisplayName("Should handle complete game session lifecycle")
+    @SuppressWarnings("deprecation")
     void shouldHandleCompleteGameSessionLifecycle() {
         // Arrange
         String sessionName = "integration-test-session-" + UUID.randomUUID();

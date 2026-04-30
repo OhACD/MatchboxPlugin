@@ -2,6 +2,53 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
+## [0.9.7] - 2026-04-30
+
+Stable release.
+
+### Added
+
+- **World-local map config system** — Matchbox now supports baked per-world map configs via `matchbox-map.yml` for seat/spawn geometry and map metadata.
+- **Session flow logging subsystem** — full session lifecycle is now structured-logged, including phase transitions, votes, swipes, cures, eliminations, wins, and session termination.
+- **Sign-mode message logging** — sign chat content is now captured in session logs through `SignChangeEvent` tracking for fully auditable sign-mode gameplay.
+- **Session observability API** — new `MatchboxAPI.getSessionLog(sessionName)` and `MatchboxAPI.getSessionStatistics(sessionName)` methods plus `ApiGameSession.getSessionLog()` and `ApiGameSession.getStatistics()` wrappers.
+- **Deterministic role assignment strategy hook** — `SessionBuilder.withRoleAssignmentStrategy(...)` now allows integrations to control Spark/Medic assignment order per session.
+- **Session ability extension hook** — `SessionBuilder.withAbilityHandlers(...)` now allows integrations to attach custom session-scoped ability handlers to Matchbox's central ability router.
+- **Stable session ability context** — custom ability handlers now receive `SessionAbilityContext`, exposing actor, target, phase, round, role, and alive-state without requiring internal Matchbox access.
+- **Production hardening pass** — Gradle now owns JaCoCo coverage verification, CI is tag-driven for releases, and the repo includes a formal production-readiness checklist.
+- **Map setup command suite** — `/mb setup` tools for map creators:
+  - `init`, `info`, `validate`, `importlegacy`
+  - `setspawn`, `setseat`, `listspawns`, `listseats`, `removespawn`, `removeseat`, `clearspawns`, `clearseats`
+  - `seatspawns list|add|remove|set` for explicit discussion seat order control.
+- **Map metadata support** — map id, display name, creator, schema version, and plugin version can be initialized and read from world-local config.
+- **Validation support for map packaging** — built-in map validation now checks required metadata and required seat/spawn geometry readiness.
+- **Automatic legacy seat and spawn migration on startup** — when a world's map config has seat spawn references but seat locations or spawn locations still live in the global legacy config, Matchbox automatically migrates them on plugin startup using non-overwrite semantics (existing world-local data is always preserved).
+
+### Fixed
+
+- **Chat pipeline global delivery no longer mutates event message body** — global chat now preserves vanilla/Paper renderer behavior without injecting preformatted `<name>` payloads.
+- **Nick color formatting now renders correctly in chat pipeline prefixes** — legacy section color codes in nick display names are preserved instead of appearing as raw `§` text.
+- **Nick changes are now seamless during active sessions** — changing to a new nick no longer briefly clears the nametag/display before the new nick is applied.
+- **Nick reminder action bar now updates immediately on nick commands** — `/mb nick`, `/mb nick random`, and `/mb nick reset` now refresh or clear the above-hotbar reminder instantly instead of waiting for the 2-second scheduler tick.
+- **Legacy import now copies spawn locations when world-local spawn list exists but is empty** — `/mb setup importlegacy` no longer skips spawn migration in pre-initialized world configs.
+- **Flower pot interaction protection now applies while holding sign-mode sign items** — players can no longer remove potted plants (including torchflower) by right-clicking pots with a sign during active games.
+- **Chat pipeline observability gap** — chat pipeline decisions are now logged into session flow logs (allow/deny/cancel and resulting channel routing context).
+
+### Changed
+
+- **SkinManager cache/fallback cleanup** — random skin application now falls back to Steve deterministically when a cached/random skin entry cannot be resolved, preventing inconsistent visual state.
+- **Session startup location loading is world-aware** — game start now resolves world-local seat/spawn defaults first and falls back to global config only when map config is unavailable.
+- **Discussion seat spawn selection is world-aware** — configured seat spawn order can now be resolved from the active world map config.
+- **Legacy seat/spawn commands removed from top-level command surface** — map geometry management now defaults to `/mb setup ...` commands.
+
+### Migration Notes
+
+- Existing servers can migrate old global geometry into a world-local config with `/mb setup importlegacy`.
+- Use `/mb setup importlegacy overwrite` to force replace existing world-local values.
+- For map distribution, include the world folder with `matchbox-map.yml` for true drop-and-play setup.
+
+---
+
 ## [0.9.6] - Development (Nick System, Sign Mode, Skin & Stability)
 
 Players can now compete under custom nicknames, communicate via signs during the swipe phase, and benefit from a more consistent and reliable game experience.
@@ -53,7 +100,7 @@ Players can now compete under custom nicknames, communicate via signs during the
 
 
 
-## [0.9.5] - Latest Release (API Module & Testing Suite)
+## [0.9.5] - Release (API Module & Testing Suite)
 
 ### Added
 - **Matchbox Plugin API**: Complete API module for external integration

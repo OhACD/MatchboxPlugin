@@ -94,7 +94,7 @@ public class MatchboxAPITest {
         // Arrange
         Player player = MockBukkitFactory.createMockPlayer();
         List<Location> spawnPoints = List.of(MockBukkitFactory.createMockLocation(0, 64, 0, 0, 0));
-        ApiGameSession session = MatchboxAPI.createSessionBuilder("test-session")
+        MatchboxAPI.createSessionBuilder("test-session")
             .withPlayers(List.of(player))
             .withSpawnPoints(spawnPoints)
             .start()
@@ -266,5 +266,51 @@ public class MatchboxAPITest {
         assertDoesNotThrow(() -> MatchboxAPI.getCurrentPhase(null));
         assertDoesNotThrow(() -> MatchboxAPI.getPlayerSession(null));
         assertDoesNotThrow(() -> MatchboxAPI.getPlayerRole(null));
+    }
+
+    @Test
+    @DisplayName("Should expose session log and statistics for active session")
+    void shouldExposeSessionLogAndStatisticsForActiveSession() {
+        Player p1 = MockBukkitFactory.createMockPlayer(UUID.randomUUID(), "P1");
+        Player p2 = MockBukkitFactory.createMockPlayer(UUID.randomUUID(), "P2");
+        List<Location> spawnPoints = List.of(
+            MockBukkitFactory.createMockLocation(0, 64, 0, 0, 0),
+            MockBukkitFactory.createMockLocation(10, 64, 0, 0, 0)
+        );
+
+        MatchboxAPI.createSessionBuilder("obs-session")
+            .withPlayers(List.of(p1, p2))
+            .withSpawnPoints(spawnPoints)
+            .start();
+
+        Optional<GameSessionLog> sessionLog = MatchboxAPI.getSessionLog("obs-session");
+        Optional<GameStatistics> sessionStatistics = MatchboxAPI.getSessionStatistics("obs-session");
+
+        assertThat(sessionLog).isPresent();
+        assertThat(sessionLog.get().getEntries()).isNotEmpty();
+        assertThat(sessionStatistics).isPresent();
+        assertThat(sessionStatistics.get().getRoundsPlayed()).isGreaterThanOrEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Should apply custom role assignment strategy from session builder")
+    void shouldApplyCustomRoleAssignmentStrategyFromSessionBuilder() {
+        Player p1 = MockBukkitFactory.createMockPlayer(UUID.randomUUID(), "P1");
+        Player p2 = MockBukkitFactory.createMockPlayer(UUID.randomUUID(), "P2");
+        Player p3 = MockBukkitFactory.createMockPlayer(UUID.randomUUID(), "P3");
+        List<Location> spawnPoints = List.of(
+            MockBukkitFactory.createMockLocation(0, 64, 0, 0, 0),
+            MockBukkitFactory.createMockLocation(10, 64, 0, 0, 0),
+            MockBukkitFactory.createMockLocation(20, 64, 0, 0, 0)
+        );
+
+        MatchboxAPI.createSessionBuilder("strategy-session")
+            .withPlayers(List.of(p1, p2, p3))
+            .withSpawnPoints(spawnPoints)
+            .withRoleAssignmentStrategy(players -> List.of(players.get(2), players.get(1), players.get(0)))
+            .start();
+
+        assertThat(MatchboxAPI.getPlayerRole(p3)).contains(Role.SPARK);
+        assertThat(MatchboxAPI.getPlayerRole(p2)).contains(Role.MEDIC);
     }
 }

@@ -1,10 +1,9 @@
 package com.ohacd.matchbox.game.chat;
 
-import com.ohacd.matchbox.api.ChatChannel;
 import com.ohacd.matchbox.api.ChatMessage;
 import com.ohacd.matchbox.api.ChatProcessor;
-import com.ohacd.matchbox.api.ChatResult;
 import com.ohacd.matchbox.game.GameManager;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
@@ -208,9 +207,11 @@ public class ChatPipelineManager {
                 var result = processor.process(currentMessage);
                 switch (result.result()) {
                     case DENY -> {
+                        logChat(sessionName, currentMessage, "DENY", "denied by custom processor");
                         return ChatProcessor.ChatProcessingResult.deny(currentMessage);
                     }
                     case CANCEL -> {
+                        logChat(sessionName, currentMessage, "CANCEL", "cancelled by custom processor");
                         return ChatProcessor.ChatProcessingResult.cancel(currentMessage);
                     }
                     case ALLOW -> {
@@ -225,7 +226,9 @@ public class ChatPipelineManager {
 
         // Apply default session handler
         SessionChatHandler handler = getOrCreateSessionHandler(sessionName);
-        return handler.process(currentMessage);
+        ChatProcessor.ChatProcessingResult result = handler.process(currentMessage);
+        logChat(sessionName, result.message(), result.result().name(), "processed by session handler");
+        return result;
     }
 
     /**
@@ -237,5 +240,24 @@ public class ChatPipelineManager {
         sessionProcessors.clear();
         sessionHandlers.clear();
         plugin.getLogger().info("Emergency cleanup: cleared " + totalProcessors + " chat processors across all sessions");
+    }
+
+    private void logChat(String sessionName, ChatMessage message, String result, String note) {
+        if (gameManager == null || message == null) {
+            return;
+        }
+
+        try {
+            String renderedMessage = PlainTextComponentSerializer.plainText().serialize(message.formattedMessage());
+            gameManager.logChatMessage(
+                sessionName,
+                message.senderId(),
+                message.sender().getName(),
+                message.channel().name(),
+                renderedMessage + " (" + result + ", " + note + ")"
+            );
+        } catch (Exception ignored) {
+            // Logging should not disrupt chat routing
+        }
     }
 }

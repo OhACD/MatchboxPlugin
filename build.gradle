@@ -1,10 +1,11 @@
 plugins {
     id 'java'
+    id 'jacoco'
     id("xyz.jpenilla.run-paper") version "2.3.1"
 }
 
 group = 'com.ohacd'
-version = '0.9.6'
+version = '0.9.7'
 
 repositories {
     mavenCentral()
@@ -17,12 +18,17 @@ dependencies {
     
     // Testing dependencies
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.mockito:mockito-core:5.11.0")
     testImplementation("org.mockito:mockito-junit-jupiter:5.11.0")
     testImplementation("org.assertj:assertj-core:3.24.2")
     // Add main classes to test classpath for Bukkit imports
     testImplementation("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     testImplementation("net.dmulloy2:ProtocolLib:5.4.0")
+}
+
+jacoco {
+    toolVersion = '0.8.12'
 }
 
 test {
@@ -43,6 +49,39 @@ test {
             }
         }
     }
+
+    finalizedBy(tasks.named('jacocoTestReport'))
+}
+
+tasks.named('jacocoTestReport', JacocoReport) {
+    dependsOn(tasks.named('test'))
+
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+}
+
+tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification) {
+    dependsOn(tasks.named('test'))
+
+    violationRules {
+        rule {
+            element = 'BUNDLE'
+
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                // Ratchet coverage from the current tested baseline without making the build non-viable.
+                minimum = 0.25
+            }
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn(tasks.named('jacocoTestCoverageVerification'))
 }
 
 tasks {
@@ -66,6 +105,7 @@ java {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:deprecation']
 
     if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
         options.release.set(targetJavaVersion)

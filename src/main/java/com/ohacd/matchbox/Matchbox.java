@@ -43,7 +43,7 @@ import java.util.Set;
 public final class Matchbox extends JavaPlugin {
     // Project status, versioning and update name
     private static final ProjectStatus projectStatus = ProjectStatus.STABLE; // Main toggle for project status
-    private String updateName = "QOL Improvements"; 
+    private String updateName = "Community Edition!"; 
     private String currentVersion;
     private CheckProjectVersion versionChecker;
 
@@ -62,6 +62,11 @@ public final class Matchbox extends JavaPlugin {
         this.abilityManager = new AbilityManager(gameManager);
         this.versionChecker = new CheckProjectVersion(this);
         this.currentVersion = getInstance().getPluginMeta().getVersion();
+
+        int migratedWorlds = gameManager.getConfigManager().autoMigrateLegacyConfigsForLoadedWorlds();
+        if (migratedWorlds > 0) {
+            getLogger().info("Applied automatic legacy config migration for " + migratedWorlds + " world(s).");
+        }
 
         // Initialise sign mode (inject into GameManager so it can use it)
         SignModeManager signModeManager = new SignModeManager(this);
@@ -175,6 +180,10 @@ public final class Matchbox extends JavaPlugin {
 
     public SessionManager getSessionManager() {
         return sessionManager;
+    }
+
+    public AbilityManager getAbilityManager() {
+        return abilityManager;
     }
 
     public String getCurrentVersion() { return currentVersion; }

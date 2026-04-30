@@ -1,6 +1,10 @@
 package com.ohacd.matchbox.game;
 
 import com.ohacd.matchbox.Matchbox;
+import com.ohacd.matchbox.api.GameSessionLog;
+import com.ohacd.matchbox.api.GameStatistics;
+import com.ohacd.matchbox.api.RoleAssignmentStrategy;
+import com.ohacd.matchbox.api.SessionAbilityHandler;
 import com.ohacd.matchbox.game.ability.FallbackHunterVisionAdapter;
 import com.ohacd.matchbox.game.ability.HunterVisionAdapter;
 import com.ohacd.matchbox.game.ability.ProtocolLibHunterVisionAdapter;
@@ -12,6 +16,7 @@ import com.ohacd.matchbox.game.config.ConfigManager;
 import com.ohacd.matchbox.game.cosmetic.SkinManager;
 import com.ohacd.matchbox.game.hologram.HologramManager;
 import com.ohacd.matchbox.game.lifecycle.GameLifecycleManager;
+import com.ohacd.matchbox.game.logging.SessionFlowLogger;
 import com.ohacd.matchbox.game.phase.DiscussionPhaseHandler;
 import com.ohacd.matchbox.game.phase.PhaseManager;
 import com.ohacd.matchbox.game.phase.SwipePhaseHandler;
@@ -69,6 +74,7 @@ public class GameManager {
     private final SkinManager skinManager;
     private final HunterVisionAdapter hunterVisionAdapter;
     private final ChatPipelineManager chatPipelineManager;
+    private final SessionFlowLogger sessionFlowLogger;
 
     // Sign mode — injected after construction via setSignModeManager()
     private SignModeManager signModeManager;
@@ -78,6 +84,8 @@ public class GameManager {
 
     // Active game sessions - each session has its own game state and context
     private final Map<String, SessionGameContext> activeSessions = new ConcurrentHashMap<>();
+    private final Map<String, RoleAssignmentStrategy> roleAssignmentStrategies = new ConcurrentHashMap<>();
+    private final Map<String, List<SessionAbilityHandler>> sessionAbilityHandlers = new ConcurrentHashMap<>();
 
     // Player backups for restoration (shared, but keyed by player UUID)
     private final Map<UUID, PlayerBackup> playerBackups = new ConcurrentHashMap<>();
@@ -107,6 +115,7 @@ public class GameManager {
         this.lifecycleManager = new GameLifecycleManager(plugin, messageUtils, swipePhaseHandler, inventoryManager, playerBackups);
         this.actionHandler = new PlayerActionHandler(plugin);
         this.chatPipelineManager = new ChatPipelineManager(plugin, this);
+        this.sessionFlowLogger = new SessionFlowLogger(plugin);
 
         skinManager.preloadDefaultSkins();
     }
@@ -221,6 +230,9 @@ public class GameManager {
         if (sessionName == null) {
             return;
         }
+
+        roleAssignmentStrategies.remove(sessionName);
+        sessionAbilityHandlers.remove(sessionName);
 
         SessionGameContext context = activeSessions.remove(sessionName);
         if (context != null) {
@@ -383,7 +395,15 @@ public class GameManager {
         }
 
         // Use lifecycle manager to start the game
-        lifecycleManager.startGame(context, players, spawnLocations, discussionLocation, sessionName);
+        sessionFlowLogger.record(sessionName, "SESSION", "Game start requested for " + players.size() + " players", null, null, Map.of("players", String.valueOf(players.size())));
+        lifecycleManager.startGame(
+            context,
+            players,
+            spawnLocations,
+            discussionLocation,
+            sessionName,
+            roleAssignmentStrategies.get(sessionName)
+        );
         
         // Apply skins based on config settings
         if (configManager.isUseSteveSkins()) {
@@ -465,6 +485,8 @@ public class GameManager {
 
         // Use lifecycle manager to start new round
         lifecycleManager.startNewRound(context, sessionName);
+        sessionFlowLogger.incrementRound(sessionName);
+        sessionFlowLogger.record(sessionName, "ROUND", "Round " + gameState.getCurrentRound() + " started", null, null, Map.of("round", String.valueOf(gameState.getCurrentRound())));
 
         // Reapply skins based on config settings to ensure consistency
         Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
@@ -501,6 +523,7 @@ public class GameManager {
 
         phaseManager.setPhase(GamePhase.SWIPE);
         plugin.getLogger().info("Starting swipe phase for session '" + sessionName + "' - Round " + gameState.getCurrentRound());
+        sessionFlowLogger.record(sessionName, "PHASE", "Swipe phase started", null, null, Map.of("round", String.valueOf(gameState.getCurrentRound())));
 
         // Setup inventories for all players with their roles (give papers now)
         Collection<Player> alivePlayers = swipePhaseHandler.getAlivePlayerObjects(gameState.getAlivePlayerIds());
@@ -528,6 +551,7 @@ public class GameManager {
             if (isSignModeEnabled() && signModeManager != null) {
                 signModeManager.giveSignItems(alivePlayers);
                 plugin.getLogger().info("Sign mode is active for session '" + sessionName + "' — gave sign items to " + alivePlayers.size() + " player(s)");
+                sessionFlowLogger.record(sessionName, "SIGN", "Sign mode items distributed", null, null, Map.of("players", String.valueOf(alivePlayers.size())));
             }
         }
 
@@ -917,6 +941,7 @@ public class GameManager {
         PhaseManager phaseManager = context.getPhaseManager();
 
         plugin.getLogger().info("Ending swipe phase for session '" + sessionName + "' - Round " + gameState.getCurrentRound());
+        sessionFlowLogger.record(sessionName, "PHASE", "Swipe phase ended", null, null, Map.of("round", String.valueOf(gameState.getCurrentRound())));
 
         // Cancel swipe timer first to prevent it from continuing
         swipePhaseHandler.cancelSwipeTask(sessionName);
@@ -982,6 +1007,7 @@ public class GameManager {
 
         if (!allPendingDeaths.isEmpty()) {
             plugin.getLogger().info("Applying pending deaths for " + allPendingDeaths.size() + " players at discussion start in session: " + sessionName);
+            sessionFlowLogger.record(sessionName, "DISCUSSION", "Applying pending deaths", null, null, Map.of("count", String.valueOf(allPendingDeaths.size())));
         }
 
         if (!playersCuredThisRound.isEmpty()) {
@@ -1215,6 +1241,7 @@ public class GameManager {
         VoteManager voteManager = context.getVoteManager();
 
         plugin.getLogger().info("Ending discussion phase for session '" + sessionName + "' - Round " + gameState.getCurrentRound());
+        sessionFlowLogger.record(sessionName, "PHASE", "Discussion phase ended", null, null, Map.of("round", String.valueOf(gameState.getCurrentRound())));
 
         // Cancel discussion timer first to prevent it from continuing
         discussionPhaseHandler.cancelDiscussionTask(sessionName);
@@ -1278,6 +1305,18 @@ public class GameManager {
         int consecutiveNoEliminationPhases = context.getConsecutiveNoEliminationPhases();
         DynamicVotingThreshold thresholdCalculator = new DynamicVotingThreshold(configManager);
         int requiredVotes = thresholdCalculator.getRequiredVoteCount(alivePlayerCount, consecutiveNoEliminationPhases);
+        sessionFlowLogger.record(
+            sessionName,
+            "PHASE",
+            "Voting phase started",
+            null,
+            null,
+            Map.of(
+                "round", String.valueOf(gameState.getCurrentRound()),
+                "alive", String.valueOf(alivePlayerCount),
+                "requiredVotes", String.valueOf(requiredVotes)
+            )
+        );
         
         // Start the voting timer and supply callback to endVotingPhase
         votingPhaseHandler.startVotingPhase(sessionName, votingDuration, gameState.getAlivePlayerIds(), () -> endVotingPhase(sessionName), requiredVotes, alivePlayerCount);
@@ -1297,6 +1336,7 @@ public class GameManager {
         GameState gameState = context.getGameState();
 
         plugin.getLogger().info("Ending voting phase for session '" + sessionName + "' - Round " + gameState.getCurrentRound());
+        sessionFlowLogger.record(sessionName, "PHASE", "Voting phase ended", null, null, Map.of("round", String.valueOf(gameState.getCurrentRound())));
 
         // Cancel voting timer first to prevent it from continuing
         votingPhaseHandler.cancelVotingTask(sessionName);
@@ -1404,6 +1444,7 @@ public class GameManager {
             }
             plugin.getLogger().info("No votes cast this round for session " + sessionName + ". Total voters: " + voteManager.getVoters().size() +
                 ", Alive players: " + alivePlayerCount + ", Consecutive no-elimination phases: " + consecutiveNoEliminationPhases);
+            sessionFlowLogger.record(sessionName, "VOTE", "No votes cast", null, null, Map.of("alive", String.valueOf(alivePlayerCount)));
             return;
         }
 
@@ -1437,6 +1478,7 @@ public class GameManager {
                 plugin.getLogger().info("Vote threshold not met for session " + sessionName + ". Required: " + requiredVotes + 
                     ", Got: " + maxVotes + ", Alive players: " + alivePlayerCount + 
                     ", Consecutive no-elimination phases: " + (consecutiveNoEliminationPhases + 1));
+                sessionFlowLogger.record(sessionName, "VOTE", "Vote threshold not met", null, null, Map.of("required", String.valueOf(requiredVotes), "got", String.valueOf(maxVotes)));
                 return;
             }
         } else if (!tied.isEmpty()) {
@@ -1466,6 +1508,7 @@ public class GameManager {
                 plugin.getLogger().info("Tie vote threshold not met for session " + sessionName + ". Required: " + requiredVotes + 
                     ", Got: " + maxVotes + ", Alive players: " + alivePlayerCount + 
                     ", Consecutive no-elimination phases: " + (consecutiveNoEliminationPhases + 1));
+                sessionFlowLogger.record(sessionName, "VOTE", "Tie threshold not met", null, null, Map.of("required", String.valueOf(requiredVotes), "got", String.valueOf(maxVotes)));
                 return;
             }
         } else {
@@ -1567,6 +1610,7 @@ public class GameManager {
         if (success) {
             // Silent success - no message to prevent giving away information
             plugin.getLogger().info("Vote registered in session '" + context.getSessionName() + "': " + voter.getName() + " voted for " + target.getName());
+            sessionFlowLogger.recordVote(context.getSessionName(), voterId, targetId, voter.getName(), target.getName());
         }
 
         return success;
@@ -1583,7 +1627,14 @@ public class GameManager {
         SessionGameContext context = getContextForPlayer(medic.getUniqueId());
         if (context == null) return;
 
+        boolean hadPendingDeath = context.getGameState().hasPendingDeath(target.getUniqueId()) || context.getGameState().isDelusionInfected(target.getUniqueId());
+
         actionHandler.handleCure(context, medic, target);
+
+        boolean curedAfterAction = !context.getGameState().hasPendingDeath(target.getUniqueId()) && !context.getGameState().isDelusionInfected(target.getUniqueId());
+        if (hadPendingDeath && curedAfterAction) {
+            sessionFlowLogger.recordCure(context.getSessionName(), medic.getUniqueId(), target.getUniqueId(), medic.getName(), target.getName());
+        }
     }
 
     /**
@@ -1597,7 +1648,14 @@ public class GameManager {
         SessionGameContext context = getContextForPlayer(shooter.getUniqueId());
         if (context == null) return;
 
+        boolean pendingBefore = context.getGameState().hasPendingDeath(target.getUniqueId());
+
         actionHandler.handleSwipe(context, shooter, target);
+
+        boolean pendingAfter = context.getGameState().hasPendingDeath(target.getUniqueId());
+        if (!pendingBefore && pendingAfter) {
+            sessionFlowLogger.recordSwipe(context.getSessionName(), shooter.getUniqueId(), target.getUniqueId(), shooter.getName(), target.getName());
+        }
     }
 
     /**
@@ -1658,6 +1716,7 @@ public class GameManager {
 
         // Log elimination
         plugin.getLogger().info("Player " + player.getName() + " eliminated in session '" + sessionName + "'. Remaining alive: " + gameState.getAlivePlayerCount());
+        sessionFlowLogger.recordElimination(sessionName, playerId, player.getName());
 
         // Check win conditions
         checkForWin(sessionName);
@@ -1687,6 +1746,7 @@ public class GameManager {
                 }
             }
             endGame(sessionName);
+            sessionFlowLogger.record(sessionName, "WIN", result.getMessage(), null, null, Map.of("winner", result.getWinner().name()));
             return true;
         }
         return false;
@@ -1725,6 +1785,7 @@ public class GameManager {
         }
 
         plugin.getLogger().info("Removing player " + player.getName() + " from active game in session: " + sessionName);
+        sessionFlowLogger.record(sessionName, "PLAYER", "Player removed from game: " + player.getName(), playerId, null, Collections.emptyMap());
 
         // Restore nametag and cosmetic overrides
         try {
@@ -1862,6 +1923,7 @@ public class GameManager {
         PhaseManager phaseManager = context.getPhaseManager();
 
         plugin.getLogger().info("Ending game for session '" + sessionName + "'. Final state: " + gameState.getDebugInfo());
+        sessionFlowLogger.record(sessionName, "SESSION", "Session ending", null, null, Map.of("state", gameState.getDebugInfo()));
 
         // Restore all participating players' nametags, game modes, and inventories
         Set<UUID> allParticipatingIds = gameState.getAllParticipatingPlayerIds();
@@ -1990,6 +2052,7 @@ public class GameManager {
         }
 
         plugin.getLogger().info("Game ended successfully for session: " + sessionName);
+        sessionFlowLogger.record(sessionName, "SESSION", "Session ended successfully", null, null, Collections.emptyMap());
     }
 
     /**
@@ -2062,6 +2125,89 @@ public class GameManager {
      */
     public Plugin getPlugin() {
         return plugin;
+    }
+
+    public void logSessionEvent(String sessionName, String category, String message) {
+        sessionFlowLogger.record(sessionName, category, message, null, null, Collections.emptyMap());
+    }
+
+    public void logSignMessage(String sessionName, UUID senderId, String senderName, String message) {
+        sessionFlowLogger.recordSignMessage(sessionName, senderId, senderName, message);
+    }
+
+    public void logChatMessage(String sessionName, UUID senderId, String senderName, String channel, String message) {
+        sessionFlowLogger.recordChat(sessionName, senderId, senderName, channel, message);
+    }
+
+    public Optional<GameSessionLog> getSessionLog(String sessionName) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(sessionFlowLogger.getSessionLog(sessionName));
+    }
+
+    public Optional<GameStatistics> getSessionStatistics(String sessionName) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(sessionFlowLogger.getSessionStatistics(sessionName));
+    }
+
+    public void setRoleAssignmentStrategy(String sessionName, RoleAssignmentStrategy strategy) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            return;
+        }
+
+        if (strategy == null) {
+            roleAssignmentStrategies.remove(sessionName);
+            return;
+        }
+
+        roleAssignmentStrategies.put(sessionName, strategy);
+    }
+
+    public void setSessionAbilityHandlers(String sessionName, Collection<SessionAbilityHandler> handlers) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            return;
+        }
+
+        if (handlers == null || handlers.isEmpty()) {
+            sessionAbilityHandlers.remove(sessionName);
+            return;
+        }
+
+        List<SessionAbilityHandler> sanitized = handlers.stream()
+            .filter(Objects::nonNull)
+            .toList();
+
+        if (sanitized.isEmpty()) {
+            sessionAbilityHandlers.remove(sessionName);
+            return;
+        }
+
+        sessionAbilityHandlers.put(sessionName, sanitized);
+    }
+
+    public List<SessionAbilityHandler> getSessionAbilityHandlers(String sessionName) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return sessionAbilityHandlers.getOrDefault(sessionName, Collections.emptyList());
+    }
+
+    public GameSession getSessionForAbilityRouting(String sessionName) {
+        if (sessionName == null || sessionName.trim().isEmpty()) {
+            return null;
+        }
+
+        try {
+            Matchbox matchboxPlugin = (Matchbox) plugin;
+            SessionManager sessionManager = matchboxPlugin.getSessionManager();
+            return sessionManager != null ? sessionManager.getSession(sessionName) : null;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to get session for ability routing: " + e.getMessage());
+            return null;
+        }
     }
 
     private SparkSecondaryAbility selectSparkSecondaryAbility(GameState gameState) {

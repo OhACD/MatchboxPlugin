@@ -200,6 +200,7 @@ public class SkinManager {
         rememberOriginalIfNeeded(player);
         SkinData chosen = pickRandomSkin(playerId);
         if (chosen == null) {
+            applySteveSkin(player);
             return;
         }
 

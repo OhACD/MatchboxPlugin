@@ -1,12 +1,13 @@
 package com.ohacd.matchbox.game.utils;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.entity.Player;
 
 /**
  * Utility helpers for resolving player-facing names with nickname support.
  * Prefers the Bukkit display name while safely falling back to the real name.
  */
-@SuppressWarnings("deprecation")
 public final class PlayerNameUtils {
     private PlayerNameUtils() {}
 
@@ -17,7 +18,8 @@ public final class PlayerNameUtils {
         if (player == null) {
             return "Unknown";
         }
-        String display = safeTrim(player.getDisplayName());
+        Component displayComponent = player.displayName();
+        String display = safeTrim(displayComponent == null ? "" : LegacyComponentSerializer.legacySection().serialize(displayComponent));
         if (!display.isEmpty()) {
             return display;
         }

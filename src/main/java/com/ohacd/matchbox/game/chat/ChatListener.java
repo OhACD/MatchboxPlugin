@@ -6,9 +6,11 @@ import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.hologram.HologramManager;
 import com.ohacd.matchbox.game.utils.GamePhase;
+import com.ohacd.matchbox.game.utils.PlayerNameUtils;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -32,6 +34,16 @@ public class ChatListener implements Listener {
     public ChatListener(HologramManager manager, GameManager gameManager) {
         this.hologramManager = manager;
         this.gameManager = gameManager;
+    }
+
+    static Component buildFormattedMessageWithName(Player player, Component messageBody) {
+        String displayName = PlayerNameUtils.displayName(player);
+        Component playerName = LegacyComponentSerializer.legacySection().deserialize(displayName);
+
+        return Component.text("<", NamedTextColor.WHITE)
+            .append(playerName)
+            .append(Component.text("> ", NamedTextColor.WHITE))
+            .append(messageBody);
     }
 
     @EventHandler
@@ -81,11 +93,8 @@ public class ChatListener implements Listener {
             // Determine player's alive status for routing
             boolean isAlivePlayer = context.getGameState().isAlive(player.getUniqueId());
 
-            // Create formatted message with player name prefix (using display name for nick plugin support)
-            Component formattedMessageWithName = Component.text("<", NamedTextColor.WHITE)
-                .append(Component.text(player.getDisplayName(), NamedTextColor.WHITE))
-                .append(Component.text("> ", NamedTextColor.WHITE))
-                .append(event.message());
+            // Create formatted message with player name prefix (supports legacy colour codes in nicks)
+            Component formattedMessageWithName = buildFormattedMessageWithName(player, event.message());
 
             // Create chat message for pipeline processing
             ChatMessage chatMessage = new ChatMessage(
@@ -104,21 +113,16 @@ public class ChatListener implements Listener {
             // Handle pipeline result
             switch (pipelineResult.result()) {
                 case ALLOW -> {
-                    // Pipeline may have modified the message, update the event
-                    if (!pipelineResult.message().formattedMessage().equals(event.message())) {
-                        event.message(pipelineResult.message().formattedMessage());
-                    }
-
-                    // Send to appropriate recipients based on channel
-                    SessionChatHandler handler = gameManager.getChatPipelineManager()
-                        .getOrCreateSessionHandler(context.getSessionName());
-
                     if (pipelineResult.message().channel() != ChatChannel.GLOBAL) {
+                        // Send to appropriate recipients based on channel
+                        SessionChatHandler handler = gameManager.getChatPipelineManager()
+                            .getOrCreateSessionHandler(context.getSessionName());
+
                         // Custom channel routing - cancel event and handle manually
                         event.setCancelled(true);
                         handler.deliverMessage(pipelineResult.message());
                     }
-                    // For GLOBAL channel, let the event proceed normally
+                    // For GLOBAL channel, let the event proceed normally using the event body
                 }
                 case DENY, CANCEL -> {
                     // Cancel the message

@@ -116,6 +116,25 @@ public class ApiGameSessionTest {
     }
 
     @Test
+    @DisplayName("Should expose session log snapshot through API wrapper")
+    void shouldExposeSessionLogSnapshotThroughApiWrapper() {
+        Optional<GameSessionLog> sessionLog = apiSession.getSessionLog();
+
+        assertThat(sessionLog).isPresent();
+        assertThat(sessionLog.get().getSessionName()).isEqualTo(testSessionName);
+    }
+
+    @Test
+    @DisplayName("Should expose session statistics snapshot through API wrapper")
+    void shouldExposeSessionStatisticsSnapshotThroughApiWrapper() {
+        Optional<GameStatistics> stats = apiSession.getStatistics();
+
+        assertThat(stats).isPresent();
+        assertThat(stats.get().getSessionName()).isEqualTo(testSessionName);
+        assertThat(stats.get().getRoundsPlayed()).isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
     @DisplayName("Should get current phase when no game is active")
     void shouldGetCurrentPhaseWhenNoGameIsActive() {
         // Act
@@ -311,6 +330,7 @@ public class ApiGameSessionTest {
 
     @Test
     @DisplayName("Should handle deprecated skip to next phase when no game is active")
+    @SuppressWarnings("deprecation")
     void shouldHandleDeprecatedSkipToNextPhaseWhenNoGameIsActive() {
         // Act
         boolean skipped = apiSession.skipToNextPhase();
@@ -321,6 +341,7 @@ public class ApiGameSessionTest {
 
     @Test
     @DisplayName("Should handle deprecated force phase when no game is active")
+    @SuppressWarnings("deprecation")
     void shouldHandleDeprecatedForcePhaseWhenNoGameIsActive() {
         // Act
         boolean forced = apiSession.forcePhase(GamePhase.DISCUSSION);
@@ -331,6 +352,7 @@ public class ApiGameSessionTest {
 
     @Test
     @DisplayName("Should handle deprecated force phase with null")
+    @SuppressWarnings("deprecation")
     void shouldHandleDeprecatedForcePhaseWithNull() {
         // Act
         boolean forced = apiSession.forcePhase(null);
@@ -341,6 +363,7 @@ public class ApiGameSessionTest {
 
     @Test
     @DisplayName("Should provide internal session access")
+    @SuppressWarnings("deprecation")
     void shouldProvideInternalSessionAccess() {
         // Act
         GameSession internal = apiSession.getInternalSession();

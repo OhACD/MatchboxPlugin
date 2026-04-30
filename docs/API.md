@@ -155,7 +155,36 @@ Fluent builder for creating game sessions.
 - `withDiscussionLocation(Location)` — Set discussion area
 - `withSeatLocations(Map<Integer, Location>)` — Set discussion seats
 - `withCustomConfig(GameConfig)` — Apply custom configuration
+- `withRoleAssignmentStrategy(RoleAssignmentStrategy)` — Control deterministic Spark/Medic assignment order
+- `withAbilityHandlers(SessionAbilityHandler...)` — Attach session-scoped custom ability hooks
 - `start()` — Start the session (returns Optional<ApiGameSession>)
+
+### Custom Session Abilities
+
+`SessionAbilityHandler` integrations can now receive a stable `SessionAbilityContext` for each routed invocation.
+
+- `context.session()` — current session wrapper
+- `context.actor()` — player triggering the routed event
+- `context.target()` — interacted target player when applicable
+- `context.currentPhase()` — current game phase
+- `context.currentRound()` — current round number
+- `context.actorRole()` — current role for the acting player
+- `context.actorAlive()` — whether the acting player is alive
+
+```java
+MatchboxAPI.createSessionBuilder("arena1")
+    .withPlayers(players)
+    .withSpawnPoints(spawns)
+    .withAbilityHandlers(new SessionAbilityHandler() {
+        @Override
+        public void handleInventoryClick(InventoryClickEvent event, SessionAbilityContext context) {
+            if (context.actorRole() == Role.SPARK && context.currentPhase() == GamePhase.SWIPE) {
+                context.actor().sendMessage("Custom Spark ability hook fired.");
+            }
+        }
+    })
+    .start();
+```
 
 ### ApiGameSession
 Wrapper for active game sessions.
@@ -171,6 +200,34 @@ Wrapper for active game sessions.
 - `addPlayer(Player)` — Add a player to the session
 - `removePlayer(Player)` — Remove a player from the session
 - `endGame()` — End the game session
+- `getSessionLog()` — Get structured per-session flow logs
+- `getStatistics()` — Get per-session player/action statistics
+
+### Session Logs And Statistics
+
+The API now exposes structured observability for integration plugins:
+
+- `MatchboxAPI.getSessionLog(sessionName)`
+- `MatchboxAPI.getSessionStatistics(sessionName)`
+
+Session flow logs include lifecycle milestones, phase transitions, vote/swipe/cure actions,
+chat routing outcomes, and sign-mode events (including captured sign text).
+
+```java
+Optional<GameSessionLog> log = MatchboxAPI.getSessionLog("arena1");
+Optional<GameStatistics> stats = MatchboxAPI.getSessionStatistics("arena1");
+
+if (log.isPresent()) {
+    for (GameLogEntry entry : log.get().getEntries()) {
+        plugin.getLogger().info(entry.timestamp() + " [" + entry.category() + "] " + entry.message());
+    }
+}
+
+if (stats.isPresent()) {
+    GameStatistics.PlayerStats playerStats = stats.get().getStats(player);
+    plugin.getLogger().info("Votes cast: " + playerStats.votesCast());
+}
+```
 
 ### GameConfig
 Configuration builder for custom game settings.

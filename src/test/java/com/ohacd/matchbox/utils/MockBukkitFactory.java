@@ -1,5 +1,6 @@
 package com.ohacd.matchbox.utils;
 
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -41,7 +42,7 @@ public class MockBukkitFactory {
         // Basic player properties
         when(player.getUniqueId()).thenReturn(TEST_UUID);
         when(player.getName()).thenReturn(TEST_PLAYER_NAME);
-        when(player.getDisplayName()).thenReturn(TEST_PLAYER_NAME);
+        when(player.displayName()).thenReturn(Component.text(TEST_PLAYER_NAME));
         when(player.isOnline()).thenReturn(true);
         
         // Inventory mock
@@ -78,7 +79,7 @@ public class MockBukkitFactory {
         Player player = createMockPlayer();
         when(player.getUniqueId()).thenReturn(uuid);
         when(player.getName()).thenReturn(name);
-        when(player.getDisplayName()).thenReturn(name);
+        when(player.displayName()).thenReturn(Component.text(name));
         return player;
     }
     

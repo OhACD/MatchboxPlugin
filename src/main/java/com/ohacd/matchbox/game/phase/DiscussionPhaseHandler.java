@@ -242,7 +242,10 @@ public class DiscussionPhaseHandler {
         }
 
         List<Player> playerList = new ArrayList<>(players);
-        List<Integer> validSeats = configManager.getDiscussionSeatSpawns();
+        Player firstPlayer = playerList.get(0);
+        List<Integer> validSeats = firstPlayer != null && firstPlayer.getWorld() != null
+                ? configManager.getDiscussionSeatSpawns(firstPlayer.getWorld())
+                : configManager.getDiscussionSeatSpawns();
         
         if (validSeats.isEmpty()) {
             plugin.getLogger().warning("No valid seat spawns configured, skipping seat teleportation");
