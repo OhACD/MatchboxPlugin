@@ -2,6 +2,22 @@
 
 All notable changes to the Matchbox plugin will be documented in this file.
 
+## [0.9.8] - In Development
+
+**Community +** — Development build.
+
+### Fixed
+
+- **Spectators silenced during SWIPE phase** — dead players were incorrectly caught by the SWIPE phase chat gate (both in sign-mode and hologram-mode games) and had their messages cancelled. Spectators now bypass the SWIPE gate entirely and are always routed through the pipeline to the SPECTATOR channel, regardless of phase or sign-mode state.
+- **Sign-mode games bypass the chat pipeline** — the sign-mode early-return in `ChatListener` exited the event handler for every active game phase when sign mode was toggled on. Discussion, Voting, and all non-SWIPE phases were falling back to normal server-wide chat, meaning players across different parallel sessions could see each other's messages. The faulty early-return is removed; all phases now run through the pipeline correctly.
+- **Stale alive-status cache causes post-death message leaks** — `SessionChatHandler` cached each player's alive status on first message and never invalidated it on elimination. A freshly-eliminated player would continue to be routed to the GAME channel (visible to all alive players) instead of the SPECTATOR channel until the session ended. Routing now queries `GameState.isAlive()` on every message so the decision always reflects current game state.
+
+### Changed
+
+- **Project status set to Development** — build is now flagged `DEVELOPMENT` for this cycle.
+
+---
+
 ## [0.9.7.1] - 2026-04-30
 
 Hot patch release.

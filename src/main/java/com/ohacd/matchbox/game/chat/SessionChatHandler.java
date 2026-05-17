@@ -3,13 +3,9 @@ package com.ohacd.matchbox.game.chat;
 import com.ohacd.matchbox.api.ChatChannel;
 import com.ohacd.matchbox.api.ChatMessage;
 import com.ohacd.matchbox.api.ChatProcessor;
-import com.ohacd.matchbox.api.ChatResult;
 import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.state.GameState;
-import com.ohacd.matchbox.game.utils.GamePhase;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -24,11 +20,12 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Routing rules:</p>
  * <ul>
- *   <li>Alive players → Game channel (visible to alive + spectators)</li>
- *   <li>Spectators → Spectator channel (visible only to spectators)</li>
- *   <li>SWIPE phase → Holograms (no chat)</li>
+ *   <li>Alive players → Game channel (visible to alive players + spectators)</li>
+ *   <li>Spectators → Spectator channel (visible only to spectators in the same session)</li>
  *   <li>GLOBAL channel → Bypasses all filtering</li>
  * </ul>
+ * <p>SWIPE-phase gating is handled upstream in {@code ChatListener} before messages
+ * reach this handler, so no phase check is needed here.</p>
  */
 public class SessionChatHandler implements ChatProcessor {
 
@@ -68,15 +65,9 @@ public class SessionChatHandler implements ChatProcessor {
             return ChatProcessingResult.allow(message.withChannel(ChatChannel.GLOBAL));
         }
 
-        // Determine if player is alive (with caching for performance)
-        boolean isAlive = aliveStatusCache.computeIfAbsent(message.senderId(),
-            id -> gameState.isAlive(id));
-
-        // Handle SWIPE phase - use holograms instead of chat
-        if (context.getPhaseManager().getCurrentPhase() == GamePhase.SWIPE) {
-            // During SWIPE phase, cancel normal chat and let hologram system handle it
-            return ChatProcessingResult.cancel(message);
-        }
+        // Always query live status — never cache. A stale cached value would route
+        // a freshly-eliminated player to the GAME channel, leaking their messages.
+        boolean isAlive = gameState.isAlive(message.senderId());
 
         // Route based on player status
         if (isAlive) {

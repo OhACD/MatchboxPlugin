@@ -70,28 +70,28 @@ public class ChatListener implements Listener {
             return;
         }
 
-        // Sign mode sessions intentionally avoid the chat pipeline during active games.
-        // Swipe chat remains blocked so players use signs for communication.
-        if (context.getGameState().isGameActive() && gameManager.isSignModeEnabled()) {
-            if (context.getPhaseManager().getCurrentPhase() == GamePhase.SWIPE) {
-                event.setCancelled(true);
-            }
-            return;
-        }
+        // Determine player type once — drives all gate decisions below.
+        boolean isSpectator = !context.getGameState().isAlive(player.getUniqueId());
 
-        // Handle SWIPE phase specially - always show holograms
-        if (context.getPhaseManager().getCurrentPhase() == GamePhase.SWIPE) {
-            // Cancel normal chat and show hologram instead
+        // Gate: alive players during SWIPE phase are silenced via signs or holograms.
+        // Spectators are intentionally exempted and fall through to the pipeline so
+        // they can still communicate on the SPECTATOR channel.
+        if (!isSpectator && context.getPhaseManager().getCurrentPhase() == GamePhase.SWIPE) {
             event.setCancelled(true);
-            String msg = PlainTextComponentSerializer.plainText().serialize(event.message());
-            hologramManager.showTextAbove(player, msg, 100);
+            if (!gameManager.isSignModeEnabled()) {
+                // No sign mode: show floating hologram above the player's head.
+                String msg = PlainTextComponentSerializer.plainText().serialize(event.message());
+                hologramManager.showTextAbove(player, msg, 100);
+            }
+            // Sign mode: alive players communicate via placed signs — no fallback.
             return;
         }
 
-        // For all other phases, route through the chat pipeline
+        // For all other cases (alive players outside SWIPE, spectators in any phase),
+        // route through the chat pipeline.
         try {
-            // Determine player's alive status for routing
-            boolean isAlivePlayer = context.getGameState().isAlive(player.getUniqueId());
+            // isSpectator already computed above; invert for the ChatMessage flag.
+            boolean isAlivePlayer = !isSpectator;
 
             // Create formatted message with player name prefix (supports legacy colour codes in nicks)
             Component formattedMessageWithName = buildFormattedMessageWithName(player, event.message());
