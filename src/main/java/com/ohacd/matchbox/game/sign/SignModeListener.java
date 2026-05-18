@@ -4,7 +4,6 @@ import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.GamePhase;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -211,10 +210,14 @@ public class SignModeListener implements Listener {
         if (block == null) return;
 
         block.setType(Material.AIR, false);
-        if (block.getWorld() == null) return;
+        org.bukkit.World world = block.getWorld();
+        if (world == null) return;
 
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            online.sendBlockChange(block.getLocation(), Material.AIR.createBlockData());
+        // Only players in the sign's world can possibly have it in view; broadcasting
+        // to every server-wide player wastes packets and risks confusing clients in
+        // other worlds where the same coordinates may resolve to a real block.
+        for (Player viewer : world.getPlayers()) {
+            viewer.sendBlockChange(block.getLocation(), Material.AIR.createBlockData());
         }
     }
 }

@@ -50,6 +50,11 @@ public final class NickManager {
     private File nickFile;
     private YamlConfiguration nickConfig;
 
+    /** Set when in-memory state has unsaved changes; cleared by the debounced writer. */
+    private final java.util.concurrent.atomic.AtomicBoolean dirty = new java.util.concurrent.atomic.AtomicBoolean(false);
+    /** True while an async save task is queued/running, so we don't pile up writers. */
+    private final java.util.concurrent.atomic.AtomicBoolean savePending = new java.util.concurrent.atomic.AtomicBoolean(false);
+
     // --- Constructor ---
 
     public NickManager(Plugin plugin) {
@@ -85,6 +90,28 @@ public final class NickManager {
     }
 
     private void save() {
+        // Mark dirty and queue a single debounced async write (20 ticks ~= 1 s).
+        // Avoids hitting the disk on the main thread for every /mb nick command.
+        dirty.set(true);
+        if (!savePending.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            org.bukkit.Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, this::flushIfDirty, 20L);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            // Scheduler unavailable (e.g. shutdown or tests without a real server) — write synchronously.
+            savePending.set(false);
+            flushIfDirty();
+        }
+    }
+
+    private synchronized void flushIfDirty() {
+        savePending.set(false);
+        if (!dirty.getAndSet(false)) {
+            return;
+        }
+        // Snapshot current state into the YAML config under the lock so concurrent
+        // sets that come in during the write are not lost (they'll re-dirty).
         for (Map.Entry<UUID, String> entry : nicks.entrySet()) {
             nickConfig.set(entry.getKey().toString(), entry.getValue());
         }
@@ -92,7 +119,14 @@ public final class NickManager {
             nickConfig.save(nickFile);
         } catch (IOException e) {
             plugin.getLogger().warning("[NickManager] Failed to save nicks.yml: " + e.getMessage());
+            // Re-mark dirty so the next save() attempt retries.
+            dirty.set(true);
         }
+    }
+
+    /** Flushes any pending state synchronously. Call from plugin onDisable. */
+    public void flushSync() {
+        flushIfDirty();
     }
 
     // =========================================================

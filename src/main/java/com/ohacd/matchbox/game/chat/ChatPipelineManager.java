@@ -136,8 +136,15 @@ public class ChatPipelineManager {
             return;
         }
 
+        // Guard: skip log (and treat as no-op) if nothing is actually registered.
+        // This makes the method safe to call more than once on the same session name.
+        boolean hadState = sessionProcessors.containsKey(sessionName) || sessionHandlers.containsKey(sessionName);
         clearProcessors(sessionName);
-        plugin.getLogger().info("Cleaned up chat pipeline for session '" + sessionName + "'");
+        // Drop the default session handler instance too; otherwise it leaks per session.
+        sessionHandlers.remove(sessionName);
+        if (hadState) {
+            plugin.getLogger().info("Cleaned up chat pipeline for session '" + sessionName + "'");
+        }
     }
 
     /**

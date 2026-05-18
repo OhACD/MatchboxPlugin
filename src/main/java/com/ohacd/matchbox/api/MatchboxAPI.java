@@ -436,7 +436,7 @@ public final class MatchboxAPI {
      * @param event the event to fire
      */
     @com.ohacd.matchbox.api.annotation.Internal
-    static void fireEvent(@NotNull MatchboxEvent event) {
+    public static void fireEvent(@NotNull MatchboxEvent event) {
         if (event == null) return;
 
         for (MatchboxEventListener listener : listeners.keySet()) {

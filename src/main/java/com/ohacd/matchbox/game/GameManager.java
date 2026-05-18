@@ -257,6 +257,17 @@ public class GameManager {
 
             // Clean up context resources
             context.cleanup();
+
+            // Drop any chat pipeline state held against this session name so
+            // SessionChatHandler instances and registered processors don't leak.
+            try {
+                if (chatPipelineManager != null) {
+                    chatPipelineManager.cleanupSession(sessionName);
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("Error cleaning chat pipeline for session " + sessionName + ": " + e.getMessage());
+            }
+
             plugin.getLogger().info("Cleaned up context for session: " + sessionName);
         }
     }
@@ -1696,20 +1707,9 @@ public class GameManager {
         GameState gameState = context.getGameState();
         UUID playerId = player.getUniqueId();
 
-        // Remove from alive set
+        // Remove from alive set. SessionChatHandler now reads alive status live
+        // from GameState on every message (no cache to invalidate — see CHANGELOG 0.9.8).
         gameState.removeAlivePlayer(playerId);
-
-        // Invalidate alive-status cache in the chat pipeline so the eliminated
-        // player's messages are routed to the spectator channel, not game chat
-        try {
-            com.ohacd.matchbox.game.chat.SessionChatHandler chatHandler =
-                chatPipelineManager.getSessionHandler(sessionName);
-            if (chatHandler != null) {
-                chatHandler.invalidateCache(playerId);
-            }
-        } catch (Exception e) {
-            plugin.getLogger().warning("Failed to invalidate chat cache for eliminated player: " + e.getMessage());
-        }
 
         // when a player gets eliminated: if they have a nick the custom-name is already
         // visible above their head (real nametag stays hidden), otherwise reveal it normally
@@ -1926,21 +1926,35 @@ public class GameManager {
     public void endGame(String sessionName) {
         SessionGameContext context = getContext(sessionName);
         if (context == null) {
-            plugin.getLogger().warning("Cannot end game - no context for session: " + sessionName);
+            // Context may already be gone if a concurrent quit event triggered teardown first.
+            plugin.getLogger().info("endGame called for '" + sessionName + "' but context not found — already ended or concurrent teardown, ignoring.");
             return;
-        }
-
-        // Clean up any signs remaining from the current round before ending
-        if (signModeManager != null) {
-            try {
-                signModeManager.clearSessionSigns(sessionName);
-            } catch (Exception e) {
-                plugin.getLogger().warning("Failed to clear session signs during endGame for '" + sessionName + "': " + e.getMessage());
-            }
         }
 
         GameState gameState = context.getGameState();
         PhaseManager phaseManager = context.getPhaseManager();
+
+        // Set phase to ENDED first so event listeners gate correctly during teardown.
+        phaseManager.setPhase(GamePhase.ENDED);
+
+        // Cancel all running timers before restoring players so callbacks cannot fire mid-restore.
+        try {
+            swipePhaseHandler.cancelSwipeTask(sessionName);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error cancelling swipe task: " + e.getMessage());
+        }
+
+        try {
+            discussionPhaseHandler.cancelDiscussionTask(sessionName);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error cancelling discussion task: " + e.getMessage());
+        }
+
+        try {
+            votingPhaseHandler.cancelVotingTask(sessionName);
+        } catch (Exception e) {
+            plugin.getLogger().warning("Error cancelling voting task: " + e.getMessage());
+        }
 
         plugin.getLogger().info("Ending game for session '" + sessionName + "'. Final state: " + gameState.getDebugInfo());
         sessionFlowLogger.record(sessionName, "SESSION", "Session ending", null, null, Map.of("state", gameState.getDebugInfo()));
@@ -2021,27 +2035,16 @@ public class GameManager {
 
         skinManager.restoreOriginalSkins(allParticipatingIds);
 
-        // Cancel any running timers for this session
-        try {
-            swipePhaseHandler.cancelSwipeTask(sessionName);
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error cancelling swipe task: " + e.getMessage());
+        // Clear session signs after players have been restored.
+        if (signModeManager != null) {
+            try {
+                signModeManager.clearSessionSigns(sessionName);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to clear session signs during endGame for '" + sessionName + "': " + e.getMessage());
+            }
         }
 
-        try {
-            discussionPhaseHandler.cancelDiscussionTask(sessionName);
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error cancelling discussion task: " + e.getMessage());
-        }
-
-        try {
-            votingPhaseHandler.cancelVotingTask(sessionName);
-        } catch (Exception e) {
-            plugin.getLogger().warning("Error cancelling voting task: " + e.getMessage());
-        }
-
-        // Reset phase and game state
-        phaseManager.reset();
+        // Clear game state and remove context (cleanupSession runs inside removeContext).
         gameState.clearGameState();
 
         // Clean up context

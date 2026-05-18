@@ -6,13 +6,19 @@ import com.ohacd.matchbox.game.utils.Role;
 import org.bukkit.entity.Player;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Manages the current game state including player roles, alive players, and round-specific tracking.
+ *
+ * <p>{@link #alivePlayers} and {@link #allParticipatingPlayers} are backed by
+ * concurrent sets so the async chat path ({@code SessionChatHandler}) can safely
+ * call {@link #isAlive(UUID)} / {@link #getAllParticipatingPlayerIds()} while
+ * the main thread mutates membership.</p>
  */
 public class GameState {
     private final Map<UUID, Role> roles = new HashMap<>();
-    private final Set<UUID> alivePlayers = new HashSet<>();
+    private final Set<UUID> alivePlayers = ConcurrentHashMap.newKeySet();
     private final Set<UUID> swipedThisRound = new HashSet<>();
     private final Set<UUID> curedThisRound = new HashSet<>();
     // NEW: 0.8.7 - Tracks players who have been cured this round, but not yet removed from alive players list
@@ -24,7 +30,7 @@ public class GameState {
     private final Set<UUID> infectedThisRound = new HashSet<>();
     private final Set<UUID> delusionInfectedThisRound = new HashSet<>();
     private final Map<UUID, Long> pendingDeathTime = new HashMap<>();
-    private final Set<UUID> allParticipatingPlayers = new HashSet<>();
+    private final Set<UUID> allParticipatingPlayers = ConcurrentHashMap.newKeySet();
     private SparkSecondaryAbility sparkSecondaryAbility = SparkSecondaryAbility.HUNTER_VISION;
     private MedicSecondaryAbility medicSecondaryAbility = MedicSecondaryAbility.HEALING_SIGHT;
     private String activeSessionName = null;

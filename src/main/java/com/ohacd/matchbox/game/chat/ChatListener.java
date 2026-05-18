@@ -131,8 +131,12 @@ public class ChatListener implements Listener {
             }
 
         } catch (Exception e) {
-            // On pipeline error, fall back to normal chat - use GameManager's plugin field
-            // Let normal chat proceed
+            // On pipeline error: surface for diagnosis and let the event proceed.
+            // SWIPE-phase cancellation already happened above the try, so the only
+            // risk here is a transient global-leak for the offending message.
+            gameManager.getPlugin().getLogger().warning(
+                "Chat pipeline error for session '" + context.getSessionName()
+                    + "' sender=" + player.getName() + ": " + e.getMessage());
         }
     }
 }

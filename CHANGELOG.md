@@ -4,17 +4,28 @@ All notable changes to the Matchbox plugin will be documented in this file.
 
 ## [0.9.8] - In Development
 
-**Community +** — Development build.
+**Community +** — Development build. Full robustness and reliability sweep.
 
 ### Fixed
 
-- **Spectators silenced during SWIPE phase** — dead players were incorrectly caught by the SWIPE phase chat gate (both in sign-mode and hologram-mode games) and had their messages cancelled. Spectators now bypass the SWIPE gate entirely and are always routed through the pipeline to the SPECTATOR channel, regardless of phase or sign-mode state.
-- **Sign-mode games bypass the chat pipeline** — the sign-mode early-return in `ChatListener` exited the event handler for every active game phase when sign mode was toggled on. Discussion, Voting, and all non-SWIPE phases were falling back to normal server-wide chat, meaning players across different parallel sessions could see each other's messages. The faulty early-return is removed; all phases now run through the pipeline correctly.
-- **Stale alive-status cache causes post-death message leaks** — `SessionChatHandler` cached each player's alive status on first message and never invalidated it on elimination. A freshly-eliminated player would continue to be routed to the GAME channel (visible to all alive players) instead of the SPECTATOR channel until the session ended. Routing now queries `GameState.isAlive()` on every message so the decision always reflects current game state.
+- **Spectators silenced during SWIPE phase** — dead players were incorrectly caught by the SWIPE phase chat gate (both in sign-mode and hologram-mode games) and had their messages cancelled. Spectators now bypass the SWIPE gate entirely and are always routed to the spectator channel, regardless of phase or sign-mode state.
+- **Sign-mode games bypass the chat pipeline** — the sign-mode early-return in the chat listener exited the handler for every active phase when sign mode was on. Discussion, Voting, and all non-SWIPE phases were falling through to normal server chat, meaning players across different parallel sessions could read each other's messages. All phases now route through the pipeline correctly.
+- **Eliminated player chat visible to alive players** — the chat handler used to cache each player's alive status on their first message and never update it. A freshly-eliminated player kept being routed to the game channel (visible to all alive players) until the session ended. Routing now checks live game state on every message, so the change takes effect the instant someone is eliminated.
+- **Chat pipeline handler memory leak** — the per-session chat handler was never removed when a session ended, so old sessions silently accumulated in memory. The handler is now cleaned up immediately when a game ends.
+- **Disconnecting player could leave a session stuck** — if a player who was the last one online disconnected, the session would become permanently inactive rather than being fully ended and cleaned up. The server now ends the full game correctly when the last online participant leaves.
+- **Chat errors swallowed silently** — exceptions thrown by the chat pipeline were caught and discarded without any server log entry, making routing failures invisible. Errors are now logged with the session name and player name.
+- **Sign blocks visible to players in other worlds** — when a sign-mode sign was removed, it was hidden using the global online player list instead of only players in the same world. Players in other worlds could receive spurious block-removal packets.
+- **Nick save delays risked data loss on shutdown** — nick changes were written to disk synchronously on every call. The save is now batched: changes are written once per second and a final guaranteed flush runs at shutdown so no nick is ever lost.
+- **Flower pot duplication with sign in hand** — right-clicking a flower pot while holding a sign-mode sign during the SWIPE phase was not being blocked, allowing players to duplicate plants. The interaction is now always cancelled for flower pots regardless of what is in hand.
+- **Game items and effects could persist briefly after a game ended** — phase timers (swipe countdown, discussion timer, voting timer) were cancelled after players had already started being restored, leaving a window where a timer callback could fire mid-restore and hand out game items or trigger a phase transition on a player being returned to their pre-game state. Timers are now cancelled before any player restoration begins.
+- **Event listeners remained active during game teardown** — the game phase was not updated to `ENDED` until after all cleanup had run, so event listeners that gate on phase could fire on players mid-restore during game end. The phase is now set to `ENDED` at the very start of teardown.
+- **Spurious server warning logged when a session ended naturally** — if two players disconnected in quick succession and the first disconnect fully ended the session, a false "Cannot end game" warning was logged when the second disconnect's handler ran (the context was already gone). This was a false alarm with no impact on players, but it obscured real warnings. The log entry is now an informational message that correctly identifies the already-ended state.
 
 ### Changed
 
 - **Project status set to Development** — build is now flagged `DEVELOPMENT` for this cycle.
+- **Game state thread safety hardened** — the alive-player and all-participant sets now use concurrent collections so they can be safely read from the async chat thread without data races.
+- **Session start command guard** — a missing command registration now logs a clear SEVERE message at startup rather than throwing a silent null pointer.
 
 ---
 

@@ -12,7 +12,6 @@ import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Default chat handler for a game session that implements spectator isolation.
@@ -25,16 +24,14 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>GLOBAL channel → Bypasses all filtering</li>
  * </ul>
  * <p>SWIPE-phase gating is handled upstream in {@code ChatListener} before messages
- * reach this handler, so no phase check is needed here.</p>
+ * reach this handler, so no phase check is needed here. Alive-status is always
+ * queried live from {@link GameState} — there is no cache (see CHANGELOG 0.9.8).</p>
  */
 public class SessionChatHandler implements ChatProcessor {
 
     private final String sessionName;
     private final GameManager gameManager;
     private final Plugin plugin;
-
-    // Cache for frequently accessed data
-    private final Map<UUID, Boolean> aliveStatusCache = new ConcurrentHashMap<>();
 
     public SessionChatHandler(@NotNull String sessionName, @NotNull GameManager gameManager, @NotNull Plugin plugin) {
         this.sessionName = sessionName;
@@ -146,24 +143,6 @@ public class SessionChatHandler implements ChatProcessor {
                 yield Collections.emptySet();
             }
         };
-    }
-
-    /**
-     * Invalidates the alive status cache for a player.
-     * Should be called when a player's status changes (elimination, etc.).
-     *
-     * @param playerId the player whose cache to invalidate
-     */
-    public void invalidateCache(@NotNull UUID playerId) {
-        aliveStatusCache.remove(playerId);
-    }
-
-    /**
-     * Clears all cached data.
-     * Should be called when the session ends.
-     */
-    public void clearCache() {
-        aliveStatusCache.clear();
     }
 
     /**

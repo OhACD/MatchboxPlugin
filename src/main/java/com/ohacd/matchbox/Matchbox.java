@@ -52,6 +52,7 @@ public final class Matchbox extends JavaPlugin {
     private GameManager gameManager;
     private SessionManager sessionManager;
     private AbilityManager abilityManager;
+    private NickManager nickManager;
 
     @Override
     public void onEnable() {
@@ -74,6 +75,7 @@ public final class Matchbox extends JavaPlugin {
 
         // Initialise nick system (inject into GameManager so it can apply/restore nicks)
         NickManager nickManager = new NickManager(this);
+        this.nickManager = nickManager;
         gameManager.setNickManager(nickManager);
 
         // Repeating task: show action bar reminder to any player who has a nick stored.
@@ -123,8 +125,13 @@ public final class Matchbox extends JavaPlugin {
 
         // Register command handler
         MatchboxCommand commandHandler = new MatchboxCommand(this, sessionManager, gameManager, nickManager);
-        getCommand("matchbox").setExecutor(commandHandler);
-        getCommand("matchbox").setTabCompleter(commandHandler);
+        org.bukkit.command.PluginCommand mbCommand = getCommand("matchbox");
+        if (mbCommand == null) {
+            getLogger().severe("`matchbox` command is not defined in plugin.yml — commands and tab-completion will not work.");
+        } else {
+            mbCommand.setExecutor(commandHandler);
+            mbCommand.setTabCompleter(commandHandler);
+        }
 
         getLogger().info("Matchbox v" + currentVersion + " enabled");
     }
@@ -163,7 +170,18 @@ public final class Matchbox extends JavaPlugin {
         // Ensure no outstanding tasks continue after disable.
         getServer().getScheduler().cancelTasks(this);
 
+        // Flush any pending nick saves synchronously now that the async scheduler
+        // is no longer available.
+        try {
+            if (nickManager != null) {
+                nickManager.flushSync();
+            }
+        } catch (Exception e) {
+            getLogger().warning("Failed to flush nicks on disable: " + e.getMessage());
+        }
+
         getLogger().info("Matchbox disabled");
+        instance = null;
     }
 
     public static Matchbox getInstance() {
