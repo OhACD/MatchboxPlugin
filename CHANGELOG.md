@@ -21,6 +21,14 @@ All notable changes to the Matchbox plugin will be documented in this file.
 - **Event listeners remained active during game teardown** — the game phase was not updated to `ENDED` until after all cleanup had run, so event listeners that gate on phase could fire on players mid-restore during game end. The phase is now set to `ENDED` at the very start of teardown.
 - **Spurious server warning logged when a session ended naturally** — if two players disconnected in quick succession and the first disconnect fully ended the session, a false "Cannot end game" warning was logged when the second disconnect's handler ran (the context was already gone). This was a false alarm with no impact on players, but it obscured real warnings. The log entry is now an informational message that correctly identifies the already-ended state.
 
+### Added
+
+- **Win screen broadcast** — game end now shows a title (`INNOCENTS WIN` / `SPARK WINS`) and a chat banner to every participant (alive and eliminated spectators), not just alive players. The banner reveals the Spark's identity (nick and real name if nicked), round count, and alive survivors. Replaces the plain one-liner that was sent to alive players only.
+
+### Fixed (Win Screen)
+
+- **Win title cancelled by immediate teleport** — the win title was sent before `endGame()`, which teleported players home in the same tick and cleared the title overlay before it could be read. The win screen now fires **after** `endGame()`: all display data is snapshotted while the game state is still live, `endGame()` runs immediately (teleporting players home), then the title and chat banner are scheduled 20 ticks later so they appear once the player is back in their home location.
+
 ### Changed
 
 - **Project status set to Development** — build is now flagged `DEVELOPMENT` for this cycle.

@@ -1756,20 +1756,99 @@ public class GameManager {
         WinConditionChecker.WinResult result = winConditionChecker.checkWinConditions();
 
         if (result != null) {
-            // Broadcast only to players in this session
-            Collection<Player> sessionPlayers = swipePhaseHandler.getAlivePlayerObjects(context.getGameState().getAlivePlayerIds());
-            if (sessionPlayers != null) {
-                for (Player p : sessionPlayers) {
-                    if (p != null && p.isOnline()) {
-                        p.sendMessage(result.getMessage());
-                    }
-                }
-            }
-            endGame(sessionName);
+            // Snapshot all win screen data while context and game state are still live.
+            Runnable winScreen = buildWinScreen(context, result);
             sessionFlowLogger.record(sessionName, "WIN", result.getMessage(), null, null, Map.of("winner", result.getWinner().name()));
+            // End the game immediately — players get teleported home now.
+            endGame(sessionName);
+            // Fire title + banner after teleport settles (20 ticks ≈ 1 s).
+            // endGame() already set phase ENDED, so no further game events can fire.
+            if (winScreen != null) {
+                plugin.getServer().getScheduler().runTaskLater(plugin, winScreen, 20L);
+            }
             return true;
         }
         return false;
+    }
+
+    /**
+     * Snapshots all win screen display data while the context is still live, then
+     * returns a Runnable that sends the title and chat banner to participants.
+     * The Runnable is intended to be scheduled after endGame() so it fires once
+     * players are back in their home locations.
+     */
+    private Runnable buildWinScreen(SessionGameContext context, WinConditionChecker.WinResult result) {
+        GameState gameState = context.getGameState();
+
+        // Collect online participants (alive + eliminated spectators)
+        List<Player> participants = new ArrayList<>();
+        for (UUID id : gameState.getAllParticipatingPlayerIds()) {
+            Player p = getPlayer(id);
+            if (p != null && p.isOnline()) participants.add(p);
+        }
+        if (participants.isEmpty()) return null;
+
+        // Resolve Spark display name
+        UUID sparkUUID = gameState.getSparkUUID();
+        final String sparkLine;
+        if (sparkUUID != null) {
+            String nick = nickManager != null ? nickManager.getNick(sparkUUID) : null;
+            Player sparkPlayer = getPlayer(sparkUUID);
+            String realName;
+            if (sparkPlayer != null) {
+                realName = sparkPlayer.getName();
+            } else {
+                org.bukkit.OfflinePlayer op = Bukkit.getOfflinePlayer(sparkUUID);
+                realName = op.getName() != null ? op.getName() : sparkUUID.toString();
+            }
+            sparkLine = nick != null
+                    ? "\u00a77  Spark: \u00a7c" + nick + " \u00a77(was \u00a78" + realName + "\u00a77)"
+                    : "\u00a77  Spark: \u00a7c" + realName;
+        } else {
+            sparkLine = "\u00a77  Spark: \u00a7cUnknown";
+        }
+
+        // Collect alive non-Spark survivors with in-game display names
+        List<String> survivorNames = new ArrayList<>();
+        for (UUID id : gameState.getAlivePlayerIds()) {
+            if (gameState.getRole(id) == Role.SPARK) continue;
+            String nick = nickManager != null ? nickManager.getNick(id) : null;
+            if (nick != null) {
+                survivorNames.add("\u00a7a" + nick);
+            } else {
+                Player p = getPlayer(id);
+                survivorNames.add("\u00a7a" + (p != null ? p.getName() : id.toString()));
+            }
+        }
+        final String survivorsLine = survivorNames.isEmpty()
+                ? "\u00a77  Survivors: \u00a77None"
+                : "\u00a77  Survivors: " + String.join("\u00a77, ", survivorNames);
+
+        // Build all strings
+        boolean innocentsWin = result.getWinner() == WinConditionChecker.Winner.INNOCENTS;
+        final String title    = innocentsWin ? "\u00a7a\u00a7lINNOCENTS WIN" : "\u00a7c\u00a7lSPARK WINS";
+        final String subtitle = innocentsWin ? "\u00a77The Spark has been unmasked" : "\u00a77No one was safe";
+        final String header   = innocentsWin
+                ? "\u00a76\u00a7l  GAME OVER  \u00a7e\u2014 \u00a7aInnocents\u00a7e Win!"
+                : "\u00a76\u00a7l  GAME OVER  \u00a7e\u2014 \u00a7cSpark\u00a7e Win!";
+        final String roundsLine = "\u00a77  Rounds played: \u00a7e" + gameState.getCurrentRound();
+        final String border = "\u00a78\u00a7l\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501";
+
+        // Return a send task — executes after endGame() has teleported players home
+        return () -> {
+            List<Player> online = participants.stream().filter(Player::isOnline).collect(Collectors.toList());
+            if (online.isEmpty()) return;
+            messageUtils.sendTitle(online, title, subtitle, 10, 80, 20);
+            for (Player p : online) {
+                p.sendMessage(border);
+                p.sendMessage(header);
+                p.sendMessage("");
+                p.sendMessage(sparkLine);
+                p.sendMessage(roundsLine);
+                p.sendMessage(survivorsLine);
+                p.sendMessage(border);
+            }
+        };
     }
 
     /**
@@ -2018,13 +2097,6 @@ public class GameManager {
                         } catch (Exception e) {
                             plugin.getLogger().warning("Failed to reset game mode/inventory for " + player.getName() + ": " + e.getMessage());
                         }
-                    }
-
-                    // Send feedback
-                    try {
-                        player.sendMessage("§aYou have been returned to normal state.");
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("Failed to send restoration message to " + player.getName() + ": " + e.getMessage());
                     }
 
                     // Remove from backups (only for this session's players)
