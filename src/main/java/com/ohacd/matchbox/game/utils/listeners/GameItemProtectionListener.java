@@ -1,6 +1,6 @@
 package com.ohacd.matchbox.game.utils.listeners;
 
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameSessionQuery;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
 
@@ -21,9 +21,9 @@ import org.bukkit.inventory.ItemStack;
  * Only active when the player is in an active game session.
  */
 public class GameItemProtectionListener implements Listener {
-    private final GameManager gameManager;
+    private final GameSessionQuery gameManager;
     
-    public GameItemProtectionListener(GameManager gameManager) {
+    public GameItemProtectionListener(GameSessionQuery gameManager) {
         this.gameManager = gameManager;
     }
     

@@ -1,6 +1,6 @@
 package com.ohacd.matchbox.game.utils.listeners;
 
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameActionPort;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
@@ -19,9 +19,9 @@ import java.util.UUID;
  * Handles voting by right-clicking voting papers during the voting phase.
  */
 public class VotePaperListener implements Listener {
-    private final GameManager gameManager;
+    private final GameActionPort gameManager;
 
-    public VotePaperListener(GameManager gameManager) {
+    public VotePaperListener(GameActionPort gameManager) {
         this.gameManager = gameManager;
     }
 

@@ -1,6 +1,6 @@
 package com.ohacd.matchbox.game.utils.listeners;
 
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameActionPort;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
@@ -23,9 +23,9 @@ import java.util.UUID;
  * Works when player is holding a voting paper in their main hand.
  */
 public class VoteItemListener implements Listener {
-    private final GameManager gameManager;
+    private final GameActionPort gameManager;
 
-    public VoteItemListener(GameManager gameManager) {
+    public VoteItemListener(GameActionPort gameManager) {
         this.gameManager = gameManager;
     }
 

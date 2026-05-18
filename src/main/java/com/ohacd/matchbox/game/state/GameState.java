@@ -33,7 +33,6 @@ public class GameState {
     private final Set<UUID> allParticipatingPlayers = ConcurrentHashMap.newKeySet();
     private SparkSecondaryAbility sparkSecondaryAbility = SparkSecondaryAbility.HUNTER_VISION;
     private MedicSecondaryAbility medicSecondaryAbility = MedicSecondaryAbility.HEALING_SIGHT;
-    private String activeSessionName = null;
     private int currentRound = 0;
 
     /**
@@ -54,7 +53,6 @@ public class GameState {
         delusionInfectedThisRound.clear();
         pendingDeathTime.clear();
         allParticipatingPlayers.clear();
-        activeSessionName = null;
         currentRound = 0;
     }
 
@@ -410,20 +408,6 @@ public class GameState {
     }
 
     /**
-     * Sets the active session name.
-     */
-    public void setActiveSessionName(String sessionName) {
-        this.activeSessionName = sessionName;
-    }
-
-    /**
-     * Gets the active session name.
-     */
-    public String getActiveSessionName() {
-        return activeSessionName;
-    }
-
-    /**
      * Checks if there's an active game.
      */
     public boolean isGameActive() {
@@ -472,9 +456,8 @@ public class GameState {
      */
     public String getDebugInfo() {
         return String.format(
-                "GameState[Round=%d, Session=%s, Participating=%d, Alive=%d, Roles=%d, Swiped=%d, Cured=%d, Infected=%d, Fake-Infected=%d, Pending=%d, beenCured=%d]",
+                "GameState[Round=%d, Participating=%d, Alive=%d, Roles=%d, Swiped=%d, Cured=%d, Infected=%d, Fake-Infected=%d, Pending=%d, beenCured=%d]",
                 currentRound,
-                activeSessionName != null ? activeSessionName : "none",
                 allParticipatingPlayers.size(),
                 alivePlayers.size(),
                 roles.size(),

@@ -11,7 +11,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameSessionQuery;
 import com.ohacd.matchbox.game.SessionGameContext;
 
 /**
@@ -20,9 +20,9 @@ import com.ohacd.matchbox.game.SessionGameContext;
  */
 public class PotBreakProtectionListener implements Listener {
 
-    private final GameManager gameManager;
+    private final GameSessionQuery gameManager;
 
-    public PotBreakProtectionListener(GameManager gameManager) {
+    public PotBreakProtectionListener(GameSessionQuery gameManager) {
         this.gameManager = gameManager;
     }
 

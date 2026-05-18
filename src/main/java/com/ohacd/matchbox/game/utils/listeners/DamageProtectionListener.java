@@ -1,6 +1,6 @@
 package com.ohacd.matchbox.game.utils.listeners;
 
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameSessionQuery;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Player;
@@ -17,14 +17,14 @@ import org.bukkit.event.entity.PlayerDeathEvent;
  * All damage is cancelled and players are made invulnerable.
  */
 public class DamageProtectionListener implements Listener {
-    private final GameManager gameManager;
+    private final GameSessionQuery gameManager;
 
     /**
      * Creates a listener that prevents damage/hunger/death during active games.
      *
-     * @param gameManager the game manager used to check active sessions
+     * @param gameManager the game session query used to check active sessions
      */
-    public DamageProtectionListener(GameManager gameManager) {
+    public DamageProtectionListener(GameSessionQuery gameManager) {
         this.gameManager = gameManager;
     }
 

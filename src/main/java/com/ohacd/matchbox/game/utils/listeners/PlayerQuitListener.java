@@ -3,7 +3,7 @@ package com.ohacd.matchbox.game.utils.listeners;
 import com.ohacd.matchbox.Matchbox;
 import com.ohacd.matchbox.api.MatchboxAPI;
 import com.ohacd.matchbox.api.events.PlayerLeaveEvent;
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameActionPort;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.session.GameSession;
 import com.ohacd.matchbox.game.session.SessionManager;
@@ -29,9 +29,9 @@ import java.util.UUID;
  * {@link GameSession} inactive.</p>
  */
 public class PlayerQuitListener implements Listener {
-    private final GameManager gameManager;
+    private final GameActionPort gameManager;
 
-    public PlayerQuitListener(GameManager gameManager) {
+    public PlayerQuitListener(GameActionPort gameManager) {
         this.gameManager = gameManager;
     }
 

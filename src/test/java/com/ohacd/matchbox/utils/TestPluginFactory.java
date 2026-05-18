@@ -164,7 +164,7 @@ public class TestPluginFactory {
         // Create real GameManager with proper initialization
         // Use a real HologramManager mock
         var mockHologramManager = mock(HologramManager.class);
-        GameManager realGameManager = new GameManager(mockPlugin, mockHologramManager);
+        GameManager realGameManager = new GameManager(mockPlugin, mockHologramManager, realSessionManager);
         when(mockPlugin.getGameManager()).thenReturn(realGameManager);
 
         // Mock PluginManager

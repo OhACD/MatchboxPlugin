@@ -3,6 +3,7 @@ package com.ohacd.matchbox.game.chat;
 import com.ohacd.matchbox.api.ChatMessage;
 import com.ohacd.matchbox.api.ChatProcessor;
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import org.bukkit.plugin.Plugin;
@@ -165,13 +166,14 @@ public class ChatPipelineManager {
      * @return the session chat handler
      */
     @NotNull
-    public SessionChatHandler getOrCreateSessionHandler(@NotNull String sessionName) {
+    public SessionChatHandler getOrCreateSessionHandler(@NotNull SessionGameContext context) {
+        String sessionName = context.getSessionName();
         if (sessionName == null || sessionName.trim().isEmpty()) {
             throw new IllegalArgumentException("Session name cannot be null or empty");
         }
 
         return sessionHandlers.computeIfAbsent(sessionName, name ->
-            new SessionChatHandler(name, gameManager, plugin));
+            new SessionChatHandler(context, plugin));
     }
 
     /**
@@ -232,7 +234,13 @@ public class ChatPipelineManager {
         }
 
         // Apply default session handler
-        SessionChatHandler handler = getOrCreateSessionHandler(sessionName);
+        SessionGameContext ctx = gameManager.getContext(sessionName);
+        if (ctx == null) {
+            // Session ended mid-dispatch — let message through as global.
+            logChat(sessionName, currentMessage, "ALLOW", "session ended");
+            return ChatProcessor.ChatProcessingResult.allow(currentMessage.withChannel(com.ohacd.matchbox.api.ChatChannel.GLOBAL));
+        }
+        SessionChatHandler handler = getOrCreateSessionHandler(ctx);
         ChatProcessor.ChatProcessingResult result = handler.process(currentMessage);
         logChat(sessionName, result.message(), result.result().name(), "processed by session handler");
         return result;

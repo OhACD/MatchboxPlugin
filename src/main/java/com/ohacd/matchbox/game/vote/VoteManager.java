@@ -1,6 +1,5 @@
 package com.ohacd.matchbox.game.vote;
 
-import com.ohacd.matchbox.game.state.GameState;
 import org.bukkit.entity.Player;
 
 import java.util.*;
@@ -9,16 +8,13 @@ import java.util.*;
  * Manages vote collection and tallying for the voting phase.
  */
 public class VoteManager {
-    private final GameState gameState;
-    
     // Maps voter UUID -> voted target UUID
     private final Map<UUID, UUID> votes = new HashMap<>();
     
     // Maps target UUID -> vote count
     private final Map<UUID, Integer> voteCounts = new HashMap<>();
     
-    public VoteManager(GameState gameState) {
-        this.gameState = gameState;
+    public VoteManager() {
     }
 
     /**
@@ -27,20 +23,6 @@ public class VoteManager {
      */
     public boolean registerVote(UUID voterId, UUID targetId) {
         if (voterId == null || targetId == null) {
-            return false;
-        }
-        
-        if (gameState == null) {
-            return false;
-        }
-        
-        // Check if voter is alive
-        if (!gameState.isAlive(voterId)) {
-            return false;
-        }
-        
-        // Check if target is alive
-        if (!gameState.isAlive(targetId)) {
             return false;
         }
         

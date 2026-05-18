@@ -1,6 +1,5 @@
 package com.ohacd.matchbox.game;
 
-import com.ohacd.matchbox.Matchbox;
 import com.ohacd.matchbox.api.GameSessionLog;
 import com.ohacd.matchbox.api.GameStatistics;
 import com.ohacd.matchbox.api.RoleAssignmentStrategy;
@@ -55,7 +54,7 @@ import static org.bukkit.Bukkit.getPlayer;
 /**
  * Main game manager that coordinates all game systems.
  */
-public class GameManager {
+public class GameManager implements GameActionPort {
     private final Plugin plugin;
     @SuppressWarnings("unused")
     private final HologramManager hologramManager;
@@ -82,24 +81,35 @@ public class GameManager {
     // Nick system — injected after construction via setNickManager()
     private NickManager nickManager;
 
+    // SessionManager — injected via constructor
+    private final SessionManager sessionManager;
+
     // Active game sessions - each session has its own game state and context
     private final Map<String, SessionGameContext> activeSessions = new ConcurrentHashMap<>();
     private final Map<String, RoleAssignmentStrategy> roleAssignmentStrategies = new ConcurrentHashMap<>();
     private final Map<String, List<SessionAbilityHandler>> sessionAbilityHandlers = new ConcurrentHashMap<>();
 
+    // Reverse index: player UUID -> session name. Updated on game start and removeContext.
+    // Eliminates the O(n) scan in getContextForPlayer().
+    private final Map<UUID, String> playerSessionIndex = new ConcurrentHashMap<>();
+
     // Player backups for restoration (shared, but keyed by player UUID)
     private final Map<UUID, PlayerBackup> playerBackups = new ConcurrentHashMap<>();
 
-    public GameManager(Plugin plugin, HologramManager hologramManager) {
+    public GameManager(Plugin plugin, HologramManager hologramManager, SessionManager sessionManager) {
         if (plugin == null) {
             throw new IllegalArgumentException("Plugin cannot be null");
         }
         if (hologramManager == null) {
             throw new IllegalArgumentException("HologramManager cannot be null");
         }
+        if (sessionManager == null) {
+            throw new IllegalArgumentException("SessionManager cannot be null");
+        }
 
         this.plugin = plugin;
         this.hologramManager = hologramManager;
+        this.sessionManager = sessionManager;
 
         // Initialize shared systems
         this.configManager = new ConfigManager(plugin);
@@ -143,26 +153,7 @@ public class GameManager {
         }
 
         // Validate session exists in SessionManager BEFORE creating context
-        SessionManager sessionManager = null;
         try {
-            // Try to get SessionManager from plugin (works in production)
-            if (plugin instanceof Matchbox) {
-                sessionManager = ((Matchbox) plugin).getSessionManager();
-            }
-
-            // Fallback for tests - use static instance if plugin cast failed
-            if (sessionManager == null) {
-                Matchbox instance = Matchbox.getInstance();
-                if (instance != null) {
-                    sessionManager = instance.getSessionManager();
-                }
-            }
-
-            if (sessionManager == null) {
-                plugin.getLogger().warning("SessionManager is null, cannot validate session: " + sessionName);
-                return null;
-            }
-
             if (!sessionManager.sessionExists(sessionName)) {
                 plugin.getLogger().warning("Attempted to create context for non-existent session: " + sessionName);
                 return null;
@@ -208,18 +199,9 @@ public class GameManager {
             return null;
         }
 
-        SessionGameContext found = null;
-        for (SessionGameContext context : activeSessions.values()) {
-            if (context != null && context.getGameState().getAllParticipatingPlayerIds().contains(playerId)) {
-                if (found != null) {
-                    plugin.getLogger().warning("Player " + playerId + " found in multiple sessions! Sessions: " +
-                        found.getSessionName() + " and " + context.getSessionName());
-                } else {
-                    found = context;
-                }
-            }
-        }
-        return found;
+        String sessionName = playerSessionIndex.get(playerId);
+        if (sessionName == null) return null;
+        return activeSessions.get(sessionName);
     }
 
     /**
@@ -236,6 +218,10 @@ public class GameManager {
 
         SessionGameContext context = activeSessions.remove(sessionName);
         if (context != null) {
+            // Remove all players belonging to this session from the reverse index.
+            for (UUID uuid : context.getGameState().getAllParticipatingPlayerIds()) {
+                playerSessionIndex.remove(uuid);
+            }
             // Cancel all timers for this session
             try {
                 swipePhaseHandler.cancelSwipeTask(sessionName);
@@ -415,6 +401,17 @@ public class GameManager {
             sessionName,
             roleAssignmentStrategies.get(sessionName)
         );
+
+        // Populate reverse index with the confirmed final roster.
+        for (UUID uuid : context.getGameState().getAllParticipatingPlayerIds()) {
+            if (playerSessionIndex.containsKey(uuid)) {
+                String other = playerSessionIndex.get(uuid);
+                if (!other.equals(sessionName)) {
+                    plugin.getLogger().warning("Player " + uuid + " already indexed to session '" + other + "' — overwriting with '" + sessionName + "'");
+                }
+            }
+            playerSessionIndex.put(uuid, sessionName);
+        }
         
         // Apply skins based on config settings
         if (configManager.isUseSteveSkins()) {
@@ -426,7 +423,7 @@ public class GameManager {
         }
 
         // Apply nicks for all session players (session-scoped, uniqueness enforced)
-        if (nickManager != null) {
+        if (hasNickSystem()) {
             java.util.Set<String> takenNicks = new java.util.HashSet<>();
             for (Player player : players) {
                 if (player == null || !player.isOnline()) continue;
@@ -466,14 +463,10 @@ public class GameManager {
 
         // Check if session is still active
         try {
-            Matchbox matchboxPlugin = (Matchbox) plugin;
-            SessionManager sessionManager = matchboxPlugin.getSessionManager();
-            if (sessionManager != null) {
-                GameSession session = sessionManager.getSession(sessionName);
-                if (session != null && !session.isActive()) {
-                    plugin.getLogger().info("Cannot start new round - session is not active: " + sessionName);
-                    return;
-                }
+            GameSession session = sessionManager.getSession(sessionName);
+            if (session != null && !session.isActive()) {
+                plugin.getLogger().info("Cannot start new round - session is not active: " + sessionName);
+                return;
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to check session status: " + e.getMessage());
@@ -560,7 +553,7 @@ public class GameManager {
             inventoryManager.setupInventories(alivePlayers, roleMap, sparkAbility, medicAbility);
 
             // Give sign-mode items after normal inventory setup if sign mode is enabled
-            if (isSignModeEnabled() && signModeManager != null) {
+            if (hasSignMode()) {
                 signModeManager.giveSignItems(alivePlayers);
                 plugin.getLogger().info("Sign mode is active for session '" + sessionName + "' — gave sign items to " + alivePlayers.size() + " player(s)");
                 sessionFlowLogger.record(sessionName, "SIGN", "Sign mode items distributed", null, null, Map.of("players", String.valueOf(alivePlayers.size())));
@@ -723,9 +716,23 @@ public class GameManager {
      * Safe to call even if NickManager has not been injected.
      */
     public void restorePlayerNick(Player player) {
-        if (nickManager != null) {
+        if (hasNickSystem()) {
             nickManager.restoreNick(player);
         }
+    }
+
+    /** Returns {@code true} if the nick system has been injected. */
+    private boolean hasNickSystem() {
+        return nickManager != null;
+    }
+
+    /**
+     * Returns {@code true} if sign mode is enabled in the config AND the
+     * SignModeManager has been injected. Use this instead of scattering
+     * {@code signModeManager != null && configManager.isSignModeEnabled()} checks.
+     */
+    private boolean hasSignMode() {
+        return signModeManager != null && configManager.isSignModeEnabled();
     }
 
     /**
@@ -750,6 +757,14 @@ public class GameManager {
      */
     public SignModeManager getSignModeManager() {
         return signModeManager;
+    }
+
+    /**
+     * Shows a floating text hologram above a player's head for 5 seconds.
+     * Used when a player's chat is blocked during the SWIPE phase (non-sign-mode).
+     */
+    public void showChatBlockedHologram(Player player, String message) {
+        hologramManager.showTextAbove(player, message, 100);
     }
 
     /**
@@ -1006,7 +1021,7 @@ public class GameManager {
         }
 
         // Clean up all signs placed during the swipe phase before discussion begins
-        if (isSignModeEnabled() && signModeManager != null) {
+        if (hasSignMode()) {
             try {
                 signModeManager.clearSessionSigns(sessionName);
             } catch (Exception e) {
@@ -1132,13 +1147,9 @@ public class GameManager {
 
     private Map<Integer, Location> fetchSeatLocations(String sessionName) {
         try {
-            Matchbox matchboxPlugin = (Matchbox) plugin;
-            SessionManager sessionManager = matchboxPlugin.getSessionManager();
-            if (sessionManager != null) {
-                GameSession session = sessionManager.getSession(sessionName);
-                if (session != null && session.getSeatLocations() != null) {
-                    return session.getSeatLocations();
-                }
+            GameSession session = sessionManager.getSession(sessionName);
+            if (session != null && session.getSeatLocations() != null) {
+                return session.getSeatLocations();
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to get seat locations: " + e.getMessage());
@@ -1792,7 +1803,7 @@ public class GameManager {
         UUID sparkUUID = gameState.getSparkUUID();
         final String sparkLine;
         if (sparkUUID != null) {
-            String nick = nickManager != null ? nickManager.getNick(sparkUUID) : null;
+            String nick = hasNickSystem() ? nickManager.getNick(sparkUUID) : null;
             Player sparkPlayer = getPlayer(sparkUUID);
             String realName;
             if (sparkPlayer != null) {
@@ -1812,7 +1823,7 @@ public class GameManager {
         List<String> survivorNames = new ArrayList<>();
         for (UUID id : gameState.getAlivePlayerIds()) {
             if (gameState.getRole(id) == Role.SPARK) continue;
-            String nick = nickManager != null ? nickManager.getNick(id) : null;
+            String nick = hasNickSystem() ? nickManager.getNick(id) : null;
             if (nick != null) {
                 survivorNames.add("\u00a7a" + nick);
             } else {
@@ -1888,7 +1899,7 @@ public class GameManager {
 
         // Restore nametag and cosmetic overrides
         try {
-            if (nickManager != null) nickManager.restoreNick(player);
+            if (hasNickSystem()) nickManager.restoreNick(player);
             NameTagManager.showNameTag(player);
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to restore nametag for " + player.getName() + ": " + e.getMessage());
@@ -1906,14 +1917,10 @@ public class GameManager {
 
         // Also remove from session if they're in one
         try {
-            Matchbox matchboxPlugin = (Matchbox) plugin;
-            SessionManager sessionManager = matchboxPlugin.getSessionManager();
-            if (sessionManager != null) {
-                GameSession session = sessionManager.getSession(sessionName);
-                if (session != null && session.hasPlayer(player)) {
-                    session.removePlayer(player);
-                    plugin.getLogger().info("Removed player " + player.getName() + " from session " + sessionName);
-                }
+            GameSession session = sessionManager.getSession(sessionName);
+            if (session != null && session.hasPlayer(player)) {
+                session.removePlayer(player);
+                plugin.getLogger().info("Removed player " + player.getName() + " from session " + sessionName);
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Error removing player from session: " + e.getMessage());
@@ -1978,16 +1985,12 @@ public class GameManager {
 
             // Also check if session should be ended (no players left)
             try {
-                Matchbox matchboxPlugin = (Matchbox) plugin;
-                SessionManager sessionManager = matchboxPlugin.getSessionManager();
-                if (sessionManager != null) {
-                    GameSession session = sessionManager.getSession(sessionName);
-                    if (session != null) {
-                        // Check if session has no players left
-                        if (session.getPlayerCount() == 0) {
-                            session.setActive(false);
-                            plugin.getLogger().info("Session '" + sessionName + "' ended - no players left after player removal");
-                        }
+                GameSession session = sessionManager.getSession(sessionName);
+                if (session != null) {
+                    // Check if session has no players left
+                    if (session.getPlayerCount() == 0) {
+                        session.setActive(false);
+                        plugin.getLogger().info("Session '" + sessionName + "' ended - no players left after player removal");
                     }
                 }
             } catch (Exception e) {
@@ -2058,7 +2061,7 @@ public class GameManager {
 
                     try {
                         // Restore nick visuals then show real nametag
-                        if (nickManager != null) nickManager.restoreNick(player);
+                        if (hasNickSystem()) nickManager.restoreNick(player);
                         NameTagManager.showNameTag(player);
                     } catch (Exception e) {
                         plugin.getLogger().warning("Failed to restore nametag for " + player.getName() + ": " + e.getMessage());
@@ -2124,22 +2127,15 @@ public class GameManager {
 
         // Fully terminate session - remove it from SessionManager when game ends
         try {
-            // Access SessionManager via plugin instance
-            Matchbox matchboxPlugin = (Matchbox) plugin;
-            SessionManager sessionManager = matchboxPlugin.getSessionManager();
-            if (sessionManager != null) {
-                GameSession session = sessionManager.getSession(sessionName);
-                if (session != null) {
-                    // Mark as inactive first
-                    session.setActive(false);
-                    // Fully remove the session from SessionManager for complete termination
-                    sessionManager.removeSession(sessionName);
-                    plugin.getLogger().info("Fully terminated and removed session '" + sessionName + "' after game end");
-                } else {
-                    plugin.getLogger().warning("Session '" + sessionName + "' not found when trying to remove after game end");
-                }
+            GameSession session = sessionManager.getSession(sessionName);
+            if (session != null) {
+                // Mark as inactive first
+                session.setActive(false);
+                // Fully remove the session from SessionManager for complete termination
+                sessionManager.removeSession(sessionName);
+                plugin.getLogger().info("Fully terminated and removed session '" + sessionName + "' after game end");
             } else {
-                plugin.getLogger().warning("SessionManager is null when trying to remove session after game end");
+                plugin.getLogger().warning("Session '" + sessionName + "' not found when trying to remove after game end");
             }
         } catch (Exception e) {
             plugin.getLogger().severe("Failed to remove session after game end: " + e.getMessage());
@@ -2296,9 +2292,7 @@ public class GameManager {
         }
 
         try {
-            Matchbox matchboxPlugin = (Matchbox) plugin;
-            SessionManager sessionManager = matchboxPlugin.getSessionManager();
-            return sessionManager != null ? sessionManager.getSession(sessionName) : null;
+            return sessionManager.getSession(sessionName);
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to get session for ability routing: " + e.getMessage());
             return null;

@@ -1,6 +1,6 @@
 package com.ohacd.matchbox.game.ability;
 
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameActionPort;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
@@ -20,9 +20,9 @@ import org.bukkit.inventory.ItemStack;
  * Silent by design (no messages/holograms).
  */
 public class MedicSightListener implements AbilityHandler {
-    private final GameManager gameManager;
+    private final GameActionPort gameManager;
 
-    public MedicSightListener(GameManager gameManager) {
+    public MedicSightListener(GameActionPort gameManager) {
         this.gameManager = gameManager;
     }
 

@@ -1,6 +1,6 @@
 package com.ohacd.matchbox.game.utils.listeners;
 
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameSessionQuery;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import org.bukkit.Material;
@@ -18,14 +18,14 @@ import org.bukkit.inventory.ItemStack;
  * Only allows interactions with items (for abilities and voting).
  */
 public class BlockInteractionProtectionListener implements Listener {
-    private final GameManager gameManager;
+    private final GameSessionQuery gameManager;
 
     /**
      * Creates a listener that prevents block interactions during active games.
      *
-     * @param gameManager the game manager used to check active sessions
+     * @param gameManager the game session query used to check active sessions
      */
-    public BlockInteractionProtectionListener(GameManager gameManager) {
+    public BlockInteractionProtectionListener(GameSessionQuery gameManager) {
         this.gameManager = gameManager;
     }
 

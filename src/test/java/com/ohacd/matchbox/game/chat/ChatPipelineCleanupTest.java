@@ -1,6 +1,7 @@
 package com.ohacd.matchbox.game.chat;
 
 import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.SessionGameContext;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,14 +28,17 @@ class ChatPipelineCleanupTest {
 
         ChatPipelineManager manager = new ChatPipelineManager(plugin, gameManager);
 
-        SessionChatHandler first = manager.getOrCreateSessionHandler("s1");
+        SessionGameContext context = mock(SessionGameContext.class);
+        when(context.getSessionName()).thenReturn("s1");
+
+        SessionChatHandler first = manager.getOrCreateSessionHandler(context);
         assertThat(manager.getSessionHandler("s1")).isSameAs(first);
 
         manager.cleanupSession("s1");
 
         // Handler must be gone — getSessionHandler returns null and getOrCreate produces a fresh one.
         assertThat(manager.getSessionHandler("s1")).isNull();
-        SessionChatHandler second = manager.getOrCreateSessionHandler("s1");
+        SessionChatHandler second = manager.getOrCreateSessionHandler(context);
         assertThat(second).isNotSameAs(first);
     }
 }

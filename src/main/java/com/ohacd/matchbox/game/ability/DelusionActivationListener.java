@@ -1,6 +1,6 @@
 package com.ohacd.matchbox.game.ability;
 
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameActionPort;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
@@ -22,10 +22,10 @@ import org.bukkit.scheduler.BukkitRunnable;
  * Silent by design (no messages/holograms).
  */
 public class DelusionActivationListener implements AbilityHandler {
-    private final GameManager gameManager;
+    private final GameActionPort gameManager;
     private final Plugin plugin;
 
-    public DelusionActivationListener(GameManager gameManager, Plugin plugin) {
+    public DelusionActivationListener(GameActionPort gameManager, Plugin plugin) {
         this.gameManager = gameManager;
         this.plugin = plugin;
     }

@@ -1,6 +1,6 @@
 package com.ohacd.matchbox.game.ability;
 
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameActionPort;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import org.bukkit.entity.Player;
@@ -11,9 +11,9 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
  * only when the medic's cure window is active. Silent; no feedback shown.
  */
 public class MedicHitListener implements AbilityHandler {
-    private final GameManager gameManager;
+    private final GameActionPort gameManager;
 
-    public MedicHitListener(GameManager gameManager) {
+    public MedicHitListener(GameActionPort gameManager) {
         this.gameManager = gameManager;
     }
 

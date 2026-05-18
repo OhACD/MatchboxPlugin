@@ -58,7 +58,7 @@ public class SessionGameContext {
         this.phaseManager = new PhaseManager(plugin);
         this.roleAssigner = new RoleAssigner(gameState);
         this.winConditionChecker = new WinConditionChecker(gameState);
-        this.voteManager = new VoteManager(gameState);
+        this.voteManager = new VoteManager();
     }
     
     public String getSessionName() {

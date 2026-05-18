@@ -58,8 +58,8 @@ public final class Matchbox extends JavaPlugin {
     public void onEnable() {
         instance = this;
         this.hologramManager = new HologramManager(this);
-        this.gameManager = new GameManager(this, hologramManager);
         this.sessionManager = new SessionManager();
+        this.gameManager = new GameManager(this, hologramManager, sessionManager);
         this.abilityManager = new AbilityManager(gameManager);
         this.versionChecker = new CheckProjectVersion(this);
         this.currentVersion = getInstance().getPluginMeta().getVersion();
@@ -94,7 +94,7 @@ public final class Matchbox extends JavaPlugin {
         }, 40L, 40L); // start after 2 s, repeat every 2 s (action bar fades after ~3 s)
 
         // Register event listeners
-        getServer().getPluginManager().registerEvents(new ChatListener(hologramManager, gameManager), this);
+        getServer().getPluginManager().registerEvents(new ChatListener(gameManager), this);
         getServer().getPluginManager().registerEvents(
                 new HitRevealListener(gameManager, hologramManager, gameManager.getInventoryManager()), this);
         getServer().getPluginManager().registerEvents(new GameItemProtectionListener(gameManager), this);

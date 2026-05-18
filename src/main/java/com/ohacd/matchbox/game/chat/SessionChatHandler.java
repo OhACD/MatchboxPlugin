@@ -3,7 +3,6 @@ package com.ohacd.matchbox.game.chat;
 import com.ohacd.matchbox.api.ChatChannel;
 import com.ohacd.matchbox.api.ChatMessage;
 import com.ohacd.matchbox.api.ChatProcessor;
-import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.state.GameState;
 import org.bukkit.Bukkit;
@@ -29,13 +28,11 @@ import java.util.*;
  */
 public class SessionChatHandler implements ChatProcessor {
 
-    private final String sessionName;
-    private final GameManager gameManager;
+    private final SessionGameContext context;
     private final Plugin plugin;
 
-    public SessionChatHandler(@NotNull String sessionName, @NotNull GameManager gameManager, @NotNull Plugin plugin) {
-        this.sessionName = sessionName;
-        this.gameManager = gameManager;
+    public SessionChatHandler(@NotNull SessionGameContext context, @NotNull Plugin plugin) {
+        this.context = context;
         this.plugin = plugin;
     }
 
@@ -45,13 +42,6 @@ public class SessionChatHandler implements ChatProcessor {
         // Handle GLOBAL channel bypass
         if (message.channel() == ChatChannel.GLOBAL) {
             return ChatProcessingResult.allow(message);
-        }
-
-        // Get session context
-        SessionGameContext context = gameManager.getContext(sessionName);
-        if (context == null) {
-            // Session ended, allow normal chat
-            return ChatProcessingResult.allow(message.withChannel(ChatChannel.GLOBAL));
         }
 
         GameState gameState = context.getGameState();
@@ -83,11 +73,6 @@ public class SessionChatHandler implements ChatProcessor {
      * @param message the processed message to deliver
      */
     public void deliverMessage(@NotNull ChatMessage message) {
-        SessionGameContext context = gameManager.getContext(sessionName);
-        if (context == null) {
-            return; // Session ended
-        }
-
         GameState gameState = context.getGameState();
         Set<UUID> recipients = getChannelRecipients(message.channel(), gameState);
 
@@ -150,6 +135,6 @@ public class SessionChatHandler implements ChatProcessor {
      */
     @NotNull
     public String getSessionName() {
-        return sessionName;
+        return context.getSessionName();
     }
 }

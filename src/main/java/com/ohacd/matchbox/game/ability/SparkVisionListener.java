@@ -1,6 +1,6 @@
 package com.ohacd.matchbox.game.ability;
 
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameActionPort;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.Role;
 import com.ohacd.matchbox.game.utils.Managers.InventoryManager;
@@ -18,9 +18,9 @@ import com.ohacd.matchbox.game.ability.SparkSecondaryAbility;
  * Activates Hunter Vision when a Spark clicks a PAPER in slot 28 (above hotbar slot 1).
  */
 public class SparkVisionListener implements AbilityHandler {
-    private final GameManager gameManager;
+    private final GameActionPort gameManager;
 
-    public SparkVisionListener(GameManager gameManager) {
+    public SparkVisionListener(GameActionPort gameManager) {
         this.gameManager = gameManager;
     }
 

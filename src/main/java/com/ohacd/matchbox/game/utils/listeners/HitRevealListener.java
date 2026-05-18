@@ -1,6 +1,6 @@
 package com.ohacd.matchbox.game.utils.listeners;
 
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameSessionQuery;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.hologram.HologramManager;
 import com.ohacd.matchbox.game.utils.GamePhase;
@@ -18,11 +18,11 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
  * One arrow per round per player.
  */
 public class HitRevealListener implements Listener {
-    private final GameManager gameManager;
+    private final GameSessionQuery gameManager;
     private final HologramManager hologramManager;
     private final InventoryManager inventoryManager;
 
-    public HitRevealListener(GameManager gameManager, HologramManager hologramManager, InventoryManager inventoryManager) {
+    public HitRevealListener(GameSessionQuery gameManager, HologramManager hologramManager, InventoryManager inventoryManager) {
         this.gameManager = gameManager;
         this.hologramManager = hologramManager;
         this.inventoryManager = inventoryManager;

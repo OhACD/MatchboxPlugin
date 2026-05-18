@@ -73,9 +73,6 @@ public class GameLifecycleManager {
         gameState.clearGameState();
         context.getPhaseManager().reset();
         
-        // Store session name
-        gameState.setActiveSessionName(sessionName);
-        
         // Backup player states before game starts; build a filtered list excluding backup failures
         Set<UUID> failedBackups = new HashSet<>();
         for (Player player : players) {

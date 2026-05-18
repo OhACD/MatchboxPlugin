@@ -1,6 +1,6 @@
 package com.ohacd.matchbox.game.sign;
 
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameActionPort;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.utils.GamePhase;
 
@@ -33,10 +33,10 @@ import java.util.UUID;
  */
 public class SignModeListener implements Listener {
 
-    private final GameManager gameManager;
+    private final GameActionPort gameManager;
     private final SignModeManager signModeManager;
 
-    public SignModeListener(GameManager gameManager, SignModeManager signModeManager) {
+    public SignModeListener(GameActionPort gameManager, SignModeManager signModeManager) {
         if (gameManager == null || signModeManager == null) {
             throw new IllegalArgumentException("GameManager and SignModeManager cannot be null");
         }

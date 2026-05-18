@@ -2,9 +2,8 @@ package com.ohacd.matchbox.game.chat;
 
 import com.ohacd.matchbox.api.ChatChannel;
 import com.ohacd.matchbox.api.ChatMessage;
-import com.ohacd.matchbox.game.GameManager;
+import com.ohacd.matchbox.game.GameSessionQuery;
 import com.ohacd.matchbox.game.SessionGameContext;
-import com.ohacd.matchbox.game.hologram.HologramManager;
 import com.ohacd.matchbox.game.utils.GamePhase;
 import com.ohacd.matchbox.game.utils.PlayerNameUtils;
 import io.papermc.paper.event.player.AsyncChatEvent;
@@ -22,17 +21,14 @@ import org.bukkit.event.Listener;
  */
 public class ChatListener implements Listener {
 
-    private final HologramManager hologramManager;
-    private final GameManager gameManager;
+    private final GameSessionQuery gameManager;
 
     /**
      * Creates a chat listener that integrates chat pipeline and holograms.
      *
-     * @param manager hologram manager used for in-game messages
      * @param gameManager central game manager for session lookups
      */
-    public ChatListener(HologramManager manager, GameManager gameManager) {
-        this.hologramManager = manager;
+    public ChatListener(GameSessionQuery gameManager) {
         this.gameManager = gameManager;
     }
 
@@ -78,10 +74,10 @@ public class ChatListener implements Listener {
         // they can still communicate on the SPECTATOR channel.
         if (!isSpectator && context.getPhaseManager().getCurrentPhase() == GamePhase.SWIPE) {
             event.setCancelled(true);
-            if (!gameManager.isSignModeEnabled()) {
+                if (!gameManager.isSignModeEnabled()) {
                 // No sign mode: show floating hologram above the player's head.
                 String msg = PlainTextComponentSerializer.plainText().serialize(event.message());
-                hologramManager.showTextAbove(player, msg, 100);
+                gameManager.showChatBlockedHologram(player, msg);
             }
             // Sign mode: alive players communicate via placed signs — no fallback.
             return;
@@ -116,7 +112,7 @@ public class ChatListener implements Listener {
                     if (pipelineResult.message().channel() != ChatChannel.GLOBAL) {
                         // Send to appropriate recipients based on channel
                         SessionChatHandler handler = gameManager.getChatPipelineManager()
-                            .getOrCreateSessionHandler(context.getSessionName());
+                            .getOrCreateSessionHandler(context);
 
                         // Custom channel routing - cancel event and handle manually
                         event.setCancelled(true);

@@ -5,7 +5,6 @@ import com.ohacd.matchbox.api.ChatMessage;
 import com.ohacd.matchbox.api.ChatProcessor;
 import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
-import com.ohacd.matchbox.game.hologram.HologramManager;
 import com.ohacd.matchbox.game.phase.PhaseManager;
 import com.ohacd.matchbox.game.state.GameState;
 import com.ohacd.matchbox.game.utils.GamePhase;
@@ -44,7 +43,6 @@ class ChatListenerTest {
     @Test
     @DisplayName("Should not overwrite event message body for global channel")
     void shouldNotOverwriteEventMessageBodyForGlobalChannel() {
-        HologramManager hologramManager = mock(HologramManager.class);
         GameManager gameManager = mock(GameManager.class);
         ChatPipelineManager pipelineManager = mock(ChatPipelineManager.class);
 
@@ -88,7 +86,7 @@ class ChatListenerTest {
         when(pipelineManager.processMessage(eq("session-1"), any(ChatMessage.class)))
             .thenReturn(ChatProcessor.ChatProcessingResult.allow(pipelineMessage));
 
-        ChatListener listener = new ChatListener(hologramManager, gameManager);
+        ChatListener listener = new ChatListener(gameManager);
         listener.onChat(event);
 
         verify(event, never()).message(any(Component.class));
@@ -98,7 +96,6 @@ class ChatListenerTest {
     @Test
     @DisplayName("Spectators in SWIPE phase bypass the swipe gate and reach the pipeline")
     void spectatorsBypassSwipeGate() {
-        HologramManager hologramManager = mock(HologramManager.class);
         GameManager gameManager = mock(GameManager.class);
         ChatPipelineManager pipelineManager = mock(ChatPipelineManager.class);
         com.ohacd.matchbox.game.chat.SessionChatHandler sessionHandler =
@@ -122,7 +119,7 @@ class ChatListenerTest {
         when(gameManager.getContextForPlayer(playerId)).thenReturn(context);
         when(gameManager.isSignModeEnabled()).thenReturn(true); // sign mode on
         when(gameManager.getChatPipelineManager()).thenReturn(pipelineManager);
-        when(pipelineManager.getOrCreateSessionHandler("session-spec")).thenReturn(sessionHandler);
+        when(pipelineManager.getOrCreateSessionHandler(any(SessionGameContext.class))).thenReturn(sessionHandler);
 
         when(context.getGameState()).thenReturn(gameState);
         when(context.getPhaseManager()).thenReturn(phaseManager);
@@ -142,7 +139,7 @@ class ChatListenerTest {
         when(pipelineManager.processMessage(eq("session-spec"), any(ChatMessage.class)))
             .thenReturn(ChatProcessor.ChatProcessingResult.allow(routed));
 
-        new ChatListener(hologramManager, gameManager).onChat(event);
+        new ChatListener(gameManager).onChat(event);
 
         // Pipeline was consulted (spectator was NOT silenced by the SWIPE gate)
         verify(pipelineManager).processMessage(eq("session-spec"), any(ChatMessage.class));
@@ -154,7 +151,6 @@ class ChatListenerTest {
     @Test
     @DisplayName("Sign mode does not bypass the pipeline outside SWIPE phase")
     void signModeRoutesThroughPipelineOutsideSwipe() {
-        HologramManager hologramManager = mock(HologramManager.class);
         GameManager gameManager = mock(GameManager.class);
         ChatPipelineManager pipelineManager = mock(ChatPipelineManager.class);
         com.ohacd.matchbox.game.chat.SessionChatHandler sessionHandler =
@@ -178,7 +174,7 @@ class ChatListenerTest {
         when(gameManager.getContextForPlayer(playerId)).thenReturn(context);
         when(gameManager.isSignModeEnabled()).thenReturn(true); // sign mode on
         when(gameManager.getChatPipelineManager()).thenReturn(pipelineManager);
-        when(pipelineManager.getOrCreateSessionHandler("s-discuss")).thenReturn(sessionHandler);
+        when(pipelineManager.getOrCreateSessionHandler(any(SessionGameContext.class))).thenReturn(sessionHandler);
 
         when(context.getGameState()).thenReturn(gameState);
         when(context.getPhaseManager()).thenReturn(phaseManager);
@@ -198,7 +194,7 @@ class ChatListenerTest {
         when(pipelineManager.processMessage(eq("s-discuss"), any(ChatMessage.class)))
             .thenReturn(ChatProcessor.ChatProcessingResult.allow(routed));
 
-        new ChatListener(hologramManager, gameManager).onChat(event);
+        new ChatListener(gameManager).onChat(event);
 
         // Pipeline still runs in DISCUSSION even with sign mode on — fix for
         // CHANGELOG 0.9.8 "Sign-mode games bypass the chat pipeline".

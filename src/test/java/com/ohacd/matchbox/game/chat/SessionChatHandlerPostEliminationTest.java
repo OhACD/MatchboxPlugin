@@ -4,7 +4,6 @@ import com.ohacd.matchbox.api.ChatChannel;
 import com.ohacd.matchbox.api.ChatMessage;
 import com.ohacd.matchbox.api.ChatProcessor;
 import com.ohacd.matchbox.api.ChatResult;
-import com.ohacd.matchbox.game.GameManager;
 import com.ohacd.matchbox.game.SessionGameContext;
 import com.ohacd.matchbox.game.state.GameState;
 import net.kyori.adventure.text.Component;
@@ -31,11 +30,10 @@ class SessionChatHandlerPostEliminationTest {
     @DisplayName("Eliminated player's next message routes to SPECTATOR (no stale alive cache)")
     void eliminatedPlayerRoutesToSpectatorImmediately() {
         Plugin plugin = mock(Plugin.class);
-        GameManager gameManager = mock(GameManager.class);
         SessionGameContext context = mock(SessionGameContext.class);
         GameState gameState = mock(GameState.class);
 
-        when(gameManager.getContext("s1")).thenReturn(context);
+        when(context.getSessionName()).thenReturn("s1");
         when(context.getGameState()).thenReturn(gameState);
 
         UUID senderId = UUID.randomUUID();
@@ -52,7 +50,7 @@ class SessionChatHandlerPostEliminationTest {
             true
         );
 
-        SessionChatHandler handler = new SessionChatHandler("s1", gameManager, plugin);
+        SessionChatHandler handler = new SessionChatHandler(context, plugin);
 
         // First message: player alive -> routes to GAME
         when(gameState.isAlive(senderId)).thenReturn(true);
